@@ -6,6 +6,9 @@ export interface SupabaseUser {
   id: string;
   email: string;
   role: string;
+  authProvider: string;
+  name: string;
+  avatarUrl: string | null;
   metadata: Record<string, unknown>;
 }
 
@@ -76,10 +79,31 @@ export class SupabaseService {
   }
 
   private mapUser(user: User): SupabaseUser {
+    // Extract auth provider from app_metadata or identities
+    let authProvider = 'email';
+    if (user.app_metadata?.provider) {
+      authProvider = user.app_metadata.provider;
+    } else if (user.identities && user.identities.length > 0) {
+      authProvider = user.identities[0].provider;
+    }
+
+    // Extract name from user_metadata (OAuth providers set this)
+    const name = (user.user_metadata?.full_name as string) ??
+      (user.user_metadata?.name as string) ??
+      (user.email?.split('@')[0] ?? 'User');
+
+    // Extract avatar URL
+    const avatarUrl = (user.user_metadata?.avatar_url as string) ??
+      (user.user_metadata?.picture as string) ??
+      null;
+
     return {
       id: user.id,
       email: user.email ?? '',
       role: (user.app_metadata?.role as string) ?? 'user',
+      authProvider,
+      name,
+      avatarUrl,
       metadata: user.user_metadata ?? {},
     };
   }

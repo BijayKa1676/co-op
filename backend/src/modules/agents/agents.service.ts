@@ -1,6 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { OrchestratorService } from './orchestrator/orchestrator.service';
 import { AgentsQueueService } from './queue/agents.queue.service';
+import { StartupsService } from '@/modules/startups/startups.service';
+import { UsersService } from '@/modules/users/users.service';
 import { AgentInput, AgentPhaseResult } from './types/agent.types';
 import { RunAgentDto } from './dto/run-agent.dto';
 import { TaskStatusDto } from './dto/task-status.dto';
@@ -15,15 +17,53 @@ export class AgentsService {
   constructor(
     private readonly orchestrator: OrchestratorService,
     private readonly queueService: AgentsQueueService,
+    private readonly startupsService: StartupsService,
+    private readonly usersService: UsersService,
   ) {}
 
   async run(userId: string, dto: RunAgentDto): Promise<AgentPhaseResult[]> {
+    await this.verifyStartupOwnership(userId, dto.startupId);
+
+    const startup = await this.startupsService.findRaw(dto.startupId);
+    if (!startup) {
+      throw new BadRequestException('Startup not found');
+    }
+
     const input: AgentInput = {
       context: {
         sessionId: dto.sessionId,
         userId,
         startupId: dto.startupId,
-        metadata: {},
+        metadata: {
+          // Company basics
+          companyName: startup.companyName,
+          tagline: startup.tagline,
+          description: startup.description,
+          website: startup.website,
+          // Business classification
+          industry: startup.industry,
+          businessModel: startup.businessModel,
+          revenueModel: startup.revenueModel,
+          // Stage
+          stage: startup.stage,
+          foundedYear: startup.foundedYear,
+          // Team
+          teamSize: startup.teamSize,
+          cofounderCount: startup.cofounderCount,
+          // Location
+          country: startup.country,
+          city: startup.city,
+          operatingRegions: startup.operatingRegions,
+          // Financials
+          fundingStage: startup.fundingStage,
+          totalRaised: startup.totalRaised,
+          monthlyRevenue: startup.monthlyRevenue,
+          isRevenue: startup.isRevenue,
+          // Target market
+          targetCustomer: startup.targetCustomer,
+          problemSolved: startup.problemSolved,
+          competitiveAdvantage: startup.competitiveAdvantage,
+        },
       },
       prompt: dto.prompt,
       documents: dto.documents,
@@ -33,12 +73,48 @@ export class AgentsService {
   }
 
   async queueTask(userId: string, dto: RunAgentDto): Promise<QueueTaskResult> {
+    await this.verifyStartupOwnership(userId, dto.startupId);
+
+    const startup = await this.startupsService.findRaw(dto.startupId);
+    if (!startup) {
+      throw new BadRequestException('Startup not found');
+    }
+
     const input: AgentInput = {
       context: {
         sessionId: dto.sessionId,
         userId,
         startupId: dto.startupId,
-        metadata: {},
+        metadata: {
+          // Company basics
+          companyName: startup.companyName,
+          tagline: startup.tagline,
+          description: startup.description,
+          website: startup.website,
+          // Business classification
+          industry: startup.industry,
+          businessModel: startup.businessModel,
+          revenueModel: startup.revenueModel,
+          // Stage
+          stage: startup.stage,
+          foundedYear: startup.foundedYear,
+          // Team
+          teamSize: startup.teamSize,
+          cofounderCount: startup.cofounderCount,
+          // Location
+          country: startup.country,
+          city: startup.city,
+          operatingRegions: startup.operatingRegions,
+          // Financials
+          fundingStage: startup.fundingStage,
+          totalRaised: startup.totalRaised,
+          monthlyRevenue: startup.monthlyRevenue,
+          isRevenue: startup.isRevenue,
+          // Target market
+          targetCustomer: startup.targetCustomer,
+          problemSolved: startup.problemSolved,
+          competitiveAdvantage: startup.competitiveAdvantage,
+        },
       },
       prompt: dto.prompt,
       documents: dto.documents,
@@ -53,5 +129,12 @@ export class AgentsService {
 
   async cancelTask(taskId: string): Promise<boolean> {
     return this.queueService.cancelJob(taskId);
+  }
+
+  private async verifyStartupOwnership(userId: string, startupId: string): Promise<void> {
+    const user = await this.usersService.findById(userId);
+    if (user.startup?.id !== startupId) {
+      throw new ForbiddenException('You do not have access to this startup');
+    }
   }
 }

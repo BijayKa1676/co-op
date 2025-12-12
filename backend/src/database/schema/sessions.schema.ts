@@ -2,6 +2,7 @@ import { pgTable, uuid, varchar, jsonb, timestamp, index } from 'drizzle-orm/pg-
 import { relations } from 'drizzle-orm';
 import { users } from './users.schema';
 import { startups } from './startups.schema';
+import { sessionMessages } from './session-messages.schema';
 
 export const sessions = pgTable(
   'sessions',
@@ -18,9 +19,10 @@ export const sessions = pgTable(
   (table) => [index('sessions_deleted_at_idx').on(table.deletedAt)],
 );
 
-export const sessionsRelations = relations(sessions, ({ one }) => ({
+export const sessionsRelations = relations(sessions, ({ one, many }) => ({
   user: one(users, { fields: [sessions.userId], references: [users.id] }),
   startup: one(startups, { fields: [sessions.startupId], references: [startups.id] }),
+  messages: many(sessionMessages),
 }));
 
 export type Session = typeof sessions.$inferSelect;

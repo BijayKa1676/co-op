@@ -3,16 +3,14 @@ import { ConfigService } from '@nestjs/config';
 import { LlmCouncilService } from '@/common/llm/llm-council.service';
 import { BaseAgent, AgentInput, AgentOutput } from '../../types/agent.types';
 
-const LEGAL_SYSTEM_PROMPT = `You are an expert legal advisor for startups. You provide clear, actionable legal guidance on:
-- Corporate structure and governance
-- Intellectual property protection
-- Employment law and contracts
-- Regulatory compliance
-- Fundraising legal requirements
-- Terms of service and privacy policies
+const LEGAL_SYSTEM_PROMPT = `Expert startup legal advisor. Topics: corporate structure, IP, employment, compliance, fundraising, ToS/privacy.
 
-Always cite relevant legal principles and recommend when professional legal counsel is needed.
-Be specific, accurate, and avoid speculation.`;
+Rules:
+- Bullet points only
+- Max 5 key points
+- Cite specific laws/regulations
+- Flag when lawyer needed
+- No fluff or disclaimers`;
 
 @Injectable()
 export class LegalAgentService implements BaseAgent {

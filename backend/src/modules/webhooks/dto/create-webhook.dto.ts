@@ -27,7 +27,7 @@ export class CreateWebhookDto {
   name: string;
 
   @ApiProperty({ example: 'https://example.com/webhook' })
-  @IsUrl({ protocols: ['https'], require_protocol: true })
+  @IsUrl({ protocols: ['http', 'https'], require_protocol: true })
   @IsNotEmpty()
   @MaxLength(2048)
   url: string;

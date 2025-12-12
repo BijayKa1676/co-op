@@ -12,6 +12,7 @@ import {
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { UsersService } from './users.service';
 import { CreateUserDto, UpdateUserDto, UserResponseDto } from './dto';
+import { OnboardingDto } from './dto/onboarding.dto';
 import { AuthGuard } from '@/common/guards/auth.guard';
 import { AdminGuard } from '@/common/guards/admin.guard';
 import { CurrentUser, CurrentUserPayload } from '@/common/decorators/current-user.decorator';
@@ -35,11 +36,51 @@ export class UsersController {
   @Get('me')
   @UseGuards(AuthGuard)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Get current user profile' })
+  @ApiOperation({ summary: 'Get current user profile with startup info' })
   @ApiResponse({ status: 200, description: 'Current user profile' })
   async getMe(@CurrentUser() currentUser: CurrentUserPayload): Promise<ApiResponseDto<UserResponseDto>> {
     const user = await this.usersService.findById(currentUser.id);
     return ApiResponseDto.success(user);
+  }
+
+  @Get('me/onboarding-status')
+  @UseGuards(AuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Check onboarding status' })
+  @ApiResponse({ status: 200, description: 'Onboarding status' })
+  async getOnboardingStatus(
+    @CurrentUser() currentUser: CurrentUserPayload,
+  ): Promise<ApiResponseDto<{ completed: boolean; hasStartup: boolean }>> {
+    const status = await this.usersService.getOnboardingStatus(currentUser.id);
+    return ApiResponseDto.success(status);
+  }
+
+  @Post('me/onboarding')
+  @UseGuards(AuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Complete onboarding with company info' })
+  @ApiResponse({ status: 201, description: 'Onboarding completed' })
+  @ApiResponse({ status: 400, description: 'Onboarding already completed' })
+  async completeOnboarding(
+    @CurrentUser() currentUser: CurrentUserPayload,
+    @Body() dto: OnboardingDto,
+  ): Promise<ApiResponseDto<UserResponseDto>> {
+    const user = await this.usersService.completeOnboarding(currentUser.id, dto);
+    return ApiResponseDto.success(user, 'Onboarding completed successfully');
+  }
+
+  @Patch('me/startup')
+  @UseGuards(AuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Update startup information' })
+  @ApiResponse({ status: 200, description: 'Startup updated' })
+  @ApiResponse({ status: 400, description: 'No startup linked' })
+  async updateStartup(
+    @CurrentUser() currentUser: CurrentUserPayload,
+    @Body() dto: Partial<OnboardingDto>,
+  ): Promise<ApiResponseDto<UserResponseDto>> {
+    const user = await this.usersService.updateStartup(currentUser.id, dto);
+    return ApiResponseDto.success(user, 'Startup updated successfully');
   }
 
   @Get(':id')

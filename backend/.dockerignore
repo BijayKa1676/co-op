@@ -1,0 +1,48 @@
+# Dependencies
+node_modules
+npm-debug.log
+
+# Build output
+dist
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+
+# Git
+.git
+.gitignore
+
+# Environment files (use Render env vars)
+.env
+.env.*
+!.env.example
+
+# Documentation
+*.md
+!README.md
+LICENSE
+CONTRIBUTING.md
+
+# Tests
+test
+coverage
+*.spec.ts
+jest*.json
+
+# Development
+.editorconfig
+.prettierrc
+eslint.config.mjs
+tsconfig*.json
+nest-cli.json
+drizzle.config.ts
+
+# Render config (not needed in container)
+render.yaml
+
+# Misc
+.DS_Store
+Thumbs.db

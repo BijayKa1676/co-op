@@ -2,28 +2,17 @@ import { Injectable, Inject, NotFoundException } from '@nestjs/common';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { eq, desc, and, isNull } from 'drizzle-orm';
 import { DATABASE_CONNECTION } from '@/database/database.module';
+import { CacheService, CACHE_TTL, CACHE_PREFIX } from '@/common/cache/cache.service';
 import * as schema from '@/database/schema';
-import { CreateStartupDto, UpdateStartupDto, StartupResponseDto } from './dto';
+import { StartupResponseDto } from './dto/startup-response.dto';
 
 @Injectable()
 export class StartupsService {
   constructor(
     @Inject(DATABASE_CONNECTION)
     private readonly db: NodePgDatabase<typeof schema>,
+    private readonly cache: CacheService,
   ) {}
-
-  async create(dto: CreateStartupDto): Promise<StartupResponseDto> {
-    const [startup] = await this.db
-      .insert(schema.startups)
-      .values({
-        name: dto.name,
-        description: dto.description,
-        metadata: dto.metadata,
-      })
-      .returning();
-
-    return this.toResponse(startup);
-  }
 
   async findAll(): Promise<StartupResponseDto[]> {
     const startups = await this.db
@@ -32,10 +21,18 @@ export class StartupsService {
       .where(isNull(schema.startups.deletedAt))
       .orderBy(desc(schema.startups.createdAt));
 
-    return startups.map(s => this.toResponse(s));
+    return startups.map((s) => this.toResponse(s));
   }
 
   async findById(id: string): Promise<StartupResponseDto> {
+    const cacheKey = `${CACHE_PREFIX.STARTUP}${id}`;
+
+    // Try cache first
+    const cached = await this.cache.get<StartupResponseDto>(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
     const results = await this.db
       .select()
       .from(schema.startups)
@@ -47,34 +44,48 @@ export class StartupsService {
       throw new NotFoundException('Startup not found');
     }
 
-    return this.toResponse(startup);
+    const response = this.toResponse(startup);
+
+    // Cache for 1 hour
+    await this.cache.set(cacheKey, response, { ttl: CACHE_TTL.LONG });
+
+    return response;
   }
 
-  async update(id: string, dto: UpdateStartupDto): Promise<StartupResponseDto> {
-    const updateData: Partial<schema.NewStartup> & { updatedAt: Date } = {
-      updatedAt: new Date(),
-    };
+  async findRaw(id: string): Promise<schema.Startup | null> {
+    const cacheKey = `${CACHE_PREFIX.STARTUP}raw:${id}`;
 
-    if (dto.name) updateData.name = dto.name;
-    if (dto.description) updateData.description = dto.description;
-    if (dto.metadata) updateData.metadata = dto.metadata;
-
-    const results = await this.db
-      .update(schema.startups)
-      .set(updateData)
-      .where(and(eq(schema.startups.id, id), isNull(schema.startups.deletedAt)))
-      .returning();
-
-    const startup = results[0];
-    if (!startup) {
-      throw new NotFoundException('Startup not found');
+    // Try cache first
+    const cached = await this.cache.get<schema.Startup>(cacheKey);
+    if (cached) {
+      return cached;
     }
 
-    return this.toResponse(startup);
+    const results = await this.db
+      .select()
+      .from(schema.startups)
+      .where(and(eq(schema.startups.id, id), isNull(schema.startups.deletedAt)))
+      .limit(1);
+
+    const startup = results[0] ?? null;
+
+    if (startup) {
+      // Cache for 1 hour
+      await this.cache.set(cacheKey, startup, { ttl: CACHE_TTL.LONG });
+    }
+
+    return startup;
+  }
+
+  /**
+   * Invalidate startup cache
+   */
+  async invalidateCache(id: string): Promise<void> {
+    await this.cache.invalidate(`${CACHE_PREFIX.STARTUP}${id}`);
+    await this.cache.invalidate(`${CACHE_PREFIX.STARTUP}raw:${id}`);
   }
 
   async delete(id: string): Promise<void> {
-    // Soft delete - set deletedAt timestamp
     const results = await this.db
       .update(schema.startups)
       .set({ deletedAt: new Date(), updatedAt: new Date() })
@@ -84,14 +95,47 @@ export class StartupsService {
     if (results.length === 0) {
       throw new NotFoundException('Startup not found');
     }
+
+    // Invalidate cache
+    await this.invalidateCache(id);
   }
 
   private toResponse(startup: schema.Startup): StartupResponseDto {
     return {
       id: startup.id,
-      name: startup.name,
-      description: startup.description ?? '',
-      metadata: startup.metadata as Record<string, unknown>,
+      // Founder
+      founderName: startup.founderName,
+      founderRole: startup.founderRole,
+      // Company basics
+      companyName: startup.companyName,
+      tagline: startup.tagline,
+      description: startup.description,
+      website: startup.website,
+      // Business classification
+      industry: startup.industry,
+      businessModel: startup.businessModel,
+      revenueModel: startup.revenueModel,
+      // Stage
+      stage: startup.stage,
+      foundedYear: startup.foundedYear,
+      launchDate: startup.launchDate,
+      // Team
+      teamSize: startup.teamSize,
+      cofounderCount: startup.cofounderCount,
+      // Location
+      country: startup.country,
+      city: startup.city,
+      operatingRegions: startup.operatingRegions,
+      // Financials
+      fundingStage: startup.fundingStage,
+      totalRaised: startup.totalRaised,
+      monthlyRevenue: startup.monthlyRevenue,
+      isRevenue: startup.isRevenue,
+      // Target market
+      targetCustomer: startup.targetCustomer,
+      problemSolved: startup.problemSolved,
+      competitiveAdvantage: startup.competitiveAdvantage,
+      // Timestamps
       createdAt: startup.createdAt,
       updatedAt: startup.updatedAt,
     };

@@ -10,7 +10,7 @@ import {
   StreamChunk,
 } from '../types/llm.types';
 
-const DEFAULT_MODEL = 'mistralai/Mistral-Small-24B-Instruct-2501';
+const DEFAULT_MODEL = 'deepseek-ai/DeepSeek-R1-Distill-Qwen-32B';
 
 @Injectable()
 export class HuggingFaceProvider implements LlmProviderService {

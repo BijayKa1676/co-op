@@ -89,18 +89,28 @@ export const DEFAULT_ROUTER_CONFIG: LlmRouterConfig = {
   final: 'huggingface',
 };
 
-// Available models configuration - only best/latest version per model family
+// Model health check result
+export interface ModelHealthCheck {
+  model: string;
+  provider: LlmProvider;
+  name: string;
+  status: 'healthy' | 'deprecated' | 'error' | 'unavailable';
+  latencyMs: number;
+  error?: string;
+  checkedAt: Date;
+}
+
+// Available models configuration - updated Dec 2025
+// Health check validates on boot - only healthy models used
 export const AVAILABLE_MODELS: ModelConfig[] = [
-  // Groq models (fast inference) - distinct model families only
+  // Groq - verified working
   { provider: 'groq', model: 'llama-3.3-70b-versatile', name: 'Llama 3.3 70B' },
-  { provider: 'groq', model: 'mixtral-8x7b-32768', name: 'Mixtral 8x7B' },
-  { provider: 'groq', model: 'gemma2-9b-it', name: 'Gemma 2 9B' },
+  { provider: 'groq', model: 'openai/gpt-oss-120b', name: 'GPT OSS 120B' },
 
-  // Google AI - only Gemini 2.0 Flash (latest)
-  { provider: 'google', model: 'gemini-2.0-flash', name: 'Gemini 2.0 Flash' },
+  // Google AI - Gemini 3 Pro
+  { provider: 'google', model: 'gemini-3-pro-preview', name: 'Gemini 3 Pro' },
 
-  // HuggingFace models - distinct model families only
-  { provider: 'huggingface', model: 'mistralai/Mistral-Small-24B-Instruct-2501', name: 'Mistral Small 24B' },
-  { provider: 'huggingface', model: 'Qwen/Qwen2.5-72B-Instruct', name: 'Qwen 2.5 72B' },
+  // HuggingFace - serverless inference
   { provider: 'huggingface', model: 'deepseek-ai/DeepSeek-R1-Distill-Qwen-32B', name: 'DeepSeek R1 32B' },
+  { provider: 'huggingface', model: 'meta-llama/Meta-Llama-3-8B-Instruct', name: 'Llama 3 8B' },
 ];

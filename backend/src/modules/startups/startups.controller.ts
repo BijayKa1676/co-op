@@ -1,19 +1,18 @@
 import {
   Controller,
   Get,
-  Post,
-  Patch,
   Delete,
   Param,
-  Body,
   UseGuards,
   ParseUUIDPipe,
+  ForbiddenException,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { StartupsService } from './startups.service';
-import { CreateStartupDto, UpdateStartupDto, StartupResponseDto } from './dto';
+import { StartupResponseDto } from './dto';
 import { AuthGuard } from '@/common/guards/auth.guard';
 import { AdminGuard } from '@/common/guards/admin.guard';
+import { CurrentUser, CurrentUserPayload } from '@/common/decorators/current-user.decorator';
 import { ApiResponseDto } from '@/common/dto/api-response.dto';
 
 @ApiTags('Startups')
@@ -23,42 +22,40 @@ import { ApiResponseDto } from '@/common/dto/api-response.dto';
 export class StartupsController {
   constructor(private readonly startupsService: StartupsService) {}
 
-  @Post()
-  @UseGuards(AdminGuard)
-  @ApiOperation({ summary: 'Create a new startup (admin only)' })
-  @ApiResponse({ status: 201, description: 'Startup created' })
-  async create(@Body() dto: CreateStartupDto): Promise<ApiResponseDto<StartupResponseDto>> {
-    const startup = await this.startupsService.create(dto);
-    return ApiResponseDto.success(startup, 'Startup created');
-  }
-
   @Get()
-  @ApiOperation({ summary: 'Get all startups' })
+  @UseGuards(AdminGuard)
+  @ApiOperation({ summary: 'List all startups (admin only)' })
   @ApiResponse({ status: 200, description: 'Startups list' })
   async findAll(): Promise<ApiResponseDto<StartupResponseDto[]>> {
     const startups = await this.startupsService.findAll();
     return ApiResponseDto.success(startups);
   }
 
-  @Get(':id')
-  @ApiOperation({ summary: 'Get startup by ID' })
-  @ApiResponse({ status: 200, description: 'Startup found' })
-  @ApiResponse({ status: 404, description: 'Startup not found' })
-  async findOne(@Param('id', ParseUUIDPipe) id: string): Promise<ApiResponseDto<StartupResponseDto>> {
-    const startup = await this.startupsService.findById(id);
-    return ApiResponseDto.success(startup);
+  @Get('me')
+  @ApiOperation({ summary: 'Get current user startup - use GET /users/me instead' })
+  @ApiResponse({ status: 403, description: 'Use GET /users/me to get your startup info' })
+  getMyStartup(
+    @CurrentUser() _user: CurrentUserPayload,
+  ): ApiResponseDto<StartupResponseDto> {
+    // User's startup info is included in GET /users/me response
+    throw new ForbiddenException('Use GET /users/me to get your startup info');
   }
 
-  @Patch(':id')
-  @UseGuards(AdminGuard)
-  @ApiOperation({ summary: 'Update startup (admin only)' })
-  @ApiResponse({ status: 200, description: 'Startup updated' })
-  async update(
+  @Get(':id')
+  @ApiOperation({ summary: 'Get startup by ID (own startup or admin)' })
+  @ApiResponse({ status: 200, description: 'Startup found' })
+  @ApiResponse({ status: 403, description: 'Access denied' })
+  @ApiResponse({ status: 404, description: 'Startup not found' })
+  async findOne(
+    @CurrentUser() user: CurrentUserPayload,
     @Param('id', ParseUUIDPipe) id: string,
-    @Body() dto: UpdateStartupDto,
   ): Promise<ApiResponseDto<StartupResponseDto>> {
-    const startup = await this.startupsService.update(id, dto);
-    return ApiResponseDto.success(startup, 'Startup updated');
+    // Users can only view their own startup unless they're admin
+    if (user.startupId !== id && user.role !== 'admin') {
+      throw new ForbiddenException('You can only view your own startup');
+    }
+    const startup = await this.startupsService.findById(id);
+    return ApiResponseDto.success(startup);
   }
 
   @Delete(':id')

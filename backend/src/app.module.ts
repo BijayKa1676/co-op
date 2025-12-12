@@ -13,6 +13,9 @@ import { LlmModule } from './common/llm/llm.module';
 import { MetricsModule } from './common/metrics/metrics.module';
 import { AuditModule } from './common/audit/audit.module';
 import { CacheModule } from './common/cache/cache.module';
+import { CircuitBreakerModule } from './common/circuit-breaker/circuit-breaker.module';
+import { RagModule } from './common/rag/rag.module';
+import { ResearchModule } from './common/research/research.module';
 
 // Feature modules
 import { HealthModule } from './modules/health/health.module';
@@ -23,8 +26,10 @@ import { AgentsModule } from './modules/agents/agents.module';
 import { AdminModule } from './modules/admin/admin.module';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { McpModule } from './modules/mcp/mcp.module';
+import { McpServerModule } from './modules/mcp-server/mcp-server.module';
 import { ApiKeysModule } from './modules/api-keys/api-keys.module';
 import { WebhooksModule } from './modules/webhooks/webhooks.module';
+import { NotionModule } from './modules/notion/notion.module';
 
 @Module({
   imports: [
@@ -50,6 +55,9 @@ import { WebhooksModule } from './modules/webhooks/webhooks.module';
     MetricsModule,
     AuditModule,
     CacheModule,
+    CircuitBreakerModule,
+    RagModule,
+    ResearchModule,
 
     // Features
     HealthModule,
@@ -60,8 +68,10 @@ import { WebhooksModule } from './modules/webhooks/webhooks.module';
     AdminModule,
     AnalyticsModule,
     McpModule,
+    McpServerModule,
     ApiKeysModule,
     WebhooksModule,
+    NotionModule,
   ],
 })
 export class AppModule {}

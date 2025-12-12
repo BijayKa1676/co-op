@@ -28,13 +28,20 @@ export const envSchema = z.object({
   GOOGLE_AI_API_KEY: z.string().optional(),
   HUGGINGFACE_API_KEY: z.string().optional(),
 
-  // LLM Council settings
-  LLM_COUNCIL_MIN_MODELS: z.string().default('3').transform(Number),
+  // Web Search Fallback (optional - ScrapingBee)
+  SCRAPINGBEE_API_KEY: z.string().optional(),
+
+  // LLM Council settings (minimum 2 required for cross-critique)
+  LLM_COUNCIL_MIN_MODELS: z.string().default('2').transform(Number),
   LLM_COUNCIL_MAX_MODELS: z.string().default('5').transform(Number),
 
-  // MCP (optional)
-  MCP_ENDPOINT: z.string().optional(),
-  MCP_API_KEY: z.string().optional(),
+  // Notion Integration (optional - internal integration)
+  NOTION_API_TOKEN: z.string().optional(),
+  NOTION_DEFAULT_PAGE_ID: z.string().optional(),
+
+  // RAG Service (optional - for semantic search)
+  RAG_SERVICE_URL: z.string().optional(),
+  RAG_API_KEY: z.string().optional(),
 
   // API Keys
   MASTER_API_KEY: z.string().optional(),

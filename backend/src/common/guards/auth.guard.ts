@@ -1,14 +1,24 @@
-import { Injectable, CanActivate, ExecutionContext, UnauthorizedException } from '@nestjs/common';
+import { Injectable, CanActivate, ExecutionContext, UnauthorizedException, Inject, forwardRef } from '@nestjs/common';
 import { SupabaseService, SupabaseUser } from '@/common/supabase/supabase.service';
+import { UsersService } from '@/modules/users/users.service';
+
+export interface AuthenticatedUser extends SupabaseUser {
+  onboardingCompleted: boolean;
+  startupId: string | null;
+}
 
 interface AuthenticatedRequest {
   headers: { authorization?: string };
-  user?: SupabaseUser;
+  user?: AuthenticatedUser;
 }
 
 @Injectable()
 export class AuthGuard implements CanActivate {
-  constructor(private readonly supabase: SupabaseService) {}
+  constructor(
+    private readonly supabase: SupabaseService,
+    @Inject(forwardRef(() => UsersService))
+    private readonly usersService: UsersService,
+  ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
@@ -20,13 +30,27 @@ export class AuthGuard implements CanActivate {
 
     const token = authHeader.substring(7);
 
-    const user = await this.supabase.verifyToken(token);
+    const supabaseUser = await this.supabase.verifyToken(token);
 
-    if (!user) {
+    if (!supabaseUser) {
       throw new UnauthorizedException('Invalid or expired token');
     }
 
-    request.user = user;
+    // Sync user to our database (creates if not exists)
+    const dbUser = await this.usersService.findOrCreateFromSupabase(
+      supabaseUser.id,
+      supabaseUser.email,
+      supabaseUser.name,
+      supabaseUser.authProvider,
+    );
+
+    // Merge Supabase user info with our database info
+    request.user = {
+      ...supabaseUser,
+      onboardingCompleted: dbUser.onboardingCompleted,
+      startupId: dbUser.startup?.id ?? null,
+    };
+
     return true;
   }
 }

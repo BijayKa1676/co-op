@@ -1,5 +1,5 @@
-import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsNotEmpty, IsIn, IsOptional, IsObject, MaxLength, MinLength } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsString, IsNotEmpty, IsIn, IsObject, MaxLength, MinLength, IsOptional } from 'class-validator';
 
 export const MESSAGE_ROLES = ['user', 'assistant', 'system'] as const;
 export type MessageRole = (typeof MESSAGE_ROLES)[number];
@@ -18,13 +18,13 @@ export class CreateMessageDto {
   @MaxLength(50000)
   content: string;
 
-  @ApiProperty({ required: false, description: 'Agent that generated this message' })
+  @ApiPropertyOptional({ description: 'Agent that generated this message (optional for user messages)' })
   @IsString()
   @IsOptional()
   @MaxLength(100)
   agent?: string;
 
-  @ApiProperty({ required: false, description: 'Additional metadata' })
+  @ApiPropertyOptional({ description: 'Additional metadata', default: {} })
   @IsObject()
   @IsOptional()
   metadata?: Record<string, unknown>;

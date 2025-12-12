@@ -1,8 +1,9 @@
-import { Injectable, Inject, NotFoundException, Logger } from '@nestjs/common';
+import { Injectable, Inject, NotFoundException, ForbiddenException, Logger } from '@nestjs/common';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { eq, desc, and, isNull, lt, asc } from 'drizzle-orm';
 import { DATABASE_CONNECTION } from '@/database/database.module';
 import { RedisService } from '@/common/redis/redis.service';
+import { UsersService } from '@/modules/users/users.service';
 import * as schema from '@/database/schema';
 import { CreateSessionDto, SessionResponseDto, CreateMessageDto, MessageResponseDto } from './dto';
 
@@ -18,9 +19,13 @@ export class SessionsService {
     @Inject(DATABASE_CONNECTION)
     private readonly db: NodePgDatabase<typeof schema>,
     private readonly redis: RedisService,
+    private readonly usersService: UsersService,
   ) {}
 
   async create(userId: string, dto: CreateSessionDto): Promise<SessionResponseDto> {
+    // Verify user owns the startup
+    await this.verifyStartupOwnership(userId, dto.startupId);
+
     const [session] = await this.db
       .insert(schema.sessions)
       .values({
@@ -210,5 +215,12 @@ export class SessionsService {
       metadata: message.metadata as Record<string, unknown>,
       createdAt: message.createdAt,
     };
+  }
+
+  private async verifyStartupOwnership(userId: string, startupId: string): Promise<void> {
+    const user = await this.usersService.findById(userId);
+    if (user.startup?.id !== startupId) {
+      throw new ForbiddenException('You do not have access to this startup');
+    }
   }
 }

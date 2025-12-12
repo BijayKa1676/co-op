@@ -1,19 +1,18 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { LlmCouncilService } from '@/common/llm/llm-council.service';
+import { RagService } from '@/common/rag/rag.service';
+import { ResearchService } from '@/common/research/research.service';
 import { BaseAgent, AgentInput, AgentOutput } from '../../types/agent.types';
 
-const INVESTOR_SYSTEM_PROMPT = `You are an expert investor relations advisor for startups. You provide clear, actionable guidance on:
-- Pitch deck creation and optimization
-- Investor targeting and outreach strategies
-- Due diligence preparation
-- Term sheet negotiation
-- Cap table management
-- Investor communication and updates
-- Fundraising timeline and milestones
+const INVESTOR_SYSTEM_PROMPT = `Expert investor relations advisor. Topics: pitch decks, investor targeting, due diligence, term sheets, cap tables.
 
-Always provide strategic insights from both founder and investor perspectives.
-Be specific about what investors look for and common pitfalls to avoid.`;
+Rules:
+- List specific investor names/firms when available
+- Include check sizes and focus areas
+- Max 5 investor recommendations
+- Bullet points only
+- Cite sources with URLs`;
 
 @Injectable()
 export class InvestorAgentService implements BaseAgent {
@@ -24,27 +23,38 @@ export class InvestorAgentService implements BaseAgent {
   constructor(
     private readonly council: LlmCouncilService,
     private readonly config: ConfigService,
+    private readonly ragService: RagService,
+    private readonly researchService: ResearchService,
   ) {
     this.minModels = this.config.get<number>('LLM_COUNCIL_MIN_MODELS', 3);
     this.maxModels = this.config.get<number>('LLM_COUNCIL_MAX_MODELS', 5);
   }
 
   async runDraft(input: AgentInput): Promise<AgentOutput> {
-    this.logger.debug('Running investor agent with LLM Council');
+    this.logger.debug('Running investor agent with LLM Council + RAG + Web Research');
 
-    const userPrompt = this.buildUserPrompt(input);
+    // Gather context from multiple sources in parallel
+    const [ragContext, webContext] = await Promise.all([
+      this.getRagContext(input),
+      this.getWebResearchContext(input),
+    ]);
+
+    const userPrompt = this.buildUserPrompt(input, ragContext, webContext);
 
     const result = await this.council.runCouncil(INVESTOR_SYSTEM_PROMPT, userPrompt, {
       minModels: this.minModels,
       maxModels: this.maxModels,
       temperature: 0.7,
-      maxTokens: 2048,
+      maxTokens: 1500,
     });
+
+    // Extract sources from research
+    const sources = this.extractSources(webContext);
 
     return {
       content: result.finalResponse,
       confidence: result.consensus.averageScore / 10,
-      sources: [],
+      sources,
       metadata: {
         phase: 'council',
         agent: 'investor',
@@ -54,6 +64,8 @@ export class InvestorAgentService implements BaseAgent {
         consensusScore: result.consensus.averageScore,
         responsesCount: result.responses.length,
         critiquesCount: result.critiques.length,
+        ragContextUsed: ragContext.length > 0,
+        webResearchUsed: webContext.length > 0,
       },
     };
   }
@@ -66,7 +78,7 @@ export class InvestorAgentService implements BaseAgent {
     return Promise.resolve({
       content: `Council critique completed with ${String(critiquesCount)} cross-critiques`,
       confidence: draft.confidence,
-      sources: [],
+      sources: draft.sources,
       metadata: {
         phase: 'critique',
         agent: 'investor',
@@ -79,7 +91,7 @@ export class InvestorAgentService implements BaseAgent {
     return Promise.resolve({
       content: draft.content,
       confidence: draft.confidence,
-      sources: [],
+      sources: draft.sources,
       metadata: {
         phase: 'final',
         agent: 'investor',
@@ -88,15 +100,82 @@ export class InvestorAgentService implements BaseAgent {
     });
   }
 
-  private buildUserPrompt(input: AgentInput): string {
-    let prompt = input.prompt;
-
-    if (input.documents.length > 0) {
-      prompt += `\n\nRelevant documents:\n${input.documents.join('\n---\n')}`;
+  private async getRagContext(input: AgentInput): Promise<string> {
+    if (!this.ragService.isAvailable()) {
+      return '';
     }
 
+    try {
+      return await this.ragService.getRelevantContext(
+        input.prompt,
+        input.context.startupId,
+        5,
+        0.7,
+      );
+    } catch (error) {
+      this.logger.warn('Failed to get RAG context', error);
+      return '';
+    }
+  }
+
+  private async getWebResearchContext(input: AgentInput): Promise<string> {
+    try {
+      // Extract startup info from metadata (using new schema field names)
+      const companyName = this.extractFromMetadata(input, 'companyName', 'startup');
+      const industry = this.extractFromMetadata(input, 'industry', 'technology');
+      const fundingStage = this.extractFromMetadata(input, 'fundingStage', 'seed');
+      const country = this.extractFromMetadata(input, 'country', 'United States');
+
+      const context = await this.researchService.gatherInvestorContext(
+        companyName,
+        industry,
+        fundingStage,
+        country,
+      );
+
+      return this.researchService.formatContextForPrompt(context);
+    } catch (error) {
+      this.logger.warn('Failed to get web research context', error);
+      return '';
+    }
+  }
+
+  private extractFromMetadata(input: AgentInput, key: string, fallback: string): string {
+    const value = input.context.metadata[key];
+    if (typeof value === 'string' && value.length > 0) {
+      return value;
+    }
+    return fallback;
+  }
+
+  private extractSources(webContext: string): string[] {
+    // Extract URLs from the web context
+    const urlRegex = /https?:\/\/[^\s)]+/g;
+    const matches = webContext.match(urlRegex);
+    return matches ? [...new Set(matches)] : [];
+  }
+
+  private buildUserPrompt(input: AgentInput, ragContext: string, webContext: string): string {
+    let prompt = input.prompt;
+
+    // Add document context from RAG
+    if (ragContext) {
+      prompt += ragContext;
+    }
+
+    // Add web research context
+    if (webContext) {
+      prompt += webContext;
+    }
+
+    // Add any provided documents
+    if (input.documents.length > 0) {
+      prompt += `\n\nAdditional documents:\n${input.documents.join('\n---\n')}`;
+    }
+
+    // Add metadata context
     if (Object.keys(input.context.metadata).length > 0) {
-      prompt += `\n\nContext: ${JSON.stringify(input.context.metadata)}`;
+      prompt += `\n\nStartup Context: ${JSON.stringify(input.context.metadata)}`;
     }
 
     return prompt;

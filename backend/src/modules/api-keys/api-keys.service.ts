@@ -10,9 +10,12 @@ interface StoredApiKey {
   scopes: string[];
   keyHash: string;
   keyPrefix: string;
-  rawKeyForRevocation: string; // Store encrypted/hashed reference for revocation
   createdAt: string;
   lastUsedAt: string;
+}
+
+interface StoredApiKeyWithRaw extends StoredApiKey {
+  rawKey: string; // Only stored in user's key list for revocation lookup
 }
 
 @Injectable()
@@ -37,7 +40,6 @@ export class ApiKeysService {
       scopes: dto.scopes,
       keyHash,
       keyPrefix,
-      rawKeyForRevocation: rawKey, // Store for revocation lookup
       createdAt: new Date().toISOString(),
       lastUsedAt: new Date().toISOString(),
     };
@@ -52,7 +54,8 @@ export class ApiKeysService {
     }, this.KEY_TTL);
 
     // Store by ID for management (includes raw key for revocation)
-    await this.redis.hset(`${this.USER_KEYS_PREFIX}${userId}`, id, storedKey);
+    const storedWithRaw: StoredApiKeyWithRaw = { ...storedKey, rawKey };
+    await this.redis.hset(`${this.USER_KEYS_PREFIX}${userId}`, id, storedWithRaw);
 
     return {
       id,
@@ -82,7 +85,7 @@ export class ApiKeysService {
   }
 
   async revoke(userId: string, keyId: string): Promise<void> {
-    const keys = await this.redis.hgetall<StoredApiKey>(`${this.USER_KEYS_PREFIX}${userId}`);
+    const keys = await this.redis.hgetall<StoredApiKeyWithRaw>(`${this.USER_KEYS_PREFIX}${userId}`);
     const keyData = keys?.[keyId];
 
     if (!keyData) {
@@ -90,8 +93,8 @@ export class ApiKeysService {
     }
 
     // Remove from API key lookup (using stored raw key)
-    if (keyData.rawKeyForRevocation) {
-      await this.redis.del(`${this.API_KEY_PREFIX}${keyData.rawKeyForRevocation}`);
+    if (keyData.rawKey) {
+      await this.redis.del(`${this.API_KEY_PREFIX}${keyData.rawKey}`);
     }
 
     // Remove from user's keys

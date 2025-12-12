@@ -1,17 +1,17 @@
 import { createParamDecorator, ExecutionContext } from '@nestjs/common';
-import { SupabaseUser } from '@/common/supabase/supabase.service';
+import { AuthenticatedUser } from '@/common/guards/auth.guard';
 
-export type CurrentUserPayload = SupabaseUser;
+export type CurrentUserPayload = AuthenticatedUser;
 
-type UserFieldValue = string | Record<string, unknown>;
+type UserFieldValue = string | boolean | Record<string, unknown> | null;
 
 export const CurrentUser = createParamDecorator(
-  (data: keyof SupabaseUser | undefined, ctx: ExecutionContext): SupabaseUser | UserFieldValue => {
-    const request = ctx.switchToHttp().getRequest<{ user: SupabaseUser }>();
+  (data: keyof AuthenticatedUser | undefined, ctx: ExecutionContext): AuthenticatedUser | UserFieldValue => {
+    const request = ctx.switchToHttp().getRequest<{ user: AuthenticatedUser }>();
     const user = request.user;
 
     if (data) {
-      return user[data];
+      return user[data] as UserFieldValue;
     }
 
     return user;

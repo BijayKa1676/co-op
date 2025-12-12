@@ -67,4 +67,52 @@ export class RedisService implements OnModuleDestroy {
   async hgetall<T>(key: string): Promise<Record<string, T> | null> {
     return this.client.hgetall<Record<string, T>>(key);
   }
+
+  async lpush(key: string, value: string): Promise<number> {
+    return this.client.lpush(key, value);
+  }
+
+  async lrange(key: string, start: number, stop: number): Promise<string[]> {
+    return this.client.lrange(key, start, stop);
+  }
+
+  async lrem(key: string, count: number, value: string): Promise<number> {
+    return this.client.lrem(key, count, value);
+  }
+
+  /**
+   * Check if Redis connection is healthy
+   */
+  async ping(): Promise<boolean> {
+    try {
+      await this.client.set('ping', 'pong');
+      const result = await this.client.get('ping');
+      return result === 'pong';
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Get multiple keys at once
+   */
+  async mget<T>(keys: string[]): Promise<(T | null)[]> {
+    if (keys.length === 0) return [];
+    return this.client.mget<T[]>(...keys);
+  }
+
+  /**
+   * Set multiple keys at once with TTL
+   */
+  async mset(entries: { key: string; value: unknown; ttl?: number }[]): Promise<void> {
+    const pipeline = this.client.pipeline();
+    for (const entry of entries) {
+      if (entry.ttl) {
+        pipeline.setex(entry.key, entry.ttl, JSON.stringify(entry.value));
+      } else {
+        pipeline.set(entry.key, JSON.stringify(entry.value));
+      }
+    }
+    await pipeline.exec();
+  }
 }

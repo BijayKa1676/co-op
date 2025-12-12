@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, BadRequestException, OnModuleInit } from '@nestjs/common';
 import { v4 as uuid } from 'uuid';
 import { GroqProvider } from './providers/groq.provider';
 import { GoogleProvider } from './providers/google.provider';
@@ -12,6 +12,7 @@ import {
   CouncilCritique,
   CouncilResult,
   ModelConfig,
+  ModelHealthCheck,
   AVAILABLE_MODELS,
 } from './types/llm.types';
 
@@ -22,11 +23,20 @@ interface CritiqueJson {
   weaknesses: string[];
 }
 
+const CONCISE_INSTRUCTION = `
+CRITICAL: Be concise. No fluff. Bullet points preferred. Max 3-5 sentences per point.
+- Skip introductions and conclusions
+- No "I think" or "In my opinion"
+- Direct answers only
+- Use lists and structure
+- Cite specifics, not generalities`;
+
 @Injectable()
-export class LlmCouncilService {
+export class LlmCouncilService implements OnModuleInit {
   private readonly logger = new Logger(LlmCouncilService.name);
   private readonly providers: Map<LlmProvider, LlmProviderService>;
-  private readonly availableModels: ModelConfig[];
+  private availableModels: ModelConfig[] = [];
+  private healthCheckResults = new Map<string, ModelHealthCheck>();
 
   constructor(
     private readonly groqProvider: GroqProvider,
@@ -38,16 +48,114 @@ export class LlmCouncilService {
       ['google', this.googleProvider],
       ['huggingface', this.huggingFaceProvider],
     ]);
-
-    this.availableModels = this.detectAvailableModels();
-    this.logger.log(`LLM Council initialized with ${String(this.availableModels.length)} models`);
   }
 
-  private detectAvailableModels(): ModelConfig[] {
+  async onModuleInit(): Promise<void> {
+    this.logger.log('Running LLM model health checks on boot...');
+    await this.runHealthChecks();
+  }
+
+  async runHealthChecks(): Promise<ModelHealthCheck[]> {
+    const configuredModels = this.detectConfiguredModels();
+    this.logger.log(`Checking ${String(configuredModels.length)} configured models...`);
+
+    const results: ModelHealthCheck[] = [];
+    const healthyModels: ModelConfig[] = [];
+
+    for (const model of configuredModels) {
+      const result = await this.checkModelHealth(model);
+      results.push(result);
+      this.healthCheckResults.set(`${model.provider}:${model.model}`, result);
+
+      const statusIcon = result.status === 'healthy' ? '✓' : '✗';
+      const latency = result.latencyMs > 0 ? `${String(result.latencyMs)}ms` : '-';
+      
+      if (result.status === 'healthy') {
+        this.logger.log(`  ${statusIcon} ${model.name} (${model.provider}) - ${latency}`);
+        healthyModels.push(model);
+      } else {
+        this.logger.warn(`  ${statusIcon} ${model.name} (${model.provider}) - ${result.status}: ${result.error ?? 'unknown'}`);
+      }
+    }
+
+    this.availableModels = healthyModels;
+    
+    const healthyCount = healthyModels.length;
+    const totalCount = configuredModels.length;
+    
+    if (healthyCount < 2) {
+      this.logger.error(`CRITICAL: Only ${String(healthyCount)} healthy models. Council requires minimum 2.`);
+    } else {
+      this.logger.log(`LLM Council ready: ${String(healthyCount)}/${String(totalCount)} models healthy`);
+    }
+
+    return results;
+  }
+
+  private async checkModelHealth(model: ModelConfig): Promise<ModelHealthCheck> {
+    const provider = this.providers.get(model.provider);
+    const startTime = Date.now();
+
+    if (!provider?.isAvailable()) {
+      return {
+        model: model.model,
+        provider: model.provider,
+        name: model.name,
+        status: 'unavailable',
+        latencyMs: 0,
+        error: 'Provider not configured (missing API key)',
+        checkedAt: new Date(),
+      };
+    }
+
+    try {
+      // Simple health check prompt - minimal tokens
+      const messages: ChatMessage[] = [
+        { role: 'user', content: 'Reply with only: OK' },
+      ];
+
+      await provider.chat(messages, {
+        model: model.model,
+        temperature: 0,
+        maxTokens: 10,
+      });
+
+      return {
+        model: model.model,
+        provider: model.provider,
+        name: model.name,
+        status: 'healthy',
+        latencyMs: Date.now() - startTime,
+        checkedAt: new Date(),
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const isDeprecated = errorMessage.toLowerCase().includes('decommissioned') ||
+                          errorMessage.toLowerCase().includes('deprecated') ||
+                          errorMessage.toLowerCase().includes('not found') ||
+                          errorMessage.toLowerCase().includes('not supported');
+
+      return {
+        model: model.model,
+        provider: model.provider,
+        name: model.name,
+        status: isDeprecated ? 'deprecated' : 'error',
+        latencyMs: Date.now() - startTime,
+        error: errorMessage.slice(0, 200),
+        checkedAt: new Date(),
+      };
+    }
+  }
+
+  private detectConfiguredModels(): ModelConfig[] {
     return AVAILABLE_MODELS.filter(model => {
       const provider = this.providers.get(model.provider);
       return provider?.isAvailable() ?? false;
     });
+  }
+
+  getHealthCheckResults(): ModelHealthCheck[] {
+    return Array.from(this.healthCheckResults.values());
   }
 
   private shuffleArray<T>(array: T[]): T[] {
@@ -75,37 +183,62 @@ export class LlmCouncilService {
 
     // Select models for the council
     const councilModels = this.selectCouncilModels(minModels, maxModels);
-    this.logger.log(`Council convened with ${String(councilModels.length)} models: ${councilModels.map(m => m.name).join(', ')}`);
+
+    // MANDATORY: Must have at least 2 models for cross-critique
+    if (councilModels.length < 2) {
+      throw new BadRequestException(
+        `Council requires minimum 2 models for cross-critique. Only ${String(councilModels.length)} available.`,
+      );
+    }
+
+    this.logger.log(`Council: ${String(councilModels.length)} models: ${councilModels.map(m => m.name).join(', ')}`);
+
+    // Inject concise instruction into system prompt
+    const enhancedSystemPrompt = `${systemPrompt}\n${CONCISE_INSTRUCTION}`;
 
     // Phase 1: All models generate responses anonymously
     const responses = await this.generateResponses(
       councilModels,
-      systemPrompt,
+      enhancedSystemPrompt,
       userPrompt,
-      { temperature: options?.temperature ?? 0.7, maxTokens: options?.maxTokens ?? 2048 },
+      { temperature: options?.temperature ?? 0.7, maxTokens: options?.maxTokens ?? 1024 },
     );
+
+    // MANDATORY: Must have at least 2 responses
+    if (responses.length < 2) {
+      throw new BadRequestException(
+        `Council requires minimum 2 responses. Only ${String(responses.length)} succeeded.`,
+      );
+    }
 
     // Shuffle responses for anonymous critique
     const shuffledResponses = this.shuffleArray(responses);
 
-    // Phase 2: Each model critiques shuffled responses (not their own)
+    // Phase 2: MANDATORY cross-critique - each model critiques others
     const critiques = await this.generateCritiques(
       councilModels,
       shuffledResponses,
-      systemPrompt,
+      enhancedSystemPrompt,
       userPrompt,
     );
+
+    // MANDATORY: Must have critiques
+    if (critiques.length === 0) {
+      throw new BadRequestException('Council critique phase failed. No critiques generated.');
+    }
+
+    this.logger.log(`Council: ${String(critiques.length)} critiques generated`);
 
     // Phase 3: Synthesize final response based on critiques
     const { finalResponse, bestResponseId, averageScore } = await this.synthesizeFinal(
       shuffledResponses,
       critiques,
-      systemPrompt,
+      enhancedSystemPrompt,
       userPrompt,
     );
 
     const totalTokens = responses.reduce((sum, r) => sum + r.tokens, 0) +
-      critiques.reduce((sum, _c) => sum + 500, 0); // Estimate critique tokens
+      critiques.length * 300; // Estimate critique tokens
 
     return {
       responses: shuffledResponses,
@@ -217,25 +350,18 @@ export class LlmCouncilService {
     provider: LlmProviderService,
     criticModel: ModelConfig,
     response: CouncilResponse,
-    systemPrompt: string,
+    _systemPrompt: string,
     originalPrompt: string,
   ): Promise<CouncilCritique | null> {
-    const critiquePrompt = `You are evaluating an AI response for accuracy and quality.
+    const critiquePrompt = `Evaluate this response. Be harsh but fair.
 
-Original context: ${systemPrompt}
+Question: ${originalPrompt}
 
-Original question: ${originalPrompt}
-
-Response to evaluate:
+Response:
 ${response.content}
 
-Provide a JSON critique with:
-- score (1-10, where 10 is perfect)
-- feedback (brief overall assessment)
-- strengths (array of strong points)
-- weaknesses (array of issues or improvements needed)
-
-Respond ONLY with valid JSON, no markdown:`;
+JSON format only:
+{"score":1-10,"feedback":"1 sentence","strengths":["max 2"],"weaknesses":["max 2"]}`;
 
     const messages: ChatMessage[] = [
       { role: 'system', content: 'You are a critical evaluator. Respond only with valid JSON.' },
@@ -314,23 +440,18 @@ Respond ONLY with valid JSON, no markdown:`;
       return { finalResponse: bestResponse.content, bestResponseId, averageScore };
     }
 
-    const synthesisPrompt = `You are synthesizing the best response based on council feedback.
+    const synthesisPrompt = `Improve this response based on feedback. Be concise.
 
-Original context: ${systemPrompt}
-Original question: ${originalPrompt}
+Question: ${originalPrompt}
 
-Best rated response:
+Best response:
 ${bestResponse.content}
 
-Council feedback:
-${relevantCritiques.map(c => `- ${c.feedback}\n  Strengths: ${c.strengths.join(', ')}\n  Weaknesses: ${c.weaknesses.join(', ')}`).join('\n\n')}
+Feedback:
+${relevantCritiques.map(c => `Score ${String(c.score)}/10: ${c.feedback}`).join('\n')}
+Fix: ${relevantCritiques.flatMap(c => c.weaknesses).slice(0, 3).join(', ')}
 
-Create an improved final response that:
-1. Keeps the strengths identified
-2. Addresses the weaknesses
-3. Maintains accuracy and reduces hallucination
-
-Provide only the improved response:`;
+Output improved response only. No preamble.`;
 
     try {
       const result = await provider.chat(

@@ -35,7 +35,7 @@ export class AdminController {
   constructor(private readonly adminService: AdminService) {}
 
   @Post('embeddings/upload')
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 50 * 1024 * 1024 } })) // 50MB limit
   @ApiConsumes('multipart/form-data')
   @ApiOperation({ summary: 'Upload PDF for embedding' })
   @ApiResponse({ status: 201, description: 'PDF uploaded' })
@@ -51,6 +51,12 @@ export class AdminController {
       throw new BadRequestException('Only PDF files are allowed');
     }
 
+    // Additional size check (redundant but explicit)
+    const maxSize = 50 * 1024 * 1024; // 50MB
+    if (file.size > maxSize) {
+      throw new BadRequestException('File size exceeds 50MB limit');
+    }
+
     const result = await this.adminService.uploadPdf(dto, file.buffer, file.mimetype);
 
     return ApiResponseDto.success(result, 'PDF uploaded for processing');
@@ -59,10 +65,10 @@ export class AdminController {
   @Get('embeddings')
   @ApiOperation({ summary: 'List all embeddings' })
   @ApiResponse({ status: 200, description: 'Embeddings list' })
-  listEmbeddings(
+  async listEmbeddings(
     @Query() query: ListEmbeddingsQueryDto,
-  ): ApiResponseDto<PaginatedResult<EmbeddingResponseDto>> {
-    const result = this.adminService.listEmbeddings(query);
+  ): Promise<ApiResponseDto<PaginatedResult<EmbeddingResponseDto>>> {
+    const result = await this.adminService.listEmbeddings(query);
     return ApiResponseDto.success(result);
   }
 
@@ -70,8 +76,8 @@ export class AdminController {
   @ApiOperation({ summary: 'Get embedding by ID' })
   @ApiResponse({ status: 200, description: 'Embedding found' })
   @ApiResponse({ status: 404, description: 'Embedding not found' })
-  getEmbedding(@Param('id', ParseUUIDPipe) id: string): ApiResponseDto<EmbeddingResponseDto> {
-    const embedding = this.adminService.getEmbedding(id);
+  async getEmbedding(@Param('id', ParseUUIDPipe) id: string): Promise<ApiResponseDto<EmbeddingResponseDto>> {
+    const embedding = await this.adminService.getEmbedding(id);
     return ApiResponseDto.success(embedding);
   }
 

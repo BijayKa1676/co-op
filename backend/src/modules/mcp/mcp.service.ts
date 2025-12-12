@@ -47,20 +47,9 @@ export class McpService {
   }
 
   private initializeFromEnv(): void {
-    const endpoint = this.configService.get<string>('MCP_ENDPOINT');
-    const apiKey = this.configService.get<string>('MCP_API_KEY');
-
-    if (endpoint && apiKey && !this.servers.has('default')) {
-      const defaultServer: McpServerConfig = {
-        id: 'default',
-        name: 'Default MCP Server',
-        baseUrl: endpoint,
-        apiKey,
-        enabled: true,
-      };
-      this.servers.set('default', defaultServer);
-      this.logger.log('Default MCP server configured from environment');
-    }
+    // MCP servers are now registered via API or loaded from Redis
+    // No default server from environment - research is built into ResearchService
+    this.logger.log('MCP service ready - servers loaded from Redis');
   }
 
   async registerServer(config: McpServerConfig): Promise<void> {
@@ -184,7 +173,7 @@ export class McpService {
     return result;
   }
 
-  getToolSchema(serverId: string, toolName: string): McpToolDefinition {
+  getToolSchema(_serverId: string, toolName: string): McpToolDefinition {
     // This would be called after tools are discovered
     return {
       name: toolName,

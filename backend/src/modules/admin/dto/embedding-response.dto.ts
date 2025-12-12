@@ -1,31 +1,21 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-
-export enum EmbeddingStatus {
-  PENDING = 'pending',
-  PROCESSING = 'processing',
-  COMPLETED = 'completed',
-  FAILED = 'failed',
-}
+import { ApiProperty } from '@nestjs/swagger';
 
 export class EmbeddingResponseDto {
   @ApiProperty()
   id: string;
 
+  @ApiProperty({ enum: ['pending', 'processing', 'completed', 'failed'] })
+  status: string;
+
   @ApiProperty()
-  filename: string;
-
-  @ApiPropertyOptional()
-  startupId?: string;
-
-  @ApiProperty({ enum: EmbeddingStatus })
-  status: EmbeddingStatus;
-
-  @ApiPropertyOptional()
-  metadata?: Record<string, unknown>;
+  chunksCreated: number;
 
   @ApiProperty()
   createdAt: Date;
 
-  @ApiProperty()
-  updatedAt: Date;
+  @ApiProperty({ required: false, nullable: true })
+  completedAt?: Date;
+
+  @ApiProperty({ required: false, nullable: true })
+  error?: string;
 }
