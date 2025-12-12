@@ -25,7 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Cross-critique consensus mechanism
 - Automatic provider fallback
 - Periodic health checks (5-minute intervals)
-- Models: Llama 3.3 70B, Llama 4 Scout, Qwen 3 32B, Kimi K2, Gemini 1.5 Flash, Mistral 7B, Phi-3 Mini
+- Models: Llama 3.3 70B, GPT OSS 120B, Gemini 3 Pro, DeepSeek R1 32B, Llama 3 8B
 
 #### AI Agents
 - Legal agent with LLM Council

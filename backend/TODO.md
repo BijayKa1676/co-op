@@ -64,7 +64,7 @@
 
 ### LLM Council Architecture
 - [x] Multi-provider: Groq, Google AI, HuggingFace
-- [x] Models: Llama 3.3 70B, Mixtral 8x7B, Gemma 2 9B, Gemini 2.0 Flash, Mistral Small 24B, Qwen 2.5 72B, DeepSeek R1 32B
+- [x] Models: Llama 3.3 70B, GPT OSS 120B, Gemini 3 Pro, DeepSeek R1 32B, Llama 3 8B
 - [x] Anonymous response generation
 - [x] Cross-model critique
 - [x] Score-based consensus

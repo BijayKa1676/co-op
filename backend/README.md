@@ -494,12 +494,10 @@ The LLM Council is a unique architecture that ensures response accuracy through 
 | Provider | Model | Family | Speed |
 |----------|-------|--------|-------|
 | Groq | Llama 3.3 70B | Meta Llama | Fast |
-| Groq | Llama 4 Scout | Meta Llama 4 | Fast |
-| Groq | Qwen 3 32B | Alibaba Qwen | Fast |
-| Groq | Kimi K2 | Moonshot | Fast |
-| Google | Gemini 1.5 Flash | Google Gemini | Fast |
-| HuggingFace | Mistral 7B | Mistral AI | Medium |
-| HuggingFace | Phi-3 Mini | Microsoft Phi | Medium |
+| Groq | GPT OSS 120B | OpenAI OSS | Fast |
+| Google | Gemini 3 Pro | Google Gemini | Fast |
+| HuggingFace | DeepSeek R1 32B | DeepSeek | Medium |
+| HuggingFace | Llama 3 8B | Meta Llama | Medium |
 
 ### Configuration
 
