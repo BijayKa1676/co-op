@@ -2,7 +2,6 @@ import { Injectable, Inject, NotFoundException, ConflictException } from '@nestj
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { eq } from 'drizzle-orm';
 import { DATABASE_CONNECTION } from '@/database/database.module';
-import { SupabaseService } from '@/common/supabase/supabase.service';
 import * as schema from '@/database/schema';
 import { CreateUserDto, UpdateUserDto, UserResponseDto } from './dto';
 
@@ -11,7 +10,6 @@ export class UsersService {
   constructor(
     @Inject(DATABASE_CONNECTION)
     private readonly db: NodePgDatabase<typeof schema>,
-    private readonly supabase: SupabaseService,
   ) {}
 
   async create(dto: CreateUserDto): Promise<UserResponseDto> {
@@ -25,14 +23,11 @@ export class UsersService {
       throw new ConflictException('Email already registered');
     }
 
-    // Note: User creation should happen via Supabase Auth
-    // This creates a local user record synced with Supabase
     const [user] = await this.db
       .insert(schema.users)
       .values({
         email: dto.email.toLowerCase(),
         name: dto.name,
-        passwordHash: '', // Not used with Supabase Auth
       })
       .returning();
 
@@ -65,8 +60,11 @@ export class UsersService {
     return results[0] ?? null;
   }
 
-  async findOrCreateFromSupabase(supabaseUserId: string, email: string, name?: string): Promise<UserResponseDto> {
-    // Try to find existing user
+  async findOrCreateFromSupabase(
+    supabaseUserId: string,
+    email: string,
+    name: string,
+  ): Promise<UserResponseDto> {
     const existing = await this.db
       .select()
       .from(schema.users)
@@ -77,14 +75,12 @@ export class UsersService {
       return this.toResponse(existing[0]);
     }
 
-    // Create new user synced with Supabase
     const [user] = await this.db
       .insert(schema.users)
       .values({
         id: supabaseUserId,
         email: email.toLowerCase(),
-        name: name ?? email.split('@')[0],
-        passwordHash: '',
+        name,
       })
       .returning();
 
@@ -104,9 +100,10 @@ export class UsersService {
       }
     }
 
-    const updateData: Partial<{ email: string; name: string; updatedAt: Date }> = {
-      updatedAt: new Date(),
-    };
+    const updateData: Partial<{ email: string; name: string; avatarUrl: string; updatedAt: Date }> =
+      {
+        updatedAt: new Date(),
+      };
 
     if (dto.email) {
       updateData.email = dto.email.toLowerCase();

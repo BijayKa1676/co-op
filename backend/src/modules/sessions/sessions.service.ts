@@ -32,9 +32,12 @@ export class SessionsService {
     return this.toResponse(session);
   }
 
-  async findById(id: string): Promise<SessionResponseDto> {
+  async findById(id: string, userId: string): Promise<SessionResponseDto> {
     const cached = await this.redis.get<schema.Session>(`${this.SESSION_PREFIX}${id}`);
     if (cached) {
+      if (cached.userId !== userId) {
+        throw new NotFoundException('Session not found');
+      }
       return this.toResponse(cached);
     }
 
@@ -47,6 +50,10 @@ export class SessionsService {
     const session = results[0];
 
     if (!session) {
+      throw new NotFoundException('Session not found');
+    }
+
+    if (session.userId !== userId) {
       throw new NotFoundException('Session not found');
     }
 
@@ -63,7 +70,10 @@ export class SessionsService {
     return sessions.map(s => this.toResponse(s));
   }
 
-  async end(id: string): Promise<void> {
+  async end(id: string, userId: string): Promise<void> {
+    // Verify ownership first
+    await this.findById(id, userId);
+
     await this.db
       .update(schema.sessions)
       .set({ status: 'ended', updatedAt: new Date() })

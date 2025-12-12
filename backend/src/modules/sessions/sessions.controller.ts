@@ -36,16 +36,22 @@ export class SessionsController {
   @ApiOperation({ summary: 'Get session by ID' })
   @ApiResponse({ status: 200, description: 'Session found' })
   @ApiResponse({ status: 404, description: 'Session not found' })
-  async findOne(@Param('id', ParseUUIDPipe) id: string): Promise<ApiResponseDto<SessionResponseDto>> {
-    const session = await this.sessionsService.findById(id);
+  async findOne(
+    @CurrentUser() user: CurrentUserPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<ApiResponseDto<SessionResponseDto>> {
+    const session = await this.sessionsService.findById(id, user.id);
     return ApiResponseDto.success(session);
   }
 
   @Post(':id/end')
   @ApiOperation({ summary: 'End a session' })
   @ApiResponse({ status: 200, description: 'Session ended' })
-  async end(@Param('id', ParseUUIDPipe) id: string): Promise<ApiResponseDto<null>> {
-    await this.sessionsService.end(id);
+  async end(
+    @CurrentUser() user: CurrentUserPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<ApiResponseDto<null>> {
+    await this.sessionsService.end(id, user.id);
     return ApiResponseDto.message('Session ended');
   }
 }

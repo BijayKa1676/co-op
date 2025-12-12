@@ -125,8 +125,18 @@ export class LlmCouncilService {
   }
 
   private selectCouncilModels(min: number, max: number): ModelConfig[] {
+    if (this.availableModels.length === 0) {
+      throw new Error('No LLM models available. Configure at least one provider.');
+    }
+
     const available = this.shuffleArray(this.availableModels);
-    const count = Math.min(Math.max(min, available.length), max);
+    // Use what we have, even if less than min
+    const count = Math.min(available.length, max);
+
+    if (count < min) {
+      this.logger.warn(`Only ${String(count)} models available, requested minimum ${String(min)}`);
+    }
+
     return available.slice(0, count);
   }
 

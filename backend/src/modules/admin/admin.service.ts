@@ -59,8 +59,21 @@ export class AdminService {
     throw new NotFoundException('Embedding not found');
   }
 
-  async deleteEmbedding(_id: string, filePath: string): Promise<void> {
-    await this.storage.delete(filePath);
+  async deleteEmbedding(id: string): Promise<void> {
+    // TODO: Fetch actual file path from database
+    // For now, try to delete the folder
+    const folderPath = `pdfs/${id}`;
+
+    try {
+      // List files in the folder and delete them
+      const files = await this.storage.list(folderPath);
+      for (const file of files) {
+        await this.storage.delete(`${folderPath}/${file.name}`);
+      }
+    } catch {
+      // Folder might not exist or already deleted
+    }
+
     // TODO: Remove from vector store
     // TODO: Remove from database
   }

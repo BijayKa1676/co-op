@@ -86,8 +86,9 @@ export class AdminController {
   @ApiOperation({ summary: 'Delete embedding' })
   @ApiResponse({ status: 200, description: 'Embedding deleted' })
   async deleteEmbedding(@Param('id', ParseUUIDPipe) id: string): Promise<ApiResponseDto<null>> {
-    const filePath = `pdfs/${id}`;
-    await this.adminService.deleteEmbedding(id, filePath);
+    // Note: In production, fetch the actual path from database
+    // For now, we delete the folder containing the file
+    await this.adminService.deleteEmbedding(id);
     return ApiResponseDto.message('Embedding deleted successfully');
   }
 }
