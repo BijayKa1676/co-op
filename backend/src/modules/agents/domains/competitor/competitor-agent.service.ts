@@ -1,35 +1,104 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { LlmCouncilService } from '@/common/llm/llm-council.service';
 import { BaseAgent, AgentInput, AgentOutput } from '../../types/agent.types';
+
+const COMPETITOR_SYSTEM_PROMPT = `You are an expert competitive intelligence analyst for startups. You provide clear, actionable guidance on:
+- Competitive landscape analysis
+- Market positioning and differentiation
+- Competitor strengths and weaknesses
+- Competitive moats and barriers to entry
+- Go-to-market strategy against competitors
+- Pricing strategy relative to competition
+- Feature comparison and gap analysis
+
+Always provide strategic insights backed by market analysis frameworks.
+Be specific about competitive advantages and threats.`;
 
 @Injectable()
 export class CompetitorAgentService implements BaseAgent {
+  private readonly logger = new Logger(CompetitorAgentService.name);
+  private readonly minModels: number;
+  private readonly maxModels: number;
+
+  constructor(
+    private readonly council: LlmCouncilService,
+    private readonly config: ConfigService,
+  ) {
+    this.minModels = this.config.get<number>('LLM_COUNCIL_MIN_MODELS', 3);
+    this.maxModels = this.config.get<number>('LLM_COUNCIL_MAX_MODELS', 5);
+  }
+
   async runDraft(input: AgentInput): Promise<AgentOutput> {
-    // TODO: Implement competitor draft generation
+    this.logger.debug('Running competitor agent with LLM Council');
+
+    const userPrompt = this.buildUserPrompt(input);
+
+    const result = await this.council.runCouncil(COMPETITOR_SYSTEM_PROMPT, userPrompt, {
+      minModels: this.minModels,
+      maxModels: this.maxModels,
+      temperature: 0.7,
+      maxTokens: 2048,
+    });
+
     return {
-      content: '',
-      confidence: 0,
+      content: result.finalResponse,
+      confidence: result.consensus.averageScore / 10,
       sources: [],
-      metadata: { phase: 'draft', agent: 'competitor' },
+      metadata: {
+        phase: 'council',
+        agent: 'competitor',
+        modelsUsed: result.metadata.modelsUsed,
+        totalTokens: result.metadata.totalTokens,
+        processingTimeMs: result.metadata.processingTimeMs,
+        consensusScore: result.consensus.averageScore,
+        responsesCount: result.responses.length,
+        critiquesCount: result.critiques.length,
+      },
     };
   }
 
-  async runCritique(input: AgentInput, draft: AgentOutput): Promise<AgentOutput> {
-    // TODO: Implement competitor critique
-    return {
-      content: '',
-      confidence: 0,
+  runCritique(_input: AgentInput, draft: AgentOutput): Promise<AgentOutput> {
+    const critiquesCount = typeof draft.metadata?.critiquesCount === 'number'
+      ? draft.metadata.critiquesCount
+      : 0;
+
+    return Promise.resolve({
+      content: `Council critique completed with ${String(critiquesCount)} cross-critiques`,
+      confidence: draft.confidence,
       sources: [],
-      metadata: { phase: 'critique', agent: 'competitor' },
-    };
+      metadata: {
+        phase: 'critique',
+        agent: 'competitor',
+        ...draft.metadata,
+      },
+    });
   }
 
-  async runFinal(input: AgentInput, draft: AgentOutput, critique: AgentOutput): Promise<AgentOutput> {
-    // TODO: Implement competitor final output
-    return {
-      content: '',
-      confidence: 0,
+  runFinal(_input: AgentInput, draft: AgentOutput, _critique: AgentOutput): Promise<AgentOutput> {
+    return Promise.resolve({
+      content: draft.content,
+      confidence: draft.confidence,
       sources: [],
-      metadata: { phase: 'final', agent: 'competitor' },
-    };
+      metadata: {
+        phase: 'final',
+        agent: 'competitor',
+        ...draft.metadata,
+      },
+    });
+  }
+
+  private buildUserPrompt(input: AgentInput): string {
+    let prompt = input.prompt;
+
+    if (input.documents?.length) {
+      prompt += `\n\nRelevant documents:\n${input.documents.join('\n---\n')}`;
+    }
+
+    if (input.context.metadata) {
+      prompt += `\n\nContext: ${JSON.stringify(input.context.metadata)}`;
+    }
+
+    return prompt;
   }
 }

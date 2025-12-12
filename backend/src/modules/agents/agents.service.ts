@@ -1,11 +1,21 @@
 import { Injectable } from '@nestjs/common';
 import { OrchestratorService } from './orchestrator/orchestrator.service';
-import { AgentType, AgentInput, AgentPhaseResult, OrchestratorTask } from './types/agent.types';
+import { AgentsQueueService } from './queue/agents.queue.service';
+import { AgentInput, AgentPhaseResult } from './types/agent.types';
 import { RunAgentDto } from './dto/run-agent.dto';
+import { TaskStatusDto } from './dto/task-status.dto';
+
+interface QueueTaskResult {
+  taskId: string;
+  jobId: string;
+}
 
 @Injectable()
 export class AgentsService {
-  constructor(private readonly orchestrator: OrchestratorService) {}
+  constructor(
+    private readonly orchestrator: OrchestratorService,
+    private readonly queueService: AgentsQueueService,
+  ) {}
 
   async run(userId: string, dto: RunAgentDto): Promise<AgentPhaseResult[]> {
     const input: AgentInput = {
@@ -21,7 +31,7 @@ export class AgentsService {
     return this.orchestrator.runAgent(dto.agentType, input);
   }
 
-  async createTask(userId: string, dto: RunAgentDto): Promise<string> {
+  async queueTask(userId: string, dto: RunAgentDto): Promise<QueueTaskResult> {
     const input: AgentInput = {
       context: {
         sessionId: dto.sessionId,
@@ -32,10 +42,14 @@ export class AgentsService {
       documents: dto.documents,
     };
 
-    return this.orchestrator.createTask(dto.agentType, input);
+    return this.queueService.addJob(dto.agentType, input, userId);
   }
 
-  async getTask(taskId: string): Promise<OrchestratorTask | null> {
-    return this.orchestrator.getTask(taskId);
+  async getTaskStatus(taskId: string): Promise<TaskStatusDto | null> {
+    return this.queueService.getJobStatus(taskId);
+  }
+
+  async cancelTask(taskId: string): Promise<boolean> {
+    return this.queueService.cancelJob(taskId);
   }
 }

@@ -5,6 +5,8 @@ import { DATABASE_CONNECTION } from '@/database/database.module';
 import * as schema from '@/database/schema';
 import { AnalyticsEvent, EventType } from './types/events.types';
 
+type TrackEventInput = Omit<AnalyticsEvent, 'timestamp'>;
+
 @Injectable()
 export class AnalyticsService {
   private readonly logger = new Logger(AnalyticsService.name);
@@ -14,13 +16,13 @@ export class AnalyticsService {
     private readonly db: NodePgDatabase<typeof schema>,
   ) {}
 
-  async trackEvent(event: Omit<AnalyticsEvent, 'timestamp'>): Promise<void> {
+  async trackEvent(event: TrackEventInput): Promise<void> {
     try {
       await this.db.insert(schema.logEvents).values({
         type: event.type,
-        userId: event.userId,
-        sessionId: event.sessionId,
-        metadata: event.metadata || {},
+        userId: event.userId ?? null,
+        sessionId: event.sessionId ?? null,
+        metadata: event.metadata ?? {},
       });
 
       this.logger.debug(`Event tracked: ${event.type}`);
@@ -39,8 +41,8 @@ export class AnalyticsService {
 
     return events.map(e => ({
       type: e.type as EventType,
-      userId: e.userId || undefined,
-      sessionId: e.sessionId || undefined,
+      userId: e.userId ?? undefined,
+      sessionId: e.sessionId ?? undefined,
       metadata: e.metadata as Record<string, unknown>,
       timestamp: e.createdAt,
     }));
@@ -55,8 +57,8 @@ export class AnalyticsService {
 
     return events.map(e => ({
       type: e.type as EventType,
-      userId: e.userId || undefined,
-      sessionId: e.sessionId || undefined,
+      userId: e.userId ?? undefined,
+      sessionId: e.sessionId ?? undefined,
       metadata: e.metadata as Record<string, unknown>,
       timestamp: e.createdAt,
     }));

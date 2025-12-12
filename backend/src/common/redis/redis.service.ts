@@ -8,14 +8,18 @@ export class RedisService implements OnModuleDestroy {
   private readonly client: Redis;
 
   constructor(private readonly configService: ConfigService) {
-    this.client = new Redis({
-      url: this.configService.get<string>('UPSTASH_REDIS_URL')!,
-      token: this.configService.get<string>('UPSTASH_REDIS_TOKEN')!,
-    });
+    const url = this.configService.get<string>('UPSTASH_REDIS_URL');
+    const token = this.configService.get<string>('UPSTASH_REDIS_TOKEN');
+
+    if (!url || !token) {
+      throw new Error('UPSTASH_REDIS_URL and UPSTASH_REDIS_TOKEN must be configured');
+    }
+
+    this.client = new Redis({ url, token });
     this.logger.log('Upstash Redis client initialized');
   }
 
-  async onModuleDestroy() {
+  onModuleDestroy(): void {
     this.logger.log('Redis connection closed');
   }
 

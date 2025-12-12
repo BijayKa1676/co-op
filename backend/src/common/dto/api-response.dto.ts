@@ -13,16 +13,20 @@ export class ApiResponseDto<T> {
   @ApiPropertyOptional()
   error?: string;
 
-  static success<T>(data: T, message?: string): ApiResponseDto<T> {
-    const response = new ApiResponseDto<T>();
+  constructor() {
+    this.success = false;
+  }
+
+  static success<U>(data: U, message?: string): ApiResponseDto<U> {
+    const response = new ApiResponseDto<U>();
     response.success = true;
     response.data = data;
     if (message) response.message = message;
     return response;
   }
 
-  static error(error: string): ApiResponseDto<null> {
-    const response = new ApiResponseDto<null>();
+  static error(error: string): ApiResponseDto<never> {
+    const response = new ApiResponseDto<never>();
     response.success = false;
     response.error = error;
     return response;

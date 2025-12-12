@@ -1,27 +1,36 @@
 import { Injectable, CanActivate, ExecutionContext, ForbiddenException } from '@nestjs/common';
-import { AuthGuard } from './auth.guard';
-import { ConfigService } from '@nestjs/config';
+import { SupabaseService, SupabaseUser } from '@/common/supabase/supabase.service';
+
+interface AuthenticatedRequest {
+  headers: { authorization?: string };
+  user?: SupabaseUser;
+}
 
 @Injectable()
-export class AdminGuard extends AuthGuard implements CanActivate {
-  constructor(configService: ConfigService) {
-    super(configService);
-  }
+export class AdminGuard implements CanActivate {
+  constructor(private readonly supabase: SupabaseService) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const isAuthenticated = await super.canActivate(context);
+    const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
+    const authHeader = request.headers.authorization;
 
-    if (!isAuthenticated) {
-      return false;
+    if (!authHeader?.startsWith('Bearer ')) {
+      throw new ForbiddenException('Missing or invalid authorization header');
     }
 
-    const request = context.switchToHttp().getRequest();
-    const user = request.user;
+    const token = authHeader.substring(7);
 
-    if (user?.role !== 'admin') {
+    const user = await this.supabase.verifyToken(token);
+
+    if (!user) {
+      throw new ForbiddenException('Invalid or expired token');
+    }
+
+    if (user.role !== 'admin') {
       throw new ForbiddenException('Admin access required');
     }
 
+    request.user = user;
     return true;
   }
 }

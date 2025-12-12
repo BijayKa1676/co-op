@@ -1,16 +1,19 @@
 import { createParamDecorator, ExecutionContext } from '@nestjs/common';
+import { SupabaseUser } from '@/common/supabase/supabase.service';
 
-export interface CurrentUserPayload {
-  id: string;
-  email: string;
-  role: string;
-}
+export type CurrentUserPayload = SupabaseUser;
+
+type UserFieldValue = string | Record<string, unknown>;
 
 export const CurrentUser = createParamDecorator(
-  (data: keyof CurrentUserPayload | undefined, ctx: ExecutionContext) => {
-    const request = ctx.switchToHttp().getRequest();
-    const user = request.user as CurrentUserPayload;
+  (data: keyof SupabaseUser | undefined, ctx: ExecutionContext): SupabaseUser | UserFieldValue => {
+    const request = ctx.switchToHttp().getRequest<{ user: SupabaseUser }>();
+    const user = request.user;
 
-    return data ? user?.[data] : user;
+    if (data) {
+      return user[data];
+    }
+
+    return user;
   },
 );

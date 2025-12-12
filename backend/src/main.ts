@@ -5,7 +5,7 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
 
-async function bootstrap() {
+async function bootstrap(): Promise<void> {
   const logger = new Logger('Bootstrap');
   const app = await NestFactory.create(AppModule, {
     logger: ['error', 'warn', 'log', 'debug', 'verbose'],
@@ -16,19 +16,15 @@ async function bootstrap() {
   const apiPrefix = configService.get<string>('API_PREFIX', 'api/v1');
   const corsOrigins = configService.get<string>('CORS_ORIGINS', '*');
 
-  // Security
   app.use(helmet());
 
-  // CORS
   app.enableCors({
     origin: corsOrigins === '*' ? '*' : corsOrigins.split(','),
     credentials: true,
   });
 
-  // Global prefix
   app.setGlobalPrefix(apiPrefix);
 
-  // Validation
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
@@ -38,7 +34,6 @@ async function bootstrap() {
     }),
   );
 
-  // Swagger
   if (configService.get('NODE_ENV') !== 'production') {
     const swaggerConfig = new DocumentBuilder()
       .setTitle('Co-Op API')
@@ -50,12 +45,11 @@ async function bootstrap() {
     SwaggerModule.setup('docs', app, document);
   }
 
-  // Graceful shutdown
   app.enableShutdownHooks();
 
   await app.listen(port);
-  logger.log(`🚀 Co-Op Backend running on port ${port}`);
-  logger.log(`📚 API Docs: http://localhost:${port}/docs`);
+  logger.log(`🚀 Co-Op Backend running on port ${String(port)}`);
+  logger.log(`📚 API Docs: http://localhost:${String(port)}/docs`);
 }
 
-bootstrap();
+void bootstrap();

@@ -8,15 +8,26 @@ export const envSchema = z.object({
   // Database
   DATABASE_URL: z.string(),
 
-  // Redis (Upstash)
+  // Supabase
+  SUPABASE_URL: z.string(),
+  SUPABASE_ANON_KEY: z.string(),
+  SUPABASE_SERVICE_KEY: z.string().optional(),
+  SUPABASE_STORAGE_BUCKET: z.string().default('documents'),
+
+  // Upstash Redis (single source for caching + queues)
   UPSTASH_REDIS_URL: z.string(),
   UPSTASH_REDIS_TOKEN: z.string(),
 
-  // Auth
-  JWT_SECRET: z.string().min(32),
-  JWT_EXPIRES_IN: z.string().default('7d'),
+  // LLM Providers (configure at least one)
+  GROQ_API_KEY: z.string().optional(),
+  GOOGLE_AI_API_KEY: z.string().optional(),
+  HUGGINGFACE_API_KEY: z.string().optional(),
 
-  // MCP
+  // LLM Council settings
+  LLM_COUNCIL_MIN_MODELS: z.string().default('3').transform(Number),
+  LLM_COUNCIL_MAX_MODELS: z.string().default('5').transform(Number),
+
+  // MCP (optional)
   MCP_ENDPOINT: z.string().optional(),
   MCP_API_KEY: z.string().optional(),
 

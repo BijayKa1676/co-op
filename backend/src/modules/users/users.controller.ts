@@ -1,8 +1,20 @@
-import { Controller, Get, Post, Patch, Param, Body, UseGuards, ParseUUIDPipe } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Delete,
+  Param,
+  Body,
+  UseGuards,
+  ParseUUIDPipe,
+} from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { UsersService } from './users.service';
 import { CreateUserDto, UpdateUserDto, UserResponseDto } from './dto';
 import { AuthGuard } from '@/common/guards/auth.guard';
+import { AdminGuard } from '@/common/guards/admin.guard';
+import { CurrentUser, CurrentUserPayload } from '@/common/decorators/current-user.decorator';
 import { ApiResponseDto } from '@/common/dto/api-response.dto';
 
 @ApiTags('Users')
@@ -11,11 +23,23 @@ export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   @Post()
-  @ApiOperation({ summary: 'Create a new user' })
+  @UseGuards(AdminGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Create a new user (admin only)' })
   @ApiResponse({ status: 201, description: 'User created successfully' })
   async create(@Body() dto: CreateUserDto): Promise<ApiResponseDto<UserResponseDto>> {
     const user = await this.usersService.create(dto);
     return ApiResponseDto.success(user, 'User created successfully');
+  }
+
+  @Get('me')
+  @UseGuards(AuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get current user profile' })
+  @ApiResponse({ status: 200, description: 'Current user profile' })
+  async getMe(@CurrentUser() currentUser: CurrentUserPayload): Promise<ApiResponseDto<UserResponseDto>> {
+    const user = await this.usersService.findById(currentUser.id);
+    return ApiResponseDto.success(user);
   }
 
   @Get(':id')
@@ -29,10 +53,23 @@ export class UsersController {
     return ApiResponseDto.success(user);
   }
 
-  @Patch(':id')
+  @Patch('me')
   @UseGuards(AuthGuard)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Update user' })
+  @ApiOperation({ summary: 'Update current user profile' })
+  @ApiResponse({ status: 200, description: 'User updated successfully' })
+  async updateMe(
+    @CurrentUser() currentUser: CurrentUserPayload,
+    @Body() dto: UpdateUserDto,
+  ): Promise<ApiResponseDto<UserResponseDto>> {
+    const user = await this.usersService.update(currentUser.id, dto);
+    return ApiResponseDto.success(user, 'Profile updated successfully');
+  }
+
+  @Patch(':id')
+  @UseGuards(AdminGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Update user (admin only)' })
   @ApiResponse({ status: 200, description: 'User updated successfully' })
   async update(
     @Param('id', ParseUUIDPipe) id: string,
@@ -40,5 +77,15 @@ export class UsersController {
   ): Promise<ApiResponseDto<UserResponseDto>> {
     const user = await this.usersService.update(id, dto);
     return ApiResponseDto.success(user, 'User updated successfully');
+  }
+
+  @Delete(':id')
+  @UseGuards(AdminGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Delete user (admin only)' })
+  @ApiResponse({ status: 200, description: 'User deleted successfully' })
+  async delete(@Param('id', ParseUUIDPipe) id: string): Promise<ApiResponseDto<null>> {
+    await this.usersService.delete(id);
+    return ApiResponseDto.message('User deleted successfully');
   }
 }

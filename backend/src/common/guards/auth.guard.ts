@@ -1,35 +1,32 @@
 import { Injectable, CanActivate, ExecutionContext, UnauthorizedException } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { SupabaseService, SupabaseUser } from '@/common/supabase/supabase.service';
+
+interface AuthenticatedRequest {
+  headers: { authorization?: string };
+  user?: SupabaseUser;
+}
 
 @Injectable()
 export class AuthGuard implements CanActivate {
-  constructor(private readonly configService: ConfigService) {}
+  constructor(private readonly supabase: SupabaseService) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const request = context.switchToHttp().getRequest();
+    const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
     const authHeader = request.headers.authorization;
 
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    if (!authHeader?.startsWith('Bearer ')) {
       throw new UnauthorizedException('Missing or invalid authorization header');
     }
 
     const token = authHeader.substring(7);
 
-    try {
-      // TODO: Implement JWT verification
-      // const decoded = jwt.verify(token, this.configService.get('JWT_SECRET'));
-      // request.user = decoded;
+    const user = await this.supabase.verifyToken(token);
 
-      // Stub: Set mock user for development
-      request.user = {
-        id: 'stub-user-id',
-        email: 'stub@example.com',
-        role: 'user',
-      };
-
-      return true;
-    } catch {
-      throw new UnauthorizedException('Invalid token');
+    if (!user) {
+      throw new UnauthorizedException('Invalid or expired token');
     }
+
+    request.user = user;
+    return true;
   }
 }

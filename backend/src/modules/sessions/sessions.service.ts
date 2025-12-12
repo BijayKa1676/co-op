@@ -9,7 +9,7 @@ import { CreateSessionDto, SessionResponseDto } from './dto';
 @Injectable()
 export class SessionsService {
   private readonly SESSION_PREFIX = 'session:';
-  private readonly SESSION_TTL = 3600; // 1 hour
+  private readonly SESSION_TTL = 3600;
 
   constructor(
     @Inject(DATABASE_CONNECTION)
@@ -23,28 +23,28 @@ export class SessionsService {
       .values({
         userId,
         startupId: dto.startupId,
-        metadata: dto.metadata || {},
+        metadata: dto.metadata ?? {},
       })
       .returning();
 
-    // Cache in Redis
     await this.redis.set(`${this.SESSION_PREFIX}${session.id}`, session, this.SESSION_TTL);
 
     return this.toResponse(session);
   }
 
   async findById(id: string): Promise<SessionResponseDto> {
-    // Try cache first
     const cached = await this.redis.get<schema.Session>(`${this.SESSION_PREFIX}${id}`);
     if (cached) {
       return this.toResponse(cached);
     }
 
-    const [session] = await this.db
+    const results = await this.db
       .select()
       .from(schema.sessions)
       .where(eq(schema.sessions.id, id))
       .limit(1);
+
+    const session = results[0];
 
     if (!session) {
       throw new NotFoundException('Session not found');

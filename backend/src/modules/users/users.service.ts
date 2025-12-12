@@ -1,7 +1,8 @@
-import { Injectable, Inject, NotFoundException } from '@nestjs/common';
+import { Injectable, Inject, NotFoundException, ConflictException } from '@nestjs/common';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { eq } from 'drizzle-orm';
 import { DATABASE_CONNECTION } from '@/database/database.module';
+import { SupabaseService } from '@/common/supabase/supabase.service';
 import * as schema from '@/database/schema';
 import { CreateUserDto, UpdateUserDto, UserResponseDto } from './dto';
 
@@ -10,16 +11,28 @@ export class UsersService {
   constructor(
     @Inject(DATABASE_CONNECTION)
     private readonly db: NodePgDatabase<typeof schema>,
+    private readonly supabase: SupabaseService,
   ) {}
 
   async create(dto: CreateUserDto): Promise<UserResponseDto> {
-    // TODO: Hash password before storing
+    const existing = await this.db
+      .select()
+      .from(schema.users)
+      .where(eq(schema.users.email, dto.email.toLowerCase()))
+      .limit(1);
+
+    if (existing.length > 0) {
+      throw new ConflictException('Email already registered');
+    }
+
+    // Note: User creation should happen via Supabase Auth
+    // This creates a local user record synced with Supabase
     const [user] = await this.db
       .insert(schema.users)
       .values({
-        email: dto.email,
+        email: dto.email.toLowerCase(),
         name: dto.name,
-        passwordHash: dto.password, // TODO: Hash this
+        passwordHash: '', // Not used with Supabase Auth
       })
       .returning();
 
@@ -27,11 +40,13 @@ export class UsersService {
   }
 
   async findById(id: string): Promise<UserResponseDto> {
-    const [user] = await this.db
+    const results = await this.db
       .select()
       .from(schema.users)
       .where(eq(schema.users.id, id))
       .limit(1);
+
+    const user = results[0];
 
     if (!user) {
       throw new NotFoundException('User not found');
@@ -40,31 +55,90 @@ export class UsersService {
     return this.toResponse(user);
   }
 
-  async findByEmail(email: string): Promise<UserResponseDto | null> {
-    const [user] = await this.db
+  async findByEmail(email: string): Promise<schema.User | null> {
+    const results = await this.db
       .select()
       .from(schema.users)
-      .where(eq(schema.users.email, email))
+      .where(eq(schema.users.email, email.toLowerCase()))
       .limit(1);
 
-    return user ? this.toResponse(user) : null;
+    return results[0] ?? null;
+  }
+
+  async findOrCreateFromSupabase(supabaseUserId: string, email: string, name?: string): Promise<UserResponseDto> {
+    // Try to find existing user
+    const existing = await this.db
+      .select()
+      .from(schema.users)
+      .where(eq(schema.users.id, supabaseUserId))
+      .limit(1);
+
+    if (existing.length > 0) {
+      return this.toResponse(existing[0]);
+    }
+
+    // Create new user synced with Supabase
+    const [user] = await this.db
+      .insert(schema.users)
+      .values({
+        id: supabaseUserId,
+        email: email.toLowerCase(),
+        name: name ?? email.split('@')[0],
+        passwordHash: '',
+      })
+      .returning();
+
+    return this.toResponse(user);
   }
 
   async update(id: string, dto: UpdateUserDto): Promise<UserResponseDto> {
-    const [user] = await this.db
+    if (dto.email) {
+      const existing = await this.db
+        .select()
+        .from(schema.users)
+        .where(eq(schema.users.email, dto.email.toLowerCase()))
+        .limit(1);
+
+      if (existing.length > 0 && existing[0].id !== id) {
+        throw new ConflictException('Email already in use');
+      }
+    }
+
+    const updateData: Partial<{ email: string; name: string; updatedAt: Date }> = {
+      updatedAt: new Date(),
+    };
+
+    if (dto.email) {
+      updateData.email = dto.email.toLowerCase();
+    }
+
+    if (dto.name) {
+      updateData.name = dto.name;
+    }
+
+    const results = await this.db
       .update(schema.users)
-      .set({
-        ...dto,
-        updatedAt: new Date(),
-      })
+      .set(updateData)
       .where(eq(schema.users.id, id))
       .returning();
+
+    const user = results[0];
 
     if (!user) {
       throw new NotFoundException('User not found');
     }
 
     return this.toResponse(user);
+  }
+
+  async delete(id: string): Promise<void> {
+    const results = await this.db.delete(schema.users).where(eq(schema.users.id, id)).returning();
+
+    const user = results[0];
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
   }
 
   private toResponse(user: schema.User): UserResponseDto {

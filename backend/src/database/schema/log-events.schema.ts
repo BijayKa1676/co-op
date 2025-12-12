@@ -12,12 +12,12 @@ export const logEvents = pgTable(
     metadata: jsonb('metadata').notNull().default({}),
     createdAt: timestamp('created_at').notNull().defaultNow(),
   },
-  table => ({
-    typeIdx: index('log_events_type_idx').on(table.type),
-    userIdIdx: index('log_events_user_id_idx').on(table.userId),
-    sessionIdIdx: index('log_events_session_id_idx').on(table.sessionId),
-    createdAtIdx: index('log_events_created_at_idx').on(table.createdAt),
-  }),
+  table => [
+    index('log_events_type_idx').on(table.type),
+    index('log_events_user_id_idx').on(table.userId),
+    index('log_events_session_id_idx').on(table.sessionId),
+    index('log_events_created_at_idx').on(table.createdAt),
+  ],
 );
 
 export const logEventsRelations = relations(logEvents, ({ one }) => ({

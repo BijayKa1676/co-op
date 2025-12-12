@@ -2,12 +2,13 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ThrottlerModule } from '@nestjs/throttler';
 
-// Config
 import { envSchema } from './config/env.config';
 
 // Core modules
 import { DatabaseModule } from './database/database.module';
 import { RedisModule } from './common/redis/redis.module';
+import { SupabaseModule } from './common/supabase/supabase.module';
+import { LlmModule } from './common/llm/llm.module';
 
 // Feature modules
 import { HealthModule } from './modules/health/health.module';
@@ -19,13 +20,11 @@ import { AnalyticsModule } from './modules/analytics/analytics.module';
 
 @Module({
   imports: [
-    // Configuration
     ConfigModule.forRoot({
       isGlobal: true,
       validate: config => envSchema.parse(config),
     }),
 
-    // Rate limiting
     ThrottlerModule.forRoot([
       {
         ttl: 60000,
@@ -36,6 +35,8 @@ import { AnalyticsModule } from './modules/analytics/analytics.module';
     // Core
     DatabaseModule,
     RedisModule,
+    SupabaseModule,
+    LlmModule,
 
     // Features
     HealthModule,

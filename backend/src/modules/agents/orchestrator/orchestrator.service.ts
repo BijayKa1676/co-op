@@ -58,7 +58,7 @@ export class OrchestratorService {
     }
   }
 
-  async createTask(agentType: AgentType, input: AgentInput): Promise<string> {
+  createTask(agentType: AgentType, input: AgentInput): string {
     const taskId = uuid();
     const task: OrchestratorTask = {
       id: taskId,
@@ -72,11 +72,11 @@ export class OrchestratorService {
     return taskId;
   }
 
-  async getTask(taskId: string): Promise<OrchestratorTask | null> {
-    return this.tasks.get(taskId) || null;
+  getTask(taskId: string): OrchestratorTask | null {
+    return this.tasks.get(taskId) ?? null;
   }
 
-  async cancelTask(taskId: string): Promise<void> {
+  cancelTask(taskId: string): void {
     const task = this.tasks.get(taskId);
     if (task) {
       task.status = 'failed';

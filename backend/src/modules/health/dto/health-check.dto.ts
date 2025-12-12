@@ -16,6 +16,6 @@ export class HealthCheckDto {
   @ApiProperty()
   version: string;
 
-  @ApiProperty({ type: 'object', additionalProperties: { enum: ServiceStatus } })
+  @ApiProperty({ type: 'object', additionalProperties: { type: 'string' } })
   services: Record<string, ServiceStatus>;
 }

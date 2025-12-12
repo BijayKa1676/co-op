@@ -1,10 +1,31 @@
-import { Controller, Get, Post, Delete, Param, Body, Query, UseGuards, ParseUUIDPipe } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import {
+  Controller,
+  Get,
+  Post,
+  Delete,
+  Param,
+  Body,
+  Query,
+  UseGuards,
+  ParseUUIDPipe,
+  UploadedFile,
+  UseInterceptors,
+  BadRequestException,
+} from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiConsumes } from '@nestjs/swagger';
 import { AdminService } from './admin.service';
 import { UploadPdfDto, ListEmbeddingsQueryDto, EmbeddingResponseDto } from './dto';
 import { AdminGuard } from '@/common/guards/admin.guard';
 import { ApiResponseDto } from '@/common/dto/api-response.dto';
 import { PaginatedResult } from '@/common/dto/pagination.dto';
+
+interface UploadedFileType {
+  buffer: Buffer;
+  originalname: string;
+  mimetype: string;
+  size: number;
+}
 
 @ApiTags('Admin')
 @Controller('admin')
@@ -14,20 +35,41 @@ export class AdminController {
   constructor(private readonly adminService: AdminService) {}
 
   @Post('embeddings/upload')
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiConsumes('multipart/form-data')
   @ApiOperation({ summary: 'Upload PDF for embedding' })
   @ApiResponse({ status: 201, description: 'PDF uploaded' })
-  async uploadPdf(@Body() dto: UploadPdfDto): Promise<ApiResponseDto<{ id: string; status: string }>> {
-    const result = await this.adminService.uploadPdf(dto);
+  async uploadPdf(
+    @UploadedFile() file: UploadedFileType,
+    @Body() dto: UploadPdfDto,
+  ): Promise<ApiResponseDto<{ id: string; status: string; path: string }>> {
+    if (!file) {
+      throw new BadRequestException('File is required');
+    }
+
+    if (file.mimetype !== 'application/pdf') {
+      throw new BadRequestException('Only PDF files are allowed');
+    }
+
+    const filename = dto.filename ?? file.originalname;
+    const uploadDto: UploadPdfDto = {
+      filename,
+      startupId: dto.startupId,
+      metadata: dto.metadata,
+    };
+
+    const result = await this.adminService.uploadPdf(uploadDto, file.buffer, file.mimetype);
+
     return ApiResponseDto.success(result, 'PDF uploaded for processing');
   }
 
   @Get('embeddings')
   @ApiOperation({ summary: 'List all embeddings' })
   @ApiResponse({ status: 200, description: 'Embeddings list' })
-  async listEmbeddings(
+  listEmbeddings(
     @Query() query: ListEmbeddingsQueryDto,
-  ): Promise<ApiResponseDto<PaginatedResult<EmbeddingResponseDto>>> {
-    const result = await this.adminService.listEmbeddings(query);
+  ): ApiResponseDto<PaginatedResult<EmbeddingResponseDto>> {
+    const result = this.adminService.listEmbeddings(query);
     return ApiResponseDto.success(result);
   }
 
@@ -35,8 +77,8 @@ export class AdminController {
   @ApiOperation({ summary: 'Get embedding by ID' })
   @ApiResponse({ status: 200, description: 'Embedding found' })
   @ApiResponse({ status: 404, description: 'Embedding not found' })
-  async getEmbedding(@Param('id', ParseUUIDPipe) id: string): Promise<ApiResponseDto<EmbeddingResponseDto>> {
-    const embedding = await this.adminService.getEmbedding(id);
+  getEmbedding(@Param('id', ParseUUIDPipe) id: string): ApiResponseDto<EmbeddingResponseDto> {
+    const embedding = this.adminService.getEmbedding(id);
     return ApiResponseDto.success(embedding);
   }
 
@@ -44,7 +86,8 @@ export class AdminController {
   @ApiOperation({ summary: 'Delete embedding' })
   @ApiResponse({ status: 200, description: 'Embedding deleted' })
   async deleteEmbedding(@Param('id', ParseUUIDPipe) id: string): Promise<ApiResponseDto<null>> {
-    await this.adminService.deleteEmbedding(id);
+    const filePath = `pdfs/${id}`;
+    await this.adminService.deleteEmbedding(id, filePath);
     return ApiResponseDto.message('Embedding deleted successfully');
   }
 }
