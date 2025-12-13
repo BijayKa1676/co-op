@@ -56,20 +56,28 @@ export default function LoginPage() {
     const supabase = createClient();
 
     if (isSignUp) {
-      const { error } = await supabase.auth.signUp({
+      // Sign up - with email confirmation disabled, user is auto-confirmed
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
-        options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback`,
-        },
       });
 
       if (error) {
         toast.error(error.message);
-      } else {
+        setIsLoading(false);
+        return;
+      }
+
+      // Check if user was created and session exists (email confirmation disabled)
+      if (data.session) {
+        toast.success('Account created successfully!');
+        router.push('/onboarding');
+      } else if (data.user && !data.session) {
+        // Email confirmation is still enabled - show message
         toast.success('Check your email for the confirmation link');
       }
     } else {
+      // Sign in
       const { error } = await supabase.auth.signInWithPassword({
         email,
         password,
