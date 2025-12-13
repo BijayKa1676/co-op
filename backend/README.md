@@ -79,7 +79,7 @@ Co-Op Backend is an open-source AI platform that provides startup founders with 
 ├─────────────────┤       ├─────────────────────┤       ├─────────────────┤
 │ Groq Provider   │       │ PostgreSQL (Drizzle)│       │ RAG Service     │
 │ Google Provider │       │ Redis (Upstash)     │       │ (Context Only)  │
-│ HuggingFace     │       │ BullMQ Queues       │       │ Notion API      │
+│ HuggingFace     │       │ QStash + BullMQ     │       │ Notion API      │
 │ Cross-Critique  │       │ Circuit Breaker     │       │ Web Research    │
 │ Consensus       │       │ Prometheus Metrics  │       │ (Gemini Search) │
 └─────────────────┘       └─────────────────────┘       └─────────────────┘
@@ -102,6 +102,7 @@ src/
 │   │   ├── llm-council.service.ts
 │   │   └── llm-router.service.ts
 │   ├── metrics/               # Prometheus metrics
+│   ├── qstash/                # Upstash QStash serverless queue
 │   ├── rag/                   # RAG service client (context retrieval)
 │   ├── redis/                 # Upstash Redis client
 │   ├── research/              # Web research (Gemini Search)
@@ -141,7 +142,8 @@ src/
 | **Database** | PostgreSQL (Neon) | Primary data store |
 | **ORM** | Drizzle ORM | Type-safe SQL |
 | **Cache** | Upstash Redis | Caching & rate limiting |
-| **Queue** | BullMQ | Async job processing |
+| **Queue** | Upstash QStash | Serverless message queue (primary) |
+| **Queue Fallback** | BullMQ | Redis-based queue (fallback) |
 | **Auth** | Supabase Auth | JWT authentication |
 | **Storage** | Supabase Storage | File uploads |
 | **LLM** | Groq, Google AI, HuggingFace | Multi-provider AI |
@@ -256,10 +258,16 @@ SUPABASE_SERVICE_KEY="eyJ..."
 UPSTASH_REDIS_URL="https://instance.upstash.io"
 UPSTASH_REDIS_TOKEN="AX..."
 
-# Upstash Redis (Standard for BullMQ)
+# Upstash Redis (Standard for BullMQ fallback)
 UPSTASH_REDIS_HOST="instance.upstash.io"
 UPSTASH_REDIS_PORT="6379"
 UPSTASH_REDIS_PASSWORD="AX..."
+
+# Upstash QStash (Serverless Queue - Primary)
+QSTASH_URL="https://qstash.upstash.io"
+QSTASH_TOKEN="eyJ..."
+QSTASH_CURRENT_SIGNING_KEY="sig_..."
+QSTASH_NEXT_SIGNING_KEY="sig_..."
 
 # At least ONE LLM provider
 GROQ_API_KEY="gsk_..."           # Recommended

@@ -6,12 +6,14 @@ import { AgentsService } from './agents.service';
 import { OrchestratorService } from './orchestrator/orchestrator.service';
 import { AgentsQueueService } from './queue/agents.queue.service';
 import { AgentsProcessor } from './queue/agents.processor';
+import { AgentsWebhookController } from './queue/agents.webhook.controller';
 import { AGENTS_QUEUE } from './queue/agents.queue.types';
 import { A2AService } from './a2a/a2a.service';
 import { LlmModule } from '@/common/llm/llm.module';
 import { RagModule } from '@/common/rag/rag.module';
 import { ResearchModule } from '@/common/research/research.module';
 import { RedisModule } from '@/common/redis/redis.module';
+import { QStashModule } from '@/common/qstash/qstash.module';
 import { StartupsModule } from '@/modules/startups/startups.module';
 
 import { LegalAgentService } from './domains/legal/legal-agent.service';
@@ -25,6 +27,7 @@ import { CompetitorAgentService } from './domains/competitor/competitor-agent.se
     RagModule,
     ResearchModule,
     RedisModule,
+    QStashModule,
     StartupsModule,
     BullModule.forRootAsync({
       imports: [ConfigModule],
@@ -67,7 +70,7 @@ import { CompetitorAgentService } from './domains/competitor/competitor-agent.se
       },
     }),
   ],
-  controllers: [AgentsController],
+  controllers: [AgentsController, AgentsWebhookController],
   providers: [
     AgentsService,
     OrchestratorService,
