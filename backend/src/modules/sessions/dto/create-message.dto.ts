@@ -5,7 +5,7 @@ export const MESSAGE_ROLES = ['user', 'assistant', 'system'] as const;
 export type MessageRole = (typeof MESSAGE_ROLES)[number];
 
 export class CreateMessageDto {
-  @ApiProperty({ enum: MESSAGE_ROLES })
+  @ApiProperty({ enum: ['user', 'assistant', 'system'], description: 'Message role' })
   @IsString()
   @IsNotEmpty()
   @IsIn(MESSAGE_ROLES)

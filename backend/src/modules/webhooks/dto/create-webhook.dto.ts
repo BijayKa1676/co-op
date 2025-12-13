@@ -32,7 +32,18 @@ export class CreateWebhookDto {
   @MaxLength(2048)
   url: string;
 
-  @ApiProperty({ type: [String], example: ['session.created', 'session.ended'], enum: VALID_WEBHOOK_EVENTS })
+  @ApiProperty({ 
+    type: [String], 
+    example: ['session.created', 'agent.completed'], 
+    enum: [
+      'session.created', 'session.ended', 'session.expired',
+      'user.created', 'user.updated', 'user.deleted',
+      'startup.created', 'startup.updated', 'startup.deleted',
+      'agent.started', 'agent.completed', 'agent.failed',
+      '*'
+    ],
+    description: 'Webhook events to subscribe to',
+  })
   @IsArray()
   @ArrayNotEmpty()
   @IsString({ each: true })

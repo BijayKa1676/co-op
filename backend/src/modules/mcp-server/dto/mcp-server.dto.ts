@@ -36,6 +36,14 @@ export class McpToolArgumentsDto {
   @IsNotEmpty()
   industry: string;
 
+  @ApiProperty({ 
+    description: 'RAG sector for document filtering (required for legal/finance agents)',
+    enum: ['fintech', 'greentech', 'healthtech', 'saas', 'ecommerce'],
+  })
+  @IsString()
+  @IsNotEmpty()
+  sector: string;
+
   @ApiProperty({ description: 'Stage' })
   @IsString()
   @IsNotEmpty()
@@ -52,7 +60,12 @@ export class McpToolArgumentsDto {
   @IsOptional()
   additionalContext?: string;
 
-  @ApiProperty({ description: 'Agents for multi-agent query', required: false })
+  @ApiProperty({ 
+    description: 'Agents for multi-agent query', 
+    required: false,
+    type: [String],
+    enum: ['legal', 'finance', 'investor', 'competitor'],
+  })
   @ValidateIf((o: McpToolArgumentsDto) => o.agents !== undefined)
   @IsArray()
   @IsOptional()

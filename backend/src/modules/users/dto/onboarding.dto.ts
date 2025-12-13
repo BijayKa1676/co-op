@@ -211,7 +211,11 @@ export class OnboardingDto {
   @MaxLength(255)
   founderName: string;
 
-  @ApiProperty({ description: 'Founder role (case-insensitive)', enum: FOUNDER_ROLES, example: 'CEO' })
+  @ApiProperty({ 
+    description: 'Founder role (case-insensitive)', 
+    enum: ['ceo', 'cto', 'coo', 'cfo', 'cpo', 'founder', 'cofounder'], 
+    example: 'ceo',
+  })
   @IsString()
   @Validate(IsValidFounderRole)
   @Transform(({ value }: { value: string }) => value?.toLowerCase())
@@ -243,7 +247,17 @@ export class OnboardingDto {
   website?: string;
 
   // === BUSINESS CLASSIFICATION ===
-  @ApiProperty({ description: 'Primary industry (case-insensitive)', enum: INDUSTRIES, example: 'saas' })
+  @ApiProperty({ 
+    description: 'Primary industry (case-insensitive)', 
+    enum: [
+      'saas', 'fintech', 'healthtech', 'edtech', 'ecommerce', 'marketplace',
+      'ai_ml', 'artificial_intelligence', 'cybersecurity', 'cleantech', 'biotech',
+      'proptech', 'insurtech', 'legaltech', 'hrtech', 'agritech', 'logistics',
+      'media_entertainment', 'gaming', 'food_beverage', 'travel_hospitality',
+      'social', 'developer_tools', 'hardware', 'other'
+    ], 
+    example: 'saas',
+  })
   @IsString()
   @Validate(IsValidIndustry)
   @Transform(({ value }: { value: string }) => value?.toLowerCase())
@@ -251,7 +265,7 @@ export class OnboardingDto {
 
   @ApiProperty({ 
     description: 'Sector for RAG document filtering (case-insensitive)', 
-    enum: SECTORS, 
+    enum: ['fintech', 'greentech', 'healthtech', 'saas', 'ecommerce'], 
     example: 'fintech',
   })
   @IsString()
@@ -259,13 +273,22 @@ export class OnboardingDto {
   @Transform(({ value }: { value: string }) => value?.toLowerCase())
   sector: Sector;
 
-  @ApiProperty({ description: 'Business model (case-insensitive)', enum: BUSINESS_MODELS, example: 'B2B' })
+  @ApiProperty({ 
+    description: 'Business model (case-insensitive)', 
+    enum: ['b2b', 'b2c', 'b2b2c', 'marketplace', 'd2c', 'enterprise', 'smb', 'consumer', 'platform', 'api', 'other'], 
+    example: 'b2b',
+  })
   @IsString()
   @Validate(IsValidBusinessModel)
   @Transform(({ value }: { value: string }) => value?.toLowerCase())
   businessModel: BusinessModel;
 
-  @ApiProperty({ description: 'Revenue model (case-insensitive)', enum: REVENUE_MODELS, example: 'subscription', required: false })
+  @ApiProperty({ 
+    description: 'Revenue model (case-insensitive)', 
+    enum: ['subscription', 'transaction_fee', 'freemium', 'usage_based', 'licensing', 'advertising', 'commission', 'one_time', 'hybrid', 'not_yet'], 
+    example: 'subscription', 
+    required: false,
+  })
   @IsString()
   @IsOptional()
   @Validate(IsValidRevenueModel)
@@ -273,7 +296,11 @@ export class OnboardingDto {
   revenueModel?: RevenueModel;
 
   // === COMPANY STAGE ===
-  @ApiProperty({ description: 'Current stage (case-insensitive)', enum: STAGES, example: 'MVP' })
+  @ApiProperty({ 
+    description: 'Current stage (case-insensitive)', 
+    enum: ['idea', 'prototype', 'mvp', 'beta', 'launched', 'growth', 'scale'], 
+    example: 'mvp',
+  })
   @IsString()
   @Validate(IsValidStage)
   @Transform(({ value }: { value: string }) => value?.toLowerCase())
@@ -291,7 +318,11 @@ export class OnboardingDto {
   launchDate?: string;
 
   // === TEAM ===
-  @ApiProperty({ description: 'Team size', enum: TEAM_SIZES, example: '1-5' })
+  @ApiProperty({ 
+    description: 'Team size', 
+    enum: ['1-5', '6-20', '21-50', '51-200', '200+'], 
+    example: '1-5',
+  })
   @IsString()
   teamSize: TeamSize;
 
@@ -321,7 +352,12 @@ export class OnboardingDto {
   operatingRegions?: string;
 
   // === FINANCIALS ===
-  @ApiProperty({ description: 'Current funding stage (case-insensitive)', enum: FUNDING_STAGES, example: 'seed', required: false })
+  @ApiProperty({ 
+    description: 'Current funding stage (case-insensitive)', 
+    enum: ['bootstrapped', 'pre_seed', 'seed', 'series_a', 'series_b', 'series_c_plus', 'profitable'], 
+    example: 'seed', 
+    required: false,
+  })
   @IsString()
   @IsOptional()
   @Validate(IsValidFundingStage)
@@ -340,7 +376,11 @@ export class OnboardingDto {
   @Min(0)
   monthlyRevenue?: number;
 
-  @ApiProperty({ description: 'Revenue status (case-insensitive)', enum: REVENUE_STATUS, example: 'yes' })
+  @ApiProperty({ 
+    description: 'Revenue status (case-insensitive)', 
+    enum: ['yes', 'no', 'pre_revenue'], 
+    example: 'yes',
+  })
   @IsString()
   @Validate(IsValidRevenueStatus)
   @Transform(({ value }: { value: string }) => value?.toLowerCase())

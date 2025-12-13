@@ -2,7 +2,7 @@ import { Injectable, NotFoundException, Logger, BadRequestException } from '@nes
 import { v4 as uuid } from 'uuid';
 import { SupabaseStorageService } from '@/common/supabase/supabase-storage.service';
 import { RagService } from '@/common/rag/rag.service';
-import { UploadPdfDto, RagDomain, RagSector } from './dto';
+import { UploadPdfDto } from './dto';
 import { ListEmbeddingsQueryDto, EmbeddingResponseDto } from './dto';
 import { PaginatedResult } from '@/common/dto/pagination.dto';
 
@@ -112,8 +112,8 @@ export class AdminService {
     }
 
     try {
-      const domain = query.domain as RagDomain | undefined;
-      const sector = query.sector as RagSector | undefined;
+      const domain = query.domain;
+      const sector = query.sector;
       const result = await this.ragService.listFiles(domain, sector);
 
       const embeddings: EmbeddingResponseDto[] = result.files.map((file) => ({

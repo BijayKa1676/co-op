@@ -17,7 +17,7 @@ export class UploadPdfDto {
 
   @ApiProperty({ 
     description: 'Document domain', 
-    enum: RAG_DOMAINS,
+    enum: ['legal', 'finance'],
     example: 'legal',
   })
   @IsEnum(RAG_DOMAINS, { message: `domain must be one of: ${RAG_DOMAINS.join(', ')}` })
@@ -26,7 +26,7 @@ export class UploadPdfDto {
 
   @ApiProperty({ 
     description: 'Industry sector', 
-    enum: RAG_SECTORS,
+    enum: ['fintech', 'greentech', 'healthtech', 'saas', 'ecommerce'],
     example: 'fintech',
   })
   @IsEnum(RAG_SECTORS, { message: `sector must be one of: ${RAG_SECTORS.join(', ')}` })

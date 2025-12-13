@@ -32,7 +32,11 @@ export class CreateApiKeyDto {
   @ApiProperty({
     description: 'Scopes/permissions',
     example: ['agents:read', 'agents:write', 'sessions:read'],
-    enum: VALID_SCOPES,
+    enum: [
+      'read', 'write', 'admin', 'agents', 'agents:read', 'agents:write',
+      'sessions', 'sessions:read', 'sessions:write', 'webhooks', 'webhooks:read',
+      'webhooks:write', 'users:read', 'startups:read', 'notion', 'mcp', '*'
+    ],
   })
   @IsArray()
   @ArrayNotEmpty()
