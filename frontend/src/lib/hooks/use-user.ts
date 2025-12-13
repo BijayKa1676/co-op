@@ -64,24 +64,29 @@ export function useUser() {
 
 export function useRequireAuth(options?: { requireOnboarding?: boolean }) {
   const router = useRouter();
-  const { user, isLoading, fetchUser } = useUser();
+  const { user, fetchUser } = useUser();
   const hasChecked = useRef(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     if (hasChecked.current) return;
     hasChecked.current = true;
     
     const checkAuth = async () => {
-      const userData = await fetchUser();
-      
-      if (!userData) {
-        router.push('/login');
-        return;
-      }
+      try {
+        const userData = await fetchUser();
+        
+        if (!userData) {
+          router.push('/login');
+          return;
+        }
 
-      if (options?.requireOnboarding && !userData.onboardingCompleted) {
-        router.push('/onboarding');
-        return;
+        if (options?.requireOnboarding && !userData.onboardingCompleted) {
+          router.push('/onboarding');
+          return;
+        }
+      } finally {
+        setIsLoading(false);
       }
     };
 
