@@ -107,6 +107,16 @@
     font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
   }
   
+  /* Hidden scrollbar - still scrollable */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+  
   /* Text balance for headings */
   .text-balance {
     text-wrap: balance;
