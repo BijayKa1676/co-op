@@ -92,13 +92,13 @@ Unlike single-model AI, Co-Op uses a council of multiple LLMs that collaborate a
 │                        LLM Council Flow                         │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
-│   Question → [Llama 3.3] ──┐                                   │
-│             [GPT OSS]   ───┼──→ Shuffle → Cross-Critique       │
-│             [Gemini 3]  ───┤         ↓                         │
-│             [DeepSeek]  ───┘    Score & Rank                   │
-│                                     ↓                          │
+│   Question → [Llama 3.3] ──┐                                    │
+│             [GPT OSS]   ───┼──→ Shuffle → Cross-Critique        │
+│             [Gemini 3]  ───┤         ↓                          │
+│             [DeepSeek]  ───┘    Score & Rank                    │
+│                                     ↓                           │
 │                              Synthesize Best                    │
-│                                     ↓                          │
+│                                     ↓                           │
 │                              Final Response                     │
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
@@ -121,15 +121,15 @@ User: "I'm building a fintech app. What do I need to know?"
 │                    A2A Multi-Agent Query                        │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
-│   [Legal Agent]     → Regulatory requirements, licenses        │
-│   [Finance Agent]   → Unit economics, compliance costs         │
-│   [Investor Agent]  → Fintech-focused VCs, check sizes         │
-│   [Competitor Agent]→ Market landscape, differentiation        │
+│   [Legal Agent]     → Regulatory requirements, licenses         │
+│   [Finance Agent]   → Unit economics, compliance costs          │
+│   [Investor Agent]  → Fintech-focused VCs, check sizes          │
+│   [Competitor Agent]→ Market landscape, differentiation         │
 │                                                                 │
-│         ↓ All responses shuffled (anonymized) ↓                │
+│         ↓ All responses shuffled (anonymized) ↓                 │
 │                                                                 │
-│   Each agent critiques other agents' responses                 │
-│   Scores aggregated → Best insights synthesized                │
+│   Each agent critiques other agents' responses                  │
+│   Scores aggregated → Best insights synthesized                 │
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -298,7 +298,7 @@ Events: `connected` → `status` (progress updates) → `done`
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                                  CLIENTS                                     │
+│                                  CLIENTS                                    │
 ├─────────────────┬─────────────────┬─────────────────┬───────────────────────┤
 │   Web App       │   Mobile App    │   IDE Plugin    │   API Consumers       │
 │   (Next.js)     │   (React Native)│   (MCP Client)  │   (REST/Webhooks)     │
@@ -308,46 +308,46 @@ Events: `connected` → `status` (progress updates) → `done`
                                     │
                                     ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                              API GATEWAY                                     │
+│                              API GATEWAY                                    │
 │                         (Supabase Auth + Guards)                            │
 └─────────────────────────────────────────────────────────────────────────────┘
                                     │
                                     ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                           BACKEND SERVICE                                    │
+│                           BACKEND SERVICE                                   │
 │                        (NestJS on Render)                                   │
-│  ┌─────────────────────────────────────────────────────────────────────┐   │
-│  │                        Agent Orchestrator                            │   │
-│  │  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐               │   │
-│  │  │  Legal   │ │ Finance  │ │ Investor │ │Competitor│               │   │
-│  │  │  Agent   │ │  Agent   │ │  Agent   │ │  Agent   │               │   │
-│  │  └────┬─────┘ └────┬─────┘ └────┬─────┘ └────┬─────┘               │   │
-│  │       │            │            │            │                      │   │
-│  │       └────────────┴─────┬──────┴────────────┘                      │   │
-│  │                          ▼                                          │   │
-│  │  ┌─────────────────────────────────────────────────────────────┐   │   │
-│  │  │                    LLM Council                               │   │   │
-│  │  │  ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌─────────┐        │   │   │
-│  │  │  │ Llama   │  │ GPT OSS │  │ Gemini  │  │DeepSeek │        │   │   │
-│  │  │  │ 3.3 70B │  │  120B   │  │ 3 Pro   │  │ R1 32B  │        │   │   │
-│  │  │  └─────────┘  └─────────┘  └─────────┘  └─────────┘        │   │   │
-│  │  │         Draft → Critique → Synthesize → Final               │   │   │
-│  │  └─────────────────────────────────────────────────────────────┘   │   │
-│  └─────────────────────────────────────────────────────────────────────┘   │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │                        Agent Orchestrator                           │    │
+│  │  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐                │    │
+│  │  │  Legal   │ │ Finance  │ │ Investor │ │Competitor│                │    │
+│  │  │  Agent   │ │  Agent   │ │  Agent   │ │  Agent   │                │    │
+│  │  └────┬─────┘ └────┬─────┘ └────┬─────┘ └────┬─────┘                │    │
+│  │       │            │            │            │                      │    │
+│  │       └────────────┴─────┬──────┴────────────┘                      │    │
+│  │                          ▼                                          │    │
+│  │  ┌─────────────────────────────────────────────────────────────┐    │    │
+│  │  │                    LLM Council                              │    │    │
+│  │  │  ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌─────────┐         │    │    │
+│  │  │  │ Llama   │  │ GPT OSS │  │ Gemini  │  │DeepSeek │         │    │    │
+│  │  │  │ 3.3 70B │  │  120B   │  │ 3 Pro   │  │ R1 32B  │         │    │    │
+│  │  │  └─────────┘  └─────────┘  └─────────┘  └─────────┘         │    │    │
+│  │  │         Draft → Critique → Synthesize → Final               │    │    │
+│  │  └─────────────────────────────────────────────────────────────┘    │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
 └─────────────────────────────────────────────────────────────────────────────┘
          │                                              │
          ▼                                              ▼
 ┌─────────────────────┐                    ┌─────────────────────────────────┐
 │    RAG Service      │                    │         Data Layer              │
 │  (FastAPI on Koyeb) │                    │                                 │
-│  ┌───────────────┐  │                    │  ┌───────────┐ ┌─────────────┐ │
-│  │ Lazy Vectors  │  │                    │  │PostgreSQL │ │   Redis     │ │
-│  │ (Upstash)     │  │                    │  │  (Neon)   │ │  (Upstash)  │ │
-│  └───────────────┘  │                    │  └───────────┘ └─────────────┘ │
-│  ┌───────────────┐  │                    │  ┌───────────┐ ┌─────────────┐ │
-│  │ PDF Storage   │  │                    │  │ Supabase  │ │  Supabase   │ │
-│  │ (Supabase)    │  │                    │  │   Auth    │ │   Storage   │ │
-│  └───────────────┘  │                    │  └───────────┘ └─────────────┘ │
+│  ┌───────────────┐  │                    │  ┌───────────┐ ┌─────────────┐  │
+│  │ Lazy Vectors  │  │                    │  │PostgreSQL │ │   Redis     │  │
+│  │ (Upstash)     │  │                    │  │  (Neon)   │ │  (Upstash)  │  │
+│  └───────────────┘  │                    │  └───────────┘ └─────────────┘  │
+│  ┌───────────────┐  │                    │  ┌───────────┐ ┌─────────────┐  │
+│  │ PDF Storage   │  │                    │  │ Supabase  │ │  Supabase   │  │
+│  │ (Supabase)    │  │                    │  │   Auth    │ │   Storage   │  │
+│  └───────────────┘  │                    │  └───────────┘ └─────────────┘  │
 └─────────────────────┘                    └─────────────────────────────────┘
 ```
 
