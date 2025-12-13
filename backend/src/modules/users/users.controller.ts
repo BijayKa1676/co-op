@@ -8,6 +8,7 @@ import {
   Body,
   UseGuards,
   ParseUUIDPipe,
+  Logger,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { UsersService } from './users.service';
@@ -21,6 +22,8 @@ import { ApiResponseDto } from '@/common/dto/api-response.dto';
 @ApiTags('Users')
 @Controller('users')
 export class UsersController {
+  private readonly logger = new Logger(UsersController.name);
+
   constructor(private readonly usersService: UsersService) {}
 
   @Post()
@@ -65,7 +68,10 @@ export class UsersController {
     @CurrentUser() currentUser: CurrentUserPayload,
     @Body() dto: OnboardingDto,
   ): Promise<ApiResponseDto<UserResponseDto>> {
+    this.logger.log(`Onboarding request for user ${currentUser.id}`);
+    this.logger.debug(`Onboarding data: ${JSON.stringify(dto)}`);
     const user = await this.usersService.completeOnboarding(currentUser.id, dto);
+    this.logger.log(`Onboarding completed for user ${currentUser.id}`);
     return ApiResponseDto.success(user, 'Onboarding completed successfully');
   }
 

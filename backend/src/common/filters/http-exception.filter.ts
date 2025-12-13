@@ -42,6 +42,8 @@ export class HttpExceptionFilter implements ExceptionFilter {
         if (Array.isArray(res.message)) {
           message = 'Validation failed';
           details = res.message;
+          // Log validation errors for debugging
+          this.logger.warn(`Validation failed on ${request.method} ${request.url}: ${JSON.stringify(res.message)}`);
         } else {
           message = typeof res.message === 'string' ? res.message : message;
           details = res.errors ?? res.details;

@@ -350,7 +350,7 @@ export default function OnboardingPage() {
                   min={1990}
                   max={2100}
                   value={formData.foundedYear || ''}
-                  onChange={(e) => updateField('foundedYear', parseInt(e.target.value))}
+                  onChange={(e) => updateField('foundedYear', parseInt(e.target.value) || new Date().getFullYear())}
                 />
               </div>
             </div>
@@ -402,7 +402,7 @@ export default function OnboardingPage() {
                   min={1}
                   max={10}
                   value={formData.cofounderCount || ''}
-                  onChange={(e) => updateField('cofounderCount', parseInt(e.target.value))}
+                  onChange={(e) => updateField('cofounderCount', parseInt(e.target.value) || 1)}
                 />
               </div>
             </div>

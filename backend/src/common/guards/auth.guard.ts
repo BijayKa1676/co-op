@@ -1,4 +1,4 @@
-import { Injectable, CanActivate, ExecutionContext, UnauthorizedException, Inject, forwardRef } from '@nestjs/common';
+import { Injectable, CanActivate, ExecutionContext, UnauthorizedException, Inject, forwardRef, Logger } from '@nestjs/common';
 import { SupabaseService, SupabaseUser } from '@/common/supabase/supabase.service';
 import { UsersService } from '@/modules/users/users.service';
 
@@ -14,6 +14,8 @@ interface AuthenticatedRequest {
 
 @Injectable()
 export class AuthGuard implements CanActivate {
+  private readonly logger = new Logger(AuthGuard.name);
+
   constructor(
     private readonly supabase: SupabaseService,
     @Inject(forwardRef(() => UsersService))
@@ -25,6 +27,7 @@ export class AuthGuard implements CanActivate {
     const authHeader = request.headers.authorization;
 
     if (!authHeader?.startsWith('Bearer ')) {
+      this.logger.warn('Missing or invalid authorization header');
       throw new UnauthorizedException('Missing or invalid authorization header');
     }
 
@@ -33,8 +36,11 @@ export class AuthGuard implements CanActivate {
     const supabaseUser = await this.supabase.verifyToken(token);
 
     if (!supabaseUser) {
+      this.logger.warn('Token verification failed - invalid or expired token');
       throw new UnauthorizedException('Invalid or expired token');
     }
+
+    this.logger.debug(`Authenticated user: ${supabaseUser.id} (${supabaseUser.email})`);
 
     // Sync user to our database (creates if not exists)
     const dbUser = await this.usersService.findOrCreateFromSupabase(
