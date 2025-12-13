@@ -53,15 +53,21 @@ class SourceResponse(BaseModel):
     score: float
     domain: str
     sector: str
+    chunk_index: int = Field(default=0, description="Index of the chunk within the file")
 
 
 class QueryResponse(BaseModel):
-    """Response from RAG query"""
-    answer: str
+    """
+    Response from RAG query - returns context only, NO LLM generation.
+    The backend's LLM Council handles answer generation.
+    """
+    context: str = Field(description="Combined text from relevant document chunks")
     sources: List[SourceResponse]
     domain: str
     sector: str
-    vectors_loaded: int  # How many docs were lazy-loaded
+    vectors_loaded: int = Field(description="How many docs were lazy-loaded during this query")
+    chunks_found: int = Field(description="Number of relevant chunks found")
+    error: Optional[str] = Field(default=None, description="Error message if query failed")
 
 
 class FileResponse(BaseModel):

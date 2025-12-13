@@ -19,6 +19,7 @@ Enterprise-grade NestJS backend powering AI-driven startup advisory services wit
 - [API Reference](#api-reference)
 - [Authentication](#authentication)
 - [LLM Council](#llm-council)
+- [RAG Integration](#rag-integration)
 - [MCP Server Integration](#mcp-server-integration)
 - [Deployment](#deployment)
 - [Development](#development)
@@ -35,6 +36,7 @@ Co-Op Backend is an open-source AI platform that provides startup founders with 
 
 - **LLM Council**: Mandatory cross-critique between 2-5 models for every response
 - **Real-time Research**: Google Gemini with Search Grounding for live web data
+- **RAG Integration**: Semantic document search for legal and finance domains
 - **MCP Protocol**: Expose AI agents as tools for Claude Desktop, Cursor, and other MCP clients
 - **Production-Ready**: Circuit breakers, rate limiting, audit logging, and Prometheus metrics
 
@@ -76,11 +78,11 @@ Co-Op Backend is an open-source AI platform that provides startup founders with 
 │   LLM COUNCIL   │       │   INFRASTRUCTURE    │       │   EXTERNAL      │
 ├─────────────────┤       ├─────────────────────┤       ├─────────────────┤
 │ Groq Provider   │       │ PostgreSQL (Drizzle)│       │ RAG Service     │
-│ Google Provider │       │ Redis (Upstash)     │       │ Notion API      │
-│ HuggingFace     │       │ BullMQ Queues       │       │ Web Research    │
-│ Cross-Critique  │       │ Circuit Breaker     │       │ (Gemini Search) │
-│ Consensus       │       │ Prometheus Metrics  │       └─────────────────┘
-└─────────────────┘       └─────────────────────┘
+│ Google Provider │       │ Redis (Upstash)     │       │ (Context Only)  │
+│ HuggingFace     │       │ BullMQ Queues       │       │ Notion API      │
+│ Cross-Critique  │       │ Circuit Breaker     │       │ Web Research    │
+│ Consensus       │       │ Prometheus Metrics  │       │ (Gemini Search) │
+└─────────────────┘       └─────────────────────┘       └─────────────────┘
 ```
 
 ### Module Structure
@@ -100,7 +102,7 @@ src/
 │   │   ├── llm-council.service.ts
 │   │   └── llm-router.service.ts
 │   ├── metrics/               # Prometheus metrics
-│   ├── rag/                   # RAG service client
+│   ├── rag/                   # RAG service client (context retrieval)
 │   ├── redis/                 # Upstash Redis client
 │   ├── research/              # Web research (Gemini Search)
 │   └── supabase/              # Supabase auth & storage
@@ -136,7 +138,7 @@ src/
 |----------|------------|---------|
 | **Framework** | NestJS 11 | Modular Node.js framework |
 | **Language** | TypeScript 5.6 | Type safety |
-| **Database** | PostgreSQL | Primary data store |
+| **Database** | PostgreSQL (Neon) | Primary data store |
 | **ORM** | Drizzle ORM | Type-safe SQL |
 | **Cache** | Upstash Redis | Caching & rate limiting |
 | **Queue** | BullMQ | Async job processing |
@@ -144,6 +146,7 @@ src/
 | **Storage** | Supabase Storage | File uploads |
 | **LLM** | Groq, Google AI, HuggingFace | Multi-provider AI |
 | **Research** | Google Gemini | Web search grounding |
+| **RAG** | External Python service | Semantic document search |
 | **Validation** | class-validator, Zod | Input validation |
 | **Docs** | Swagger/OpenAPI | API documentation |
 | **Metrics** | Prometheus | Observability |
@@ -155,12 +158,21 @@ src/
 
 ### AI Agents
 
-| Agent | Purpose | Capabilities |
-|-------|---------|--------------|
-| **Legal** | Legal advisory | Contract review, compliance, IP guidance |
-| **Finance** | Financial modeling | Runway analysis, burn rate, projections |
-| **Investor** | Investor relations | VC search, pitch feedback, term sheets |
-| **Competitor** | Competitive intel | Market analysis, competitor tracking |
+| Agent | Purpose | Data Source |
+|-------|---------|-------------|
+| **Legal** | Legal advisory | RAG (document search) |
+| **Finance** | Financial modeling | RAG (document search) |
+| **Investor** | Investor relations | Web Research (Gemini) |
+| **Competitor** | Competitive intel | Web Research (Gemini) |
+
+### Sectors
+
+All agents support filtering by startup sector:
+- `fintech` - Financial technology
+- `greentech` - Clean/green technology
+- `healthtech` - Healthcare technology
+- `saas` - Software as a Service
+- `ecommerce` - E-commerce
 
 ### Core Capabilities
 
@@ -168,8 +180,8 @@ src/
 - **Multi-Agent Queries**: Query multiple agents in parallel
 - **SSE Streaming**: Real-time response streaming
 - **Task Queue**: Async processing with BullMQ
-- **Web Research**: Real-time grounded search
-- **RAG Integration**: Semantic document search
+- **Web Research**: Real-time grounded search (investor/competitor)
+- **RAG Integration**: Semantic document search (legal/finance)
 - **MCP Server**: Expose agents as MCP tools
 - **Webhooks**: Event-driven integrations
 - **Notion Export**: Export outputs to Notion
@@ -192,7 +204,7 @@ src/
 
 - Node.js 22+
 - npm 10+
-- PostgreSQL database (Neon, Supabase, or local)
+- PostgreSQL database (Neon recommended)
 - Upstash Redis account
 - Supabase project
 - At least one LLM API key (Groq, Google AI, or HuggingFace)
@@ -275,8 +287,8 @@ THROTTLE_LIMIT="100"
 LLM_COUNCIL_MIN_MODELS="2"
 LLM_COUNCIL_MAX_MODELS="5"
 
-# RAG Service (optional)
-RAG_SERVICE_URL="http://localhost:8000"
+# RAG Service (for legal/finance agents)
+RAG_SERVICE_URL="https://your-rag-service.koyeb.app"
 RAG_API_KEY=""
 
 # Notion (optional)
@@ -306,6 +318,7 @@ See `.env.example` for full documentation of all variables.
 | `webhooks` | Webhook subscriptions |
 | `audit_logs` | Audit trail with IP tracking |
 | `mcp_integrations` | MCP server configurations |
+| `rag_files` | RAG document metadata |
 
 ### Schema Management
 
@@ -336,12 +349,11 @@ Development: http://localhost:3000/api/v1
 
 ### Endpoints Overview
 
-
 #### Health & Metrics
 
 | Method | Endpoint | Description | Auth |
 |--------|----------|-------------|------|
-| GET | `/health` | Health check | None |
+| GET | `/health` | Health check (includes RAG status) | None |
 | GET | `/metrics` | Prometheus metrics | API Key |
 
 #### Users & Onboarding
@@ -463,8 +475,8 @@ The LLM Council is a unique architecture that ensures response accuracy through 
 │                                                                 │
 │  1. GENERATE                                                    │
 │     ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌─────────┐        │
-│     │ Llama   │  │ Gemini  │  │ Mistral │  │  Qwen   │        │
-│     │  3.3    │  │  1.5    │  │   7B    │  │   3     │        │
+│     │ Llama   │  │ Gemini  │  │ GPT OSS │  │DeepSeek │        │
+│     │  3.3    │  │  3 Pro  │  │  120B   │  │ R1 32B  │        │
 │     └────┬────┘  └────┬────┘  └────┬────┘  └────┬────┘        │
 │          │            │            │            │              │
 │          ▼            ▼            ▼            ▼              │
@@ -511,6 +523,65 @@ LLM_COUNCIL_MAX_MODELS="5"
 
 ---
 
+## RAG Integration
+
+The backend integrates with an external RAG (Retrieval-Augmented Generation) service for semantic document search. The RAG service returns context only - all LLM answer generation is handled by the backend's LLM Council.
+
+### Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                        RAG FLOW                                  │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  UPLOAD (Admin):                                                 │
+│  PDF → Backend → Supabase Storage → Register with RAG (pending) │
+│                                                                  │
+│  QUERY (Legal/Finance Agent):                                    │
+│  User Question → Backend → RAG Service → Vector Search           │
+│                                    ↓                             │
+│                    Return context chunks (NO LLM)                │
+│                                    ↓                             │
+│                    Backend LLM Council generates answer          │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Key Points
+
+- **Context Only**: RAG returns relevant document chunks, not answers
+- **LLM Council**: Backend handles all answer generation with cross-critique
+- **Lazy Vectorization**: Documents vectorized on-demand, not at upload
+- **Domain Filtering**: Only legal and finance agents use RAG
+- **Sector Filtering**: Results filtered by user's startup sector
+
+### Domains & Sectors
+
+| Domain | Agents | Description |
+|--------|--------|-------------|
+| `legal` | Legal Agent | Contracts, compliance, IP |
+| `finance` | Finance Agent | Financial models, reports |
+
+| Sector | Description |
+|--------|-------------|
+| `fintech` | Financial technology |
+| `greentech` | Clean/green technology |
+| `healthtech` | Healthcare technology |
+| `saas` | Software as a Service |
+| `ecommerce` | E-commerce |
+
+### Configuration
+
+```bash
+# RAG Service URL (hosted on Koyeb)
+RAG_SERVICE_URL="https://your-rag-service.koyeb.app"
+
+# API key for RAG service authentication
+RAG_API_KEY="your-secure-api-key"
+```
+
+---
+
 ## MCP Server Integration
 
 The backend exposes AI agents as MCP (Model Context Protocol) tools for use with:
@@ -522,12 +593,12 @@ The backend exposes AI agents as MCP (Model Context Protocol) tools for use with
 
 ### Available Tools
 
-| Tool | Description | Research |
-|------|-------------|----------|
-| `legal_analysis` | Legal advice and compliance | No |
-| `finance_analysis` | Financial modeling and projections | No |
-| `investor_search` | Find relevant investors | Yes |
-| `competitor_analysis` | Competitive intelligence | Yes |
+| Tool | Description | Data Source |
+|------|-------------|-------------|
+| `legal_analysis` | Legal advice and compliance | RAG |
+| `finance_analysis` | Financial modeling and projections | RAG |
+| `investor_search` | Find relevant investors | Web Research |
+| `competitor_analysis` | Competitive intelligence | Web Research |
 | `multi_agent_query` | Query multiple agents at once | Mixed |
 
 ### Discovery Endpoint
@@ -551,7 +622,11 @@ Response:
           "companyName": { "type": "string" },
           "industry": { "type": "string" },
           "stage": { "type": "string" },
-          "country": { "type": "string" }
+          "country": { "type": "string" },
+          "sector": { 
+            "type": "string",
+            "enum": ["fintech", "greentech", "healthtech", "saas", "ecommerce"]
+          }
         },
         "required": ["prompt"]
       }
@@ -577,7 +652,8 @@ curl -X POST https://api.example.com/api/v1/mcp-server/execute \
       "companyName": "MyStartup",
       "industry": "ai",
       "stage": "seed",
-      "country": "US"
+      "country": "US",
+      "sector": "saas"
     }
   }'
 ```
@@ -596,7 +672,8 @@ curl -X POST https://api.example.com/api/v1/mcp-server/execute \
       "companyName": "MyStartup",
       "industry": "saas",
       "stage": "seed",
-      "country": "US"
+      "country": "US",
+      "sector": "fintech"
     }
   }'
 ```
@@ -650,6 +727,7 @@ docker run -p 3000:3000 \
 | Groq | LLM inference | Yes | [console.groq.com](https://console.groq.com) |
 | Google AI | Gemini + Research | Yes | [aistudio.google.com](https://aistudio.google.com) |
 | HuggingFace | LLM inference | Yes | [huggingface.co](https://huggingface.co) |
+| Koyeb | RAG Service | Yes | [koyeb.com](https://koyeb.com) |
 
 ---
 

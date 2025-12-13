@@ -29,7 +29,7 @@ export class InvestorAgentService implements BaseAgent {
   }
 
   async runDraft(input: AgentInput): Promise<AgentOutput> {
-    this.logger.debug('Running investor agent with LLM Council + RAG + Web Research');
+    this.logger.debug('Running investor agent with LLM Council + Web Research');
 
     // Gather context from multiple sources in parallel
     const [ragContext, webContext] = await Promise.all([

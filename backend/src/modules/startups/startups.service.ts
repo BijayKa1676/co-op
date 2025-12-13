@@ -113,6 +113,7 @@ export class StartupsService {
       website: startup.website,
       // Business classification
       industry: startup.industry,
+      sector: startup.sector,
       businessModel: startup.businessModel,
       revenueModel: startup.revenueModel,
       // Stage

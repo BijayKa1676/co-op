@@ -193,6 +193,9 @@ export class UsersService {
       .where(eq(schema.users.id, userId))
       .returning();
 
+    // Invalidate user cache after onboarding
+    await this.cache.invalidate(`${CACHE_PREFIX.USER}${userId}`);
+
     return this.toResponse(updatedUser, startup);
   }
 
@@ -262,6 +265,9 @@ export class UsersService {
         .set({ name: dto.founderName, updatedAt: new Date() })
         .where(eq(schema.users.id, userId));
     }
+
+    // Invalidate user cache after startup update
+    await this.cache.invalidate(`${CACHE_PREFIX.USER}${userId}`);
 
     return this.toResponse(user, startup);
   }

@@ -102,16 +102,19 @@ export class CircuitBreakerService {
     if (breaker) {
       // Reuse existing breaker state but execute new function
       if (breaker.opened) {
+        this.logger.debug(`Circuit breaker "${name}" is open, using fallback`);
         if (fallback) return fallback();
         throw new Error(`Circuit breaker "${name}" is open`);
       }
       
       try {
         const result = await fn();
+        // Track success manually since we're not using fire()
+        breaker.stats.successes++;
         return result;
       } catch (error) {
-        // Let the breaker track the failure - ignore the result
-        void breaker.fire().catch(() => undefined);
+        // Track failure manually
+        breaker.stats.failures++;
         throw error;
       }
     }

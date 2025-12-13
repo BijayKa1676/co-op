@@ -4,6 +4,7 @@ import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { sql } from 'drizzle-orm';
 import { DATABASE_CONNECTION } from '@/database/database.module';
 import { RedisService } from '@/common/redis/redis.service';
+import { RagService } from '@/common/rag/rag.service';
 import { HealthCheckDto, ServiceStatus } from './dto/health-check.dto';
 import * as schema from '@/database/schema';
 
@@ -22,6 +23,7 @@ export class HealthService {
     private readonly db: NodePgDatabase<typeof schema>,
     private readonly redis: RedisService,
     private readonly configService: ConfigService,
+    private readonly ragService: RagService,
   ) {}
 
   async check(): Promise<HealthCheckDto> {
@@ -47,6 +49,11 @@ export class HealthService {
     const llmCheck = this.checkLlmProviders();
     services.llm = llmCheck.status;
     details.llm = llmCheck;
+
+    // Check RAG service
+    const ragCheck = await this.checkRagService();
+    services.rag = ragCheck.status;
+    details.rag = ragCheck;
 
     const allHealthy = Object.values(services).every(s => s === ServiceStatus.HEALTHY);
     const anyHealthy = Object.values(services).some(s => s === ServiceStatus.HEALTHY);
@@ -126,5 +133,34 @@ export class HealthService {
       latencyMs: Date.now() - start,
       error: '',
     };
+  }
+
+  private async checkRagService(): Promise<ServiceCheckResult> {
+    const start = Date.now();
+    
+    if (!this.ragService.isAvailable()) {
+      return { status: ServiceStatus.DEGRADED, latencyMs: 0, error: 'RAG service not configured' };
+    }
+
+    try {
+      const ragUrl = this.configService.get<string>('RAG_SERVICE_URL');
+      if (!ragUrl) {
+        return { status: ServiceStatus.DEGRADED, latencyMs: 0, error: 'RAG_SERVICE_URL not set' };
+      }
+
+      const response = await fetch(`${ragUrl}/health`, {
+        method: 'GET',
+        signal: AbortSignal.timeout(5000),
+      });
+
+      if (response.ok) {
+        return { status: ServiceStatus.HEALTHY, latencyMs: Date.now() - start, error: '' };
+      }
+      return { status: ServiceStatus.DEGRADED, latencyMs: Date.now() - start, error: `HTTP ${String(response.status)}` };
+    } catch (err) {
+      const error = err instanceof Error ? err.message : 'Unknown error';
+      this.logger.warn(`RAG health check failed: ${error}`);
+      return { status: ServiceStatus.DEGRADED, latencyMs: Date.now() - start, error };
+    }
   }
 }

@@ -1,7 +1,7 @@
 # ===========================================
 # Co-Op Backend API Test File
 # ===========================================
-# Use with VS Code REST Client extension or similar
+# Use with VS Code REST Client extension
 #
 # SETUP:
 # 1. Start the backend: npm run dev
@@ -12,19 +12,23 @@
 # HOW TO GET SUPABASE TOKEN:
 # Option 1: Use Supabase Dashboard > Authentication > Users > Get JWT
 # Option 2: Sign up via Supabase client and extract token
-# Option 3: Use the test script at the bottom of this file
+# Option 3: Run: npx ts-node scripts/get-token.ts
 # ===========================================
 
 @baseUrl = http://localhost:3000/api/v1
-@token = eyJhbGciOiJIUzI1NiIsImtpZCI6ImhXRGxjQmZBY3lsUjJJU04iLCJ0eXAiOiJKV1QifQ.eyJpc3MiOiJodHRwczovL3ZrZ2N1aWdid2hjcmpkeHRyeXh6LnN1cGFiYXNlLmNvL2F1dGgvdjEiLCJzdWIiOiI4ZWFkMDU5NC1lZmVkLTQ3MTEtOGFhOS1hZDJmZjlhYTI0ZmQiLCJhdWQiOiJhdXRoZW50aWNhdGVkIiwiZXhwIjoxNzY1NTY3MDg1LCJpYXQiOjE3NjU1NjM0ODUsImVtYWlsIjoibXIuZ29ibGluMDA3YUBnbWFpbC5jb20iLCJwaG9uZSI6IiIsImFwcF9tZXRhZGF0YSI6eyJwcm92aWRlciI6ImVtYWlsIiwicHJvdmlkZXJzIjpbImVtYWlsIl19LCJ1c2VyX21ldGFkYXRhIjp7ImVtYWlsX3ZlcmlmaWVkIjp0cnVlfSwicm9sZSI6ImF1dGhlbnRpY2F0ZWQiLCJhYWwiOiJhYWwxIiwiYW1yIjpbeyJtZXRob2QiOiJwYXNzd29yZCIsInRpbWVzdGFtcCI6MTc2NTU2MzQ4NX1dLCJzZXNzaW9uX2lkIjoiZjhmZjlhNTItMGJkNi00MDMwLTk2YjctZWE2ZWU2MzUwZDRkIiwiaXNfYW5vbnltb3VzIjpmYWxzZX0.bH4Jvrywf5iMmPju9uGaA3d0YeT3Nh4H50dnygBjH2A
+@token = YOUR_SUPABASE_JWT_TOKEN_HERE
 
-# Variables that get set from responses (update manually after running)
-@userId = 8ead0594-efed-4711-8aa9-ad2ff9aa24fd
-@startupId = d21fb632-3cae-486c-9f7e-59adeebc0aee
-@sessionId = aeceb473-caa2-4586-b3b7-a01e1ec61b61
-@taskId = 
-@apiKeyId = 
-@webhookId = 
+# Variables - update after running requests
+@userId = YOUR_USER_ID
+@startupId = YOUR_STARTUP_ID
+@sessionId = YOUR_SESSION_ID
+@taskId = YOUR_TASK_ID
+@apiKeyId = YOUR_API_KEY_ID
+@webhookId = YOUR_WEBHOOK_ID
+@embeddingId = YOUR_EMBEDDING_ID
+
+# Master API key for MCP Server
+@masterApiKey = master-key-123
 
 # ===========================================
 # HEALTH & METRICS (No Auth Required)
@@ -33,14 +37,15 @@
 ### Health Check
 GET {{baseUrl}}/health
 
-### Prometheus Metrics
+### Prometheus Metrics (requires API key in production)
 GET {{baseUrl}}/metrics
 
 # ===========================================
-# USERS - Get Current User
+# USERS - Authentication & Profile
 # ===========================================
 
 ### Get Current User (creates user if first login)
+# Save the userId from response
 GET {{baseUrl}}/users/me
 Authorization: Bearer {{token}}
 
@@ -54,6 +59,8 @@ Authorization: Bearer {{token}}
 
 ### Complete Onboarding (creates startup)
 # Run this ONCE after first login
+# IMPORTANT: sector must be one of: fintech, greentech, healthtech, saas, ecommerce
+# This determines which RAG documents are used for legal/finance agents
 POST {{baseUrl}}/users/me/onboarding
 Authorization: Bearer {{token}}
 Content-Type: application/json
@@ -66,6 +73,7 @@ Content-Type: application/json
   "description": "We are building an AI-powered platform that helps startups make better decisions through data-driven insights and automated analysis.",
   "website": "https://techstartup.com",
   "industry": "saas",
+  "sector": "fintech",
   "businessModel": "b2b",
   "revenueModel": "subscription",
   "stage": "mvp",
@@ -92,7 +100,8 @@ Content-Type: application/json
 {
   "tagline": "AI-powered startup intelligence",
   "monthlyRevenue": 10000,
-  "teamSize": "6-20"
+  "teamSize": "6-20",
+  "sector": "saas"
 }
 
 ### Update User Profile
@@ -108,13 +117,7 @@ Content-Type: application/json
 # STARTUPS - View Startups
 # ===========================================
 
-### List All Startups (Admin Only)
-# Will fail if not admin - that's expected
-GET {{baseUrl}}/startups
-Authorization: Bearer {{token}}
-
 ### Get Startup by ID
-# Replace with actual startup ID from onboarding response
 GET {{baseUrl}}/startups/{{startupId}}
 Authorization: Bearer {{token}}
 
@@ -123,7 +126,7 @@ Authorization: Bearer {{token}}
 # ===========================================
 
 ### Create New Session
-# Save the session ID from response for later use
+# Save the session ID from response
 POST {{baseUrl}}/sessions
 Authorization: Bearer {{token}}
 Content-Type: application/json
@@ -144,7 +147,7 @@ Authorization: Bearer {{token}}
 GET {{baseUrl}}/sessions/{{sessionId}}
 Authorization: Bearer {{token}}
 
-### Add Message to Session (User message - no agent needed)
+### Add User Message to Session
 POST {{baseUrl}}/sessions/{{sessionId}}/messages
 Authorization: Bearer {{token}}
 Content-Type: application/json
@@ -154,7 +157,7 @@ Content-Type: application/json
   "content": "What legal structure should I use for my AI startup?"
 }
 
-### Add Message to Session (Assistant message with agent)
+### Add Assistant Message to Session
 POST {{baseUrl}}/sessions/{{sessionId}}/messages
 Authorization: Bearer {{token}}
 Content-Type: application/json
@@ -196,9 +199,11 @@ Authorization: Bearer {{token}}
 # ===========================================
 # AGENTS - AI Analysis (Main Feature!)
 # ===========================================
+# Legal & Finance agents use RAG (domain-specific documents)
+# Investor & Competitor agents use Web Research (Google Search)
 
-### Run Legal Agent (Synchronous)
-# This will take 30-60 seconds - runs full LLM Council
+### Run Legal Agent (RAG + LLM Council)
+# Uses documents from legal domain matching your startup's sector
 POST {{baseUrl}}/agents/run
 Authorization: Bearer {{token}}
 Content-Type: application/json
@@ -211,7 +216,8 @@ Content-Type: application/json
   "documents": []
 }
 
-### Run Finance Agent (Synchronous)
+### Run Finance Agent (RAG + LLM Council)
+# Uses documents from finance domain matching your startup's sector
 POST {{baseUrl}}/agents/run
 Authorization: Bearer {{token}}
 Content-Type: application/json
@@ -224,8 +230,8 @@ Content-Type: application/json
   "documents": []
 }
 
-### Run Investor Agent (Synchronous + Web Research)
-# This agent uses Google Search grounding for real-time data
+### Run Investor Agent (Web Research + LLM Council)
+# Uses Google Search grounding for real-time investor data
 POST {{baseUrl}}/agents/run
 Authorization: Bearer {{token}}
 Content-Type: application/json
@@ -238,8 +244,8 @@ Content-Type: application/json
   "documents": []
 }
 
-### Run Competitor Agent (Synchronous + Web Research)
-# This agent uses Google Search grounding for real-time data
+### Run Competitor Agent (Web Research + LLM Council)
+# Uses Google Search grounding for real-time competitor data
 POST {{baseUrl}}/agents/run
 Authorization: Bearer {{token}}
 Content-Type: application/json
@@ -267,16 +273,12 @@ Content-Type: application/json
 }
 
 ### Get Task Status
-# Use taskId from queue response
 GET {{baseUrl}}/agents/tasks/{{taskId}}
 Authorization: Bearer {{token}}
 
 ### Cancel Task
 DELETE {{baseUrl}}/agents/tasks/{{taskId}}
 Authorization: Bearer {{token}}
-
-# Note: SSE streaming endpoint (GET /agents/stream/:taskId) 
-# works best in browser or dedicated SSE client
 
 # ===========================================
 # API KEYS - Programmatic Access
@@ -343,19 +345,16 @@ Authorization: Bearer {{token}}
 # ===========================================
 # NOTION - Export to Notion (Optional)
 # ===========================================
-# Requires NOTION_API_TOKEN in .env
 
 ### Check Notion Integration Status
 GET {{baseUrl}}/notion/status
 Authorization: Bearer {{token}}
 
 ### Search Notion Pages
-# Only works if Notion is configured
 GET {{baseUrl}}/notion/pages?query=test
 Authorization: Bearer {{token}}
 
 ### Export to Notion
-# Requires a page ID that's shared with your integration
 POST {{baseUrl}}/notion/export
 Authorization: Bearer {{token}}
 Content-Type: application/json
@@ -363,28 +362,25 @@ Content-Type: application/json
 {
   "title": "Legal Analysis - AI Startup Structure",
   "agentType": "legal",
-  "content": "## Recommendation\n\nBased on your AI startup profile, I recommend incorporating as a **Delaware C-Corporation**.\n\n### Reasons:\n- Standard for VC-backed startups\n- Easier to issue stock options\n- Familiar to investors\n\n### Next Steps:\n1. File Certificate of Incorporation in Delaware\n2. Create bylaws\n3. Issue founder shares",
+  "content": "## Recommendation\n\nBased on your AI startup profile, I recommend incorporating as a **Delaware C-Corporation**.\n\n### Reasons:\n- Standard for VC-backed startups\n- Easier to issue stock options\n- Familiar to investors",
   "sources": ["https://example.com/startup-legal-guide"],
   "metadata": {
     "agent": "legal",
-    "confidence": 0.85,
-    "modelsUsed": ["Llama 3.3 70B", "Gemini 2.0 Flash", "Mixtral 8x7B"]
+    "confidence": 0.85
   }
 }
 
 # ===========================================
 # MCP SERVER - Expose Agents as MCP Tools
 # ===========================================
-# MCP Server with mandatory LLM Council cross-critique
-# Tools: legal_analysis, finance_analysis, investor_search, competitor_analysis, multi_agent_query
-
-@masterApiKey = master-key-123
+# Uses Master API Key authentication
+# All tools use mandatory LLM Council cross-critique
 
 ### Discover MCP Tools
 GET {{baseUrl}}/mcp-server/discover
 X-API-Key: {{masterApiKey}}
 
-### Legal Analysis
+### Legal Analysis via MCP (uses RAG)
 POST {{baseUrl}}/mcp-server/execute
 X-API-Key: {{masterApiKey}}
 Content-Type: application/json
@@ -395,12 +391,13 @@ Content-Type: application/json
     "prompt": "Delaware C-Corp vs LLC for AI startup?",
     "companyName": "TechStartup",
     "industry": "saas",
+    "sector": "fintech",
     "stage": "seed",
     "country": "United States"
   }
 }
 
-### Finance Analysis
+### Finance Analysis via MCP (uses RAG)
 POST {{baseUrl}}/mcp-server/execute
 X-API-Key: {{masterApiKey}}
 Content-Type: application/json
@@ -411,12 +408,13 @@ Content-Type: application/json
     "prompt": "Key metrics for pre-seed SaaS?",
     "companyName": "TechStartup",
     "industry": "fintech",
+    "sector": "saas",
     "stage": "pre-seed",
     "country": "United States"
   }
 }
 
-### Investor Search (web research)
+### Investor Search via MCP (Web Research - no RAG)
 POST {{baseUrl}}/mcp-server/execute
 X-API-Key: {{masterApiKey}}
 Content-Type: application/json
@@ -427,12 +425,13 @@ Content-Type: application/json
     "prompt": "Seed VCs for AI startups in US",
     "companyName": "TechStartup",
     "industry": "artificial-intelligence",
+    "sector": "saas",
     "stage": "seed",
     "country": "United States"
   }
 }
 
-### Competitor Analysis (web research)
+### Competitor Analysis via MCP (Web Research - no RAG)
 POST {{baseUrl}}/mcp-server/execute
 X-API-Key: {{masterApiKey}}
 Content-Type: application/json
@@ -443,12 +442,13 @@ Content-Type: application/json
     "prompt": "Top 5 competitors in AI business intelligence",
     "companyName": "TechStartup",
     "industry": "saas",
+    "sector": "saas",
     "stage": "mvp",
     "country": "United States"
   }
 }
 
-### Multi-Agent Query (query multiple agents at once)
+### Multi-Agent Query via MCP
 POST {{baseUrl}}/mcp-server/execute
 X-API-Key: {{masterApiKey}}
 Content-Type: application/json
@@ -460,6 +460,7 @@ Content-Type: application/json
     "agents": ["legal", "finance", "investor"],
     "companyName": "TechStartup",
     "industry": "saas",
+    "sector": "fintech",
     "stage": "seed",
     "country": "United States"
   }
@@ -468,7 +469,6 @@ Content-Type: application/json
 # ===========================================
 # MCP CLIENT - Connect to External MCP Servers
 # ===========================================
-# For connecting TO external MCP servers (not exposing)
 
 ### List MCP Servers
 GET {{baseUrl}}/mcp/servers
@@ -477,32 +477,6 @@ Authorization: Bearer {{token}}
 ### List All MCP Tools
 GET {{baseUrl}}/mcp/tools
 Authorization: Bearer {{token}}
-
-### Register MCP Server (Admin Only)
-POST {{baseUrl}}/mcp/servers
-Authorization: Bearer {{token}}
-Content-Type: application/json
-
-{
-  "id": "custom-mcp",
-  "name": "Custom MCP Server",
-  "baseUrl": "http://localhost:8080",
-  "apiKey": "mcp-server-api-key",
-  "enabled": true
-}
-
-### Execute MCP Tool
-POST {{baseUrl}}/mcp/execute
-Authorization: Bearer {{token}}
-Content-Type: application/json
-
-{
-  "serverId": "custom-mcp",
-  "toolName": "search",
-  "arguments": {
-    "query": "startup funding"
-  }
-}
 
 # ===========================================
 # ANALYTICS (Admin Only)
@@ -516,26 +490,165 @@ Authorization: Bearer {{token}}
 GET {{baseUrl}}/analytics/events/aggregation?days=7
 Authorization: Bearer {{token}}
 
-# ===========================================
-# ADMIN - File Management (Admin Only)
-# ===========================================
-# These require admin role in Supabase
 
-### List Embeddings
+
+# ===========================================
+# ADMIN - RAG Document Management
+# ===========================================
+# Requires admin role in Supabase (app_metadata.role = "admin")
+# 
+# RAG Flow:
+# 1. Admin uploads PDF to Supabase Storage
+# 2. File registered with RAG service (status: pending)
+# 3. On first user query, vectors are created (lazy loading)
+# 4. Vectors expire after 30 days of no access
+#
+# Domains: legal, finance
+# Sectors: fintech, greentech, healthtech, saas, ecommerce
+
+### List All Embeddings
 GET {{baseUrl}}/admin/embeddings
 Authorization: Bearer {{token}}
 
-### Get Embedding Status
-GET {{baseUrl}}/admin/embeddings/{{documentId}}
+### List Embeddings by Domain
+GET {{baseUrl}}/admin/embeddings?domain=legal
 Authorization: Bearer {{token}}
 
-# Note: PDF upload requires multipart/form-data
-# Use Postman or curl for file uploads:
-# curl -X POST {{baseUrl}}/admin/embeddings/upload \
-#   -H "Authorization: Bearer {{token}}" \
-#   -F "file=@document.pdf" \
-#   -F "filename=document.pdf" \
-#   -F "startupId={{startupId}}"
+### List Embeddings by Sector
+GET {{baseUrl}}/admin/embeddings?sector=fintech
+Authorization: Bearer {{token}}
+
+### List Embeddings by Domain AND Sector
+GET {{baseUrl}}/admin/embeddings?domain=legal&sector=fintech
+Authorization: Bearer {{token}}
+
+### List Embeddings with Pagination
+GET {{baseUrl}}/admin/embeddings?page=1&limit=10
+Authorization: Bearer {{token}}
+
+### Get Embedding by ID
+GET {{baseUrl}}/admin/embeddings/{{embeddingId}}
+Authorization: Bearer {{token}}
+
+### Force Vectorize a File
+# Use this to pre-warm vectors before user queries
+POST {{baseUrl}}/admin/embeddings/{{embeddingId}}/vectorize
+Authorization: Bearer {{token}}
+
+### Delete Embedding (removes vectors + storage file)
+DELETE {{baseUrl}}/admin/embeddings/{{embeddingId}}
+Authorization: Bearer {{token}}
+
+### Cleanup Expired Vectors (default: 30 days)
+POST {{baseUrl}}/admin/embeddings/cleanup
+Authorization: Bearer {{token}}
+
+### Cleanup Expired Vectors (custom days)
+POST {{baseUrl}}/admin/embeddings/cleanup?days=7
+Authorization: Bearer {{token}}
+
+# ===========================================
+# ADMIN - PDF Upload (multipart/form-data)
+# ===========================================
+# Use curl or Postman for file uploads:
+#
+# curl -X POST "http://localhost:3000/api/v1/admin/embeddings/upload" \
+#   -H "Authorization: Bearer YOUR_TOKEN" \
+#   -F "file=@/path/to/document.pdf" \
+#   -F "filename=startup-legal-guide.pdf" \
+#   -F "domain=legal" \
+#   -F "sector=fintech"
+#
+# Response:
+# {
+#   "success": true,
+#   "data": {
+#     "id": "uuid",
+#     "status": "pending",
+#     "storagePath": "legal/fintech/uuid/startup-legal-guide.pdf",
+#     "domain": "legal",
+#     "sector": "fintech"
+#   },
+#   "message": "PDF uploaded to legal/fintech (vectors created on first query)"
+# }
+
+# ===========================================
+# RAG SERVICE DIRECT TESTING (Koyeb)
+# ===========================================
+# Direct calls to RAG service for debugging
+# URL: https://apparent-nanice-afnan-3cac971c.koyeb.app
+
+@ragUrl = https://apparent-nanice-afnan-3cac971c.koyeb.app
+@ragApiKey = co-op-rag-secret-key-2024
+
+### RAG Health Check (no auth required)
+GET {{ragUrl}}/health
+
+### RAG List Files
+GET {{ragUrl}}/rag/files
+X-API-Key: {{ragApiKey}}
+
+### RAG List Files by Domain
+GET {{ragUrl}}/rag/files?domain=legal
+X-API-Key: {{ragApiKey}}
+
+### RAG List Files by Sector
+GET {{ragUrl}}/rag/files?sector=fintech
+X-API-Key: {{ragApiKey}}
+
+### RAG Get File by ID
+GET {{ragUrl}}/rag/files/{{embeddingId}}
+X-API-Key: {{ragApiKey}}
+
+### RAG Query (triggers lazy vectorization)
+# This will:
+# 1. Check for pending files in domain/sector
+# 2. Vectorize any pending files
+# 3. Search indexed vectors
+# 4. Update access timestamps
+# 5. Return context (NO LLM generation - backend handles that)
+#
+# Response format:
+# {
+#   "context": "Combined text from relevant chunks",
+#   "sources": [...],
+#   "chunks_found": 5,
+#   "vectors_loaded": 0
+# }
+POST {{ragUrl}}/rag/query
+X-API-Key: {{ragApiKey}}
+Content-Type: application/json
+
+{
+  "query": "What are the key legal considerations for a fintech startup?",
+  "domain": "legal",
+  "sector": "fintech",
+  "limit": 5
+}
+
+### RAG Query - Finance Domain
+POST {{ragUrl}}/rag/query
+X-API-Key: {{ragApiKey}}
+Content-Type: application/json
+
+{
+  "query": "What financial metrics should a SaaS startup track?",
+  "domain": "finance",
+  "sector": "saas",
+  "limit": 5
+}
+
+### RAG Force Vectorize
+POST {{ragUrl}}/rag/vectorize/{{embeddingId}}
+X-API-Key: {{ragApiKey}}
+
+### RAG Delete File
+DELETE {{ragUrl}}/rag/files/{{embeddingId}}
+X-API-Key: {{ragApiKey}}
+
+### RAG Cleanup Expired Vectors
+POST {{ragUrl}}/rag/cleanup?days=30
+X-API-Key: {{ragApiKey}}
 
 # ===========================================
 # QUICK TEST SEQUENCE
@@ -545,8 +658,17 @@ Authorization: Bearer {{token}}
 # 1. GET /health (verify server is running)
 # 2. GET /users/me (creates user, get userId)
 # 3. POST /users/me/onboarding (creates startup, get startupId)
+#    - Set sector to match your RAG documents!
 # 4. POST /sessions (create session, get sessionId)
-# 5. POST /agents/run with legal agent (test LLM Council)
-# 6. GET /sessions/:id/history (verify message saved)
+# 5. POST /agents/run with legal agent (test RAG + LLM Council)
+# 6. POST /agents/run with investor agent (test Web Research)
+# 7. GET /sessions/:id/history (verify messages saved)
+#
+# For RAG testing:
+# 1. Upload PDF via curl (see above)
+# 2. GET /admin/embeddings (verify file registered)
+# 3. POST /agents/run with legal/finance agent
+#    - This triggers lazy vectorization
+# 4. GET /admin/embeddings/:id (verify status = "indexed")
 #
 # ===========================================

@@ -44,6 +44,10 @@ const SINGLE_AGENT_SCHEMA: McpToolSchema = {
       type: 'string',
       description: 'Industry (fintech, healthtech, saas, etc.)',
     },
+    sector: {
+      type: 'string',
+      description: 'RAG sector for document filtering: fintech, greentech, healthtech, saas, ecommerce',
+    },
     stage: {
       type: 'string',
       description: 'Stage (pre-seed, seed, series-a, series-b)',
@@ -79,6 +83,10 @@ const MULTI_AGENT_SCHEMA: McpToolSchema = {
     industry: {
       type: 'string',
       description: 'Industry',
+    },
+    sector: {
+      type: 'string',
+      description: 'RAG sector: fintech, greentech, healthtech, saas, ecommerce',
     },
     stage: {
       type: 'string',
@@ -497,16 +505,22 @@ Output improved synthesis. Bullet points. No preamble.`;
 
   /**
    * Build agent input from MCP arguments
+   * Note: MCP clients don't have real user/startup IDs, so we use placeholders
    */
   private buildAgentInput(args: Record<string, unknown>): AgentInput {
+    // Use deterministic IDs for MCP clients (based on company name hash)
+    const companyName = (args.companyName as string) || 'unknown';
+    const deterministicId = this.generateDeterministicId(companyName);
+    
     return {
       context: {
-        sessionId: uuid(),
+        sessionId: uuid(), // Session is unique per request
         userId: 'mcp-client',
-        startupId: uuid(),
+        startupId: deterministicId, // Deterministic based on company name
         metadata: {
-          companyName: args.companyName as string,
+          companyName,
           industry: args.industry as string,
+          sector: args.sector as string, // Add sector for RAG filtering
           stage: args.stage as string,
           country: args.country as string,
           source: 'mcp',
@@ -515,6 +529,22 @@ Output improved synthesis. Bullet points. No preamble.`;
       prompt: args.prompt as string,
       documents: args.additionalContext ? [args.additionalContext as string] : [],
     };
+  }
+
+  /**
+   * Generate a deterministic UUID-like ID from a string
+   */
+  private generateDeterministicId(input: string): string {
+    // Simple hash-based deterministic ID (not a real UUID but consistent)
+    let hash = 0;
+    for (let i = 0; i < input.length; i++) {
+      const char = input.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash; // Convert to 32bit integer
+    }
+    // Format as UUID-like string
+    const hex = Math.abs(hash).toString(16).padStart(8, '0');
+    return `mcp-${hex}-0000-0000-000000000000`;
   }
 
   /**

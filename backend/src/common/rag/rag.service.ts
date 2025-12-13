@@ -130,16 +130,19 @@ export class RagService {
 
   /**
    * Query RAG with domain and sector filtering.
-   * Automatically vectorizes pending files (lazy loading).
+   * Returns context (document chunks) - NO LLM generation.
+   * The backend's LLM Council handles answer generation.
    */
   async query(request: QueryRequest): Promise<QueryResponse> {
     if (!this.isConfigured) {
       return {
-        answer: 'RAG service not configured',
+        context: '',
         sources: [],
         domain: request.domain,
         sector: request.sector,
         vectorsLoaded: 0,
+        chunksFound: 0,
+        error: 'RAG service not configured',
       };
     }
 
@@ -161,50 +164,60 @@ export class RagService {
       }
 
       const data = (await response.json()) as {
-        answer: string;
-        sources: { file_id: string; filename: string; score: number; domain: string; sector: string }[];
+        context: string;
+        sources: { file_id: string; filename: string; score: number; domain: string; sector: string; chunk_index: number }[];
         domain: string;
         sector: string;
         vectors_loaded: number;
+        chunks_found: number;
+        error?: string;
       };
 
       return {
-        answer: data.answer,
+        context: data.context,
         sources: data.sources.map((s) => ({
           fileId: s.file_id,
           filename: s.filename,
           score: s.score,
           domain: s.domain,
           sector: s.sector,
+          chunkIndex: s.chunk_index,
         })),
         domain: data.domain,
         sector: data.sector,
         vectorsLoaded: data.vectors_loaded,
+        chunksFound: data.chunks_found,
+        error: data.error,
       };
     };
 
     try {
       return await this.circuitBreaker.execute('rag-query', queryFn, () => ({
-        answer: 'RAG service temporarily unavailable',
+        context: '',
         sources: [],
         domain: request.domain,
         sector: request.sector,
         vectorsLoaded: 0,
+        chunksFound: 0,
+        error: 'RAG service temporarily unavailable',
       }));
     } catch (error) {
       this.logger.error('RAG query failed', error);
       return {
-        answer: 'Failed to query RAG service',
+        context: '',
         sources: [],
         domain: request.domain,
         sector: request.sector,
         vectorsLoaded: 0,
+        chunksFound: 0,
+        error: error instanceof Error ? error.message : 'Unknown error',
       };
     }
   }
 
   /**
    * Get relevant context for an agent prompt.
+   * Returns formatted context from RAG - the LLM Council will use this to generate answers.
    */
   async getContext(
     query: string,
@@ -214,15 +227,15 @@ export class RagService {
   ): Promise<string> {
     const result = await this.query({ query, domain, sector, limit });
 
-    if (!result.sources.length) {
+    if (!result.context || result.chunksFound === 0) {
       return '';
     }
 
     const sourceList = result.sources
-      .map((s, i) => `[${String(i + 1)}] ${s.filename} (score: ${s.score.toFixed(2)})`)
+      .map((s, i) => `[${String(i + 1)}] ${s.filename} (relevance: ${(s.score * 100).toFixed(0)}%)`)
       .join('\n');
 
-    return `\n\n--- RAG Context (${domain}/${sector}) ---\n${result.answer}\n\nSources:\n${sourceList}\n--- End RAG Context ---\n`;
+    return `\n\n--- RAG Context (${domain}/${sector}) ---\n${result.context}\n\nSources:\n${sourceList}\n--- End RAG Context ---\n`;
   }
 
   /**

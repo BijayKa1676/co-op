@@ -49,14 +49,18 @@ export interface QuerySource {
   score: number;
   domain: string;
   sector: string;
+  chunkIndex: number;
 }
 
 export interface QueryResponse {
-  answer: string;
+  /** Combined text from relevant document chunks - NO LLM generation */
+  context: string;
   sources: QuerySource[];
   domain: string;
   sector: string;
   vectorsLoaded: number;
+  chunksFound: number;
+  error?: string;
 }
 
 export interface RagFileInfo {

@@ -41,6 +41,7 @@ export const envSchema = z.object({
 
   // RAG Service (for legal/finance agents)
   RAG_SERVICE_URL: z.string().optional(),
+  RAG_API_KEY: z.string().optional(),
 
   // API Keys
   MASTER_API_KEY: z.string().optional(),

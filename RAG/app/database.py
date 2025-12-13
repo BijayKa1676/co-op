@@ -32,26 +32,38 @@ class Database:
         content_type: str = "application/pdf"
     ) -> bool:
         """Register a file from Supabase Storage."""
+        from uuid import UUID
         async with self.pool.acquire() as conn:
             try:
+                # Convert string to UUID for PostgreSQL
+                uuid_id = UUID(file_id)
                 await conn.execute(
                     """INSERT INTO rag_files (id, filename, storage_path, content_type, domain, sector, vector_status)
                        VALUES ($1, $2, $3, $4, $5, $6, 'pending')
                        ON CONFLICT (id) DO UPDATE SET
                            filename = $2, storage_path = $3, domain = $5, sector = $6, updated_at = NOW()""",
-                    file_id, filename, storage_path, content_type, domain, sector
+                    uuid_id, filename, storage_path, content_type, domain, sector
                 )
                 return True
+            except ValueError:
+                # Invalid UUID format
+                return False
             except Exception:
                 return False
 
     async def get_file(self, file_id: str) -> dict | None:
         """Get file metadata by ID."""
+        from uuid import UUID
         async with self.pool.acquire() as conn:
-            row = await conn.fetchrow(
-                "SELECT * FROM rag_files WHERE id = $1", file_id
-            )
-            return dict(row) if row else None
+            try:
+                uuid_id = UUID(file_id)
+                row = await conn.fetchrow(
+                    "SELECT * FROM rag_files WHERE id = $1", uuid_id
+                )
+                return dict(row) if row else None
+            except ValueError:
+                # Invalid UUID format
+                return None
 
     async def list_files(self, domain: str = None, sector: str = None) -> list[dict]:
         """List files with optional filtering."""
@@ -91,11 +103,16 @@ class Database:
 
     async def delete_file(self, file_id: str) -> bool:
         """Delete file metadata."""
+        from uuid import UUID
         async with self.pool.acquire() as conn:
-            result = await conn.execute(
-                "DELETE FROM rag_files WHERE id = $1", file_id
-            )
-            return "DELETE 1" in result
+            try:
+                uuid_id = UUID(file_id)
+                result = await conn.execute(
+                    "DELETE FROM rag_files WHERE id = $1", uuid_id
+                )
+                return "DELETE 1" in result
+            except ValueError:
+                return False
 
     # === Vector Status Operations ===
 
@@ -106,22 +123,32 @@ class Database:
         chunk_count: int = 0
     ):
         """Update vector status after indexing."""
+        from uuid import UUID
         async with self.pool.acquire() as conn:
-            await conn.execute(
-                """UPDATE rag_files 
-                   SET vector_status = $1, chunk_count = $2, 
-                       last_accessed = NOW(), updated_at = NOW()
-                   WHERE id = $3""",
-                status, chunk_count, file_id
-            )
+            try:
+                uuid_id = UUID(file_id)
+                await conn.execute(
+                    """UPDATE rag_files 
+                       SET vector_status = $1, chunk_count = $2, 
+                           last_accessed = NOW(), updated_at = NOW()
+                       WHERE id = $3""",
+                    status, chunk_count, uuid_id
+                )
+            except ValueError:
+                pass  # Invalid UUID, skip update
 
     async def touch_file(self, file_id: str):
         """Update last_accessed timestamp when vectors are used."""
+        from uuid import UUID
         async with self.pool.acquire() as conn:
-            await conn.execute(
-                "UPDATE rag_files SET last_accessed = NOW() WHERE id = $1",
-                file_id
-            )
+            try:
+                uuid_id = UUID(file_id)
+                await conn.execute(
+                    "UPDATE rag_files SET last_accessed = NOW() WHERE id = $1",
+                    uuid_id
+                )
+            except ValueError:
+                pass  # Invalid UUID, skip update
 
     async def get_expired_files(self, days: int = 30) -> list[dict]:
         """Get files with vectors not accessed in X days."""

@@ -34,8 +34,14 @@ export class AdminService {
   ): Promise<UploadResult> {
     const fileId = uuid();
     
+    // Sanitize filename to prevent path traversal
+    const sanitizedFilename = dto.filename
+      .replace(/[^a-zA-Z0-9._-]/g, '_') // Replace unsafe chars
+      .replace(/\.{2,}/g, '.') // Remove consecutive dots
+      .slice(0, 255); // Limit length
+    
     // Storage path: domain/sector/fileId/filename
-    const storagePath = `${dto.domain}/${dto.sector}/${fileId}/${dto.filename}`;
+    const storagePath = `${dto.domain}/${dto.sector}/${fileId}/${sanitizedFilename}`;
 
     // 1. Upload to Supabase Storage
     const uploadResult = await this.storage.upload(storagePath, fileBuffer, contentType);
@@ -45,7 +51,7 @@ export class AdminService {
     if (this.ragService.isAvailable()) {
       const registerResult = await this.ragService.registerFile({
         fileId,
-        filename: dto.filename,
+        filename: sanitizedFilename,
         storagePath: uploadResult.path,
         domain: dto.domain,
         sector: dto.sector,

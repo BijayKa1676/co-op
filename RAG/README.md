@@ -1,6 +1,8 @@
 # Co-Op RAG Service
 
-Python RAG service with **lazy vectorization**, **domain** (legal/finance) and **sector** filtering using Supabase Storage, Upstash Vector, and Neon PostgreSQL.
+Python vector search service with **lazy vectorization**, **domain** (legal/finance) and **sector** filtering using Supabase Storage, Upstash Vector, and Neon PostgreSQL.
+
+**Important**: This service returns context only - NO LLM answer generation. The backend's LLM Council handles all answer generation.
 
 ## Architecture
 
@@ -9,17 +11,19 @@ Python RAG service with **lazy vectorization**, **domain** (legal/finance) and *
 │                    Lazy Vectorization Architecture                           │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
-│  UPLOAD (Admin):                                                             │
+│  UPLOAD (Admin via Backend):                                                 │
 │  PDF → Backend → Supabase Storage → Register with RAG (status: pending)     │
 │                                                                              │
-│  QUERY (User):                                                               │
-│  Question → RAG Service → Check pending files → Lazy vectorize → Search     │
+│  QUERY (User via Backend):                                                   │
+│  Question → Backend → RAG Service → Check pending files → Lazy vectorize    │
 │                                    ↓                                         │
 │                    Download from Supabase → Chunk → Embed → Upstash         │
 │                                    ↓                                         │
 │                    Search vectors (filtered by domain+sector)                │
 │                                    ↓                                         │
-│                    Update last_accessed → Generate answer                    │
+│                    Return context chunks to Backend                          │
+│                                    ↓                                         │
+│                    Backend LLM Council generates answer                      │
 │                                                                              │
 │  CLEANUP (Cron):                                                             │
 │  Files not accessed in 30 days → Remove vectors → Status: expired           │
@@ -30,11 +34,13 @@ Python RAG service with **lazy vectorization**, **domain** (legal/finance) and *
 
 ## Key Features
 
+- **Vector Search Only**: Returns context chunks, NOT answers (backend handles LLM)
 - **Lazy Vectorization**: Vectors created on-demand when user queries, not at upload time
 - **TTL Management**: Vectors expire after 30 days of no access, freeing space
 - **Persistent Storage**: PDFs stored permanently in Supabase Storage
 - **Re-vectorization**: Expired files automatically re-vectorized on next query
 - **Domain/Sector Filtering**: Precise document retrieval based on user's sector
+- **Gemini Embeddings**: Uses text-embedding-004 (768 dimensions)
 
 ## Domains & Sectors
 
@@ -64,10 +70,10 @@ Python RAG service with **lazy vectorization**, **domain** (legal/finance) and *
 
 3. **Neon Database**
    - PostgreSQL connection string from [neon.tech](https://neon.tech)
+   - Schema managed by backend (Drizzle ORM)
 
-4. **API Keys**
-   - Google AI (Gemini embeddings) from [aistudio.google.com](https://aistudio.google.com)
-   - Groq (LLM generation) from [console.groq.com](https://console.groq.com)
+4. **Google AI API Key**
+   - For Gemini embeddings from [aistudio.google.com](https://aistudio.google.com)
 
 ## Local Development
 
@@ -90,6 +96,7 @@ GET /health
 ```bash
 POST /rag/register
 Content-Type: application/json
+X-API-Key: your-api-key
 
 {
   "file_id": "uuid",
@@ -104,12 +111,14 @@ Content-Type: application/json
 ### Force Vectorize (admin pre-warming)
 ```bash
 POST /rag/vectorize/{file_id}
+X-API-Key: your-api-key
 ```
 
-### Query RAG (lazy vectorizes pending files)
+### Query RAG (returns context only)
 ```bash
 POST /rag/query
 Content-Type: application/json
+X-API-Key: your-api-key
 
 {
   "query": "What are the key compliance requirements?",
@@ -119,7 +128,26 @@ Content-Type: application/json
 }
 ```
 
-Response includes `vectors_loaded` count showing how many files were lazy-loaded.
+Response:
+```json
+{
+  "context": "[Source: contract.pdf]\nThe key compliance requirements include...\n\n---\n\n[Source: regulations.pdf]\nAdditional requirements...",
+  "sources": [
+    {
+      "file_id": "uuid",
+      "filename": "contract.pdf",
+      "score": 0.8542,
+      "domain": "legal",
+      "sector": "fintech",
+      "chunk_index": 3
+    }
+  ],
+  "domain": "legal",
+  "sector": "fintech",
+  "vectors_loaded": 0,
+  "chunks_found": 2
+}
+```
 
 ### List Files
 ```bash
@@ -142,6 +170,7 @@ DELETE /rag/files/{file_id}
 ### Cleanup Expired Vectors (cron job)
 ```bash
 POST /rag/cleanup?days=30
+X-API-Key: your-api-key
 ```
 
 ---
@@ -164,10 +193,10 @@ POST /rag/cleanup?days=30
    UPSTASH_VECTOR_REST_URL=https://...
    UPSTASH_VECTOR_REST_TOKEN=...
    GOOGLE_AI_API_KEY=...
-   GROQ_API_KEY=...
    SUPABASE_URL=https://...
    SUPABASE_SERVICE_KEY=...
    SUPABASE_STORAGE_BUCKET=documents
+   RAG_API_KEY=your-secure-api-key
    ```
 
 4. **Configure Service**:
@@ -180,7 +209,7 @@ POST /rag/cleanup?days=30
 
 6. **Get URL**: Copy the service URL (e.g., `https://your-app-xxx.koyeb.app`)
 
-7. **Update Backend**: Set `RAG_SERVICE_URL` in your Render backend to the Koyeb URL
+7. **Update Backend**: Set `RAG_SERVICE_URL` and `RAG_API_KEY` in your Render backend
 
 ### Docker (Self-hosted)
 
@@ -196,10 +225,10 @@ docker run -p 8000:8000 \
   -e UPSTASH_VECTOR_REST_URL="https://..." \
   -e UPSTASH_VECTOR_REST_TOKEN="..." \
   -e GOOGLE_AI_API_KEY="..." \
-  -e GROQ_API_KEY="..." \
   -e SUPABASE_URL="https://..." \
   -e SUPABASE_SERVICE_KEY="..." \
   -e SUPABASE_STORAGE_BUCKET="documents" \
+  -e RAG_API_KEY="your-secure-api-key" \
   co-op-rag
 ```
 
@@ -212,11 +241,12 @@ docker run -p 8000:8000 \
 | `DATABASE_URL` | Neon PostgreSQL URL | Yes |
 | `UPSTASH_VECTOR_REST_URL` | Upstash Vector REST URL | Yes |
 | `UPSTASH_VECTOR_REST_TOKEN` | Upstash Vector token | Yes |
-| `GOOGLE_AI_API_KEY` | Google AI API key (embeddings) | Yes |
-| `GROQ_API_KEY` | Groq API key (LLM) | Yes |
+| `GOOGLE_AI_API_KEY` | Google AI API key (embeddings only) | Yes |
 | `SUPABASE_URL` | Supabase project URL | Yes |
 | `SUPABASE_SERVICE_KEY` | Supabase service role key | Yes |
 | `SUPABASE_STORAGE_BUCKET` | Storage bucket name (default: documents) | No |
+| `RAG_API_KEY` | API key for authentication | Yes |
+| `CORS_ORIGINS` | Allowed CORS origins | No |
 
 ---
 
@@ -235,6 +265,7 @@ The NestJS backend (on Render) orchestrates the flow:
 3. **RAG searches vectors** → Filtered by domain + sector
 4. **RAG updates timestamps** → Tracks last access for TTL
 5. **RAG returns context** → Backend injects into LLM Council prompt
+6. **LLM Council generates answer** → Cross-critique between multiple models
 
 ### Cleanup Flow (Daily Cron)
 1. **Cron calls** `/rag/cleanup?days=30`
@@ -245,13 +276,16 @@ The NestJS backend (on Render) orchestrates the flow:
 ### Backend Configuration
 
 In your Render backend, set:
-```
+```bash
 RAG_SERVICE_URL=https://your-rag-service.koyeb.app
+RAG_API_KEY=your-secure-api-key
 ```
 
 ---
 
 ## Database Schema
+
+The `rag_files` table is managed by the backend's Drizzle ORM. The RAG service only reads/writes to it.
 
 ```sql
 CREATE TABLE rag_files (
@@ -268,6 +302,20 @@ CREATE TABLE rag_files (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 ```
+
+---
+
+## Why No LLM in RAG?
+
+The RAG service intentionally does NOT include LLM answer generation:
+
+1. **Single Source of Truth**: Backend's LLM Council handles ALL answer generation
+2. **Cross-Critique**: Multiple models validate each other's responses
+3. **No Duplicate Dependencies**: No need for Groq/OpenAI keys in RAG
+4. **Simpler Architecture**: RAG focuses on retrieval, backend focuses on generation
+5. **Cost Efficiency**: One LLM layer instead of two
+
+The backend receives context from RAG and uses it to augment the LLM Council prompt, ensuring accurate, cross-validated answers.
 
 ---
 
@@ -290,3 +338,8 @@ CREATE TABLE rag_files (
 ### Database errors
 - Verify `DATABASE_URL` includes `?sslmode=require` for Neon
 - Check Neon dashboard for connection limits
+- Schema is managed by backend - ensure backend has run migrations
+
+### Authentication errors
+- Verify `RAG_API_KEY` matches between RAG service and backend
+- Check `X-API-Key` header is being sent
