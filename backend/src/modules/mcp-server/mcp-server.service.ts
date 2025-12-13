@@ -46,7 +46,8 @@ const SINGLE_AGENT_SCHEMA: McpToolSchema = {
     },
     sector: {
       type: 'string',
-      description: 'RAG sector for document filtering: fintech, greentech, healthtech, saas, ecommerce',
+      description: 'RAG sector for document filtering (required for legal/finance agents)',
+      enum: ['fintech', 'greentech', 'healthtech', 'saas', 'ecommerce'],
     },
     stage: {
       type: 'string',
@@ -61,7 +62,7 @@ const SINGLE_AGENT_SCHEMA: McpToolSchema = {
       description: 'Extra context (optional)',
     },
   },
-  required: ['prompt', 'companyName', 'industry', 'stage', 'country'],
+  required: ['prompt', 'companyName', 'industry', 'sector', 'stage', 'country'],
 };
 
 const MULTI_AGENT_SCHEMA: McpToolSchema = {
@@ -74,7 +75,7 @@ const MULTI_AGENT_SCHEMA: McpToolSchema = {
     agents: {
       type: 'array',
       description: 'Agents to query: legal, finance, investor, competitor',
-      items: { type: 'string', description: 'Agent name' },
+      items: { type: 'string', description: 'Agent name', enum: ['legal', 'finance', 'investor', 'competitor'] },
     },
     companyName: {
       type: 'string',
@@ -87,6 +88,7 @@ const MULTI_AGENT_SCHEMA: McpToolSchema = {
     sector: {
       type: 'string',
       description: 'RAG sector: fintech, greentech, healthtech, saas, ecommerce',
+      enum: ['fintech', 'greentech', 'healthtech', 'saas', 'ecommerce'],
     },
     stage: {
       type: 'string',
@@ -97,7 +99,7 @@ const MULTI_AGENT_SCHEMA: McpToolSchema = {
       description: 'Country',
     },
   },
-  required: ['prompt', 'agents', 'companyName', 'industry', 'stage', 'country'],
+  required: ['prompt', 'agents', 'companyName', 'industry', 'sector', 'stage', 'country'],
 };
 
 interface A2AAgentResponse {

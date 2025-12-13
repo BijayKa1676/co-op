@@ -91,6 +91,7 @@ export interface McpAgentToolInput {
   industry: string;
   stage: string;
   country: string;
+  sector?: 'fintech' | 'greentech' | 'healthtech' | 'saas' | 'ecommerce';
   additionalContext?: string;
 }
 
@@ -101,4 +102,5 @@ export interface McpMultiAgentInput {
   industry: string;
   stage: string;
   country: string;
+  sector?: 'fintech' | 'greentech' | 'healthtech' | 'saas' | 'ecommerce';
 }

@@ -46,16 +46,16 @@ Co-Op Backend is an open-source AI platform that provides startup founders with 
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                              CLIENT LAYER                                    │
+│                              CLIENT LAYER                                   │
 ├─────────────────────────────────────────────────────────────────────────────┤
-│  Web App (React)  │  Mobile App  │  MCP Clients (Claude/Cursor)  │  API    │
+│  Web App (React)  │  Mobile App  │  MCP Clients (Claude/Cursor)  │  API     │
 └─────────────────────────────────────────────────────────────────────────────┘
                                       │
                                       ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                              API GATEWAY                                     │
+│                              API GATEWAY                                    │
 ├─────────────────────────────────────────────────────────────────────────────┤
-│  NestJS 11  │  Helmet  │  CORS  │  Rate Limiting  │  Validation            │
+│  NestJS 11  │  Helmet  │  CORS  │  Rate Limiting  │  Validation             │
 └─────────────────────────────────────────────────────────────────────────────┘
                                       │
           ┌───────────────────────────┼───────────────────────────┐
@@ -162,8 +162,8 @@ src/
 |-------|---------|-------------|
 | **Legal** | Legal advisory | RAG (document search) |
 | **Finance** | Financial modeling | RAG (document search) |
-| **Investor** | Investor relations | Web Research (Gemini) |
-| **Competitor** | Competitive intel | Web Research (Gemini) |
+| **Investor** | Investor relations | Web Research (Gemini + ScrapingBee fallback) |
+| **Competitor** | Competitive intel | Web Research (Gemini + ScrapingBee fallback) |
 
 ### Sectors
 
@@ -180,8 +180,9 @@ All agents support filtering by startup sector:
 - **Multi-Agent Queries**: Query multiple agents in parallel
 - **SSE Streaming**: Real-time response streaming
 - **Task Queue**: Async processing with BullMQ
-- **Web Research**: Real-time grounded search (investor/competitor)
+- **Web Research**: Real-time grounded search with fallback (investor/competitor)
 - **RAG Integration**: Semantic document search (legal/finance)
+- **A2A Protocol**: Agent-to-Agent communication for multi-agent queries
 - **MCP Server**: Expose agents as MCP tools
 - **Webhooks**: Event-driven integrations
 - **Notion Export**: Export outputs to Notion
@@ -290,6 +291,9 @@ LLM_COUNCIL_MAX_MODELS="5"
 # RAG Service (for legal/finance agents)
 RAG_SERVICE_URL="https://your-rag-service.koyeb.app"
 RAG_API_KEY=""
+
+# Web Research Fallback (optional)
+SCRAPINGBEE_API_KEY=""           # Fallback when Gemini Search fails
 
 # Notion (optional)
 NOTION_API_TOKEN=""
@@ -474,29 +478,29 @@ The LLM Council is a unique architecture that ensures response accuracy through 
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
 │  1. GENERATE                                                    │
-│     ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌─────────┐        │
-│     │ Llama   │  │ Gemini  │  │ GPT OSS │  │DeepSeek │        │
-│     │  3.3    │  │  3 Pro  │  │  120B   │  │ R1 32B  │        │
-│     └────┬────┘  └────┬────┘  └────┬────┘  └────┬────┘        │
-│          │            │            │            │              │
-│          ▼            ▼            ▼            ▼              │
-│     ┌─────────────────────────────────────────────────┐       │
-│     │              Anonymous Responses                 │       │
-│     └─────────────────────────────────────────────────┘       │
-│                            │                                   │
-│  2. SHUFFLE & CRITIQUE     ▼                                   │
-│     ┌─────────────────────────────────────────────────┐       │
-│     │  Each model critiques others (MANDATORY)        │       │
-│     │  - Identifies errors and inconsistencies        │       │
-│     │  - Scores 1-10 with reasoning                   │       │
-│     └─────────────────────────────────────────────────┘       │
-│                            │                                   │
-│  3. SYNTHESIZE             ▼                                   │
-│     ┌─────────────────────────────────────────────────┐       │
-│     │  Best response improved with critique feedback   │       │
-│     │  - Concise bullet points                        │       │
-│     │  - Token-efficient output                       │       │
-│     └─────────────────────────────────────────────────┘       │
+│     ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌─────────┐          │
+│     │ Llama   │  │ Gemini  │  │ GPT OSS │  │DeepSeek │          │
+│     │  3.3    │  │  3 Pro  │  │  120B   │  │ R1 32B  │          │
+│     └────┬────┘  └────┬────┘  └────┬────┘  └────┬────┘          │
+│          │            │            │            │               │
+│          ▼            ▼            ▼            ▼               │
+│     ┌─────────────────────────────────────────────────┐         │
+│     │              Anonymous Responses                │         │
+│     └─────────────────────────────────────────────────┘         │
+│                            │                                    │
+│  2. SHUFFLE & CRITIQUE     ▼                                    │
+│     ┌─────────────────────────────────────────────────┐         │
+│     │  Each model critiques others (MANDATORY)        │         │
+│     │  - Identifies errors and inconsistencies        │         │
+│     │  - Scores 1-10 with reasoning                   │         │
+│     └─────────────────────────────────────────────────┘         │
+│                            │                                    │
+│  3. SYNTHESIZE             ▼                                    │
+│     ┌─────────────────────────────────────────────────┐         │
+│     │  Best response improved with critique feedback  │         │
+│     │  - Concise bullet points                        │         │
+│     │  - Token-efficient output                       │         │
+│     └─────────────────────────────────────────────────┘         │
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -531,19 +535,19 @@ The backend integrates with an external RAG (Retrieval-Augmented Generation) ser
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                        RAG FLOW                                  │
+│                        RAG FLOW                                 │
 ├─────────────────────────────────────────────────────────────────┤
-│                                                                  │
-│  UPLOAD (Admin):                                                 │
+│                                                                 │
+│  UPLOAD (Admin):                                                │
 │  PDF → Backend → Supabase Storage → Register with RAG (pending) │
-│                                                                  │
-│  QUERY (Legal/Finance Agent):                                    │
-│  User Question → Backend → RAG Service → Vector Search           │
-│                                    ↓                             │
-│                    Return context chunks (NO LLM)                │
-│                                    ↓                             │
-│                    Backend LLM Council generates answer          │
-│                                                                  │
+│                                                                 │
+│  QUERY (Legal/Finance Agent):                                   │
+│  User Question → Backend → RAG Service → Vector Search          │
+│                                    ↓                            │
+│                    Return context chunks (NO LLM)               │
+│                                    ↓                            │
+│                    Backend LLM Council generates answer         │
+│                                                                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -582,6 +586,96 @@ RAG_API_KEY="your-secure-api-key"
 
 ---
 
+## Web Research
+
+The investor and competitor agents use real-time web research powered by Google Gemini with Search Grounding, with ScrapingBee as a fallback.
+
+### Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    WEB RESEARCH FLOW                            │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  QUERY (Investor/Competitor Agent):                             │
+│  User Question → Research Service → Gemini Search Grounding     │
+│                                    ↓                            │
+│                    (If Gemini fails) → ScrapingBee Fallback     │
+│                                    ↓                            │
+│                    Return grounded context with sources         │
+│                                    ↓                            │
+│                    Backend LLM Council generates answer         │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Key Points
+
+- **Primary**: Google Gemini 2.0 Flash with Search Grounding
+- **Fallback**: ScrapingBee Google Search API (when Gemini fails/rate limited)
+- **Grounded**: All responses include source URLs
+- **Real-time**: Live web data for investor/competitor research
+
+### Research Types
+
+| Type | Description |
+|------|-------------|
+| `competitor` | Competitor analysis, market landscape |
+| `investor` | VC/angel search, funding activity |
+| `company` | Company profiles, funding history |
+| `market` | Market size, trends, growth rates |
+
+### Configuration
+
+```bash
+# Primary: Google AI (enables Gemini Search Grounding)
+GOOGLE_AI_API_KEY="AI..."
+
+# Fallback: ScrapingBee (optional but recommended)
+SCRAPINGBEE_API_KEY="..."
+```
+
+---
+
+## A2A Protocol
+
+Agent-to-Agent (A2A) communication enables agents to delegate tasks and cross-critique each other in multi-agent queries.
+
+### Capabilities
+
+| Agent | Actions |
+|-------|---------|
+| `legal` | analyze_contract, check_compliance, review_terms |
+| `finance` | calculate_runway, analyze_metrics, valuation_estimate |
+| `investor` | find_investors, match_profile, research_vc |
+| `competitor` | analyze_market, compare_features, research_competitor |
+
+### Multi-Agent Flow
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    A2A COUNCIL FLOW                             │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  1. PARALLEL GENERATION                                         │
+│     All selected agents generate responses simultaneously       │
+│                                                                 │
+│  2. SHUFFLE & ANONYMIZE                                         │
+│     Responses shuffled for fair critique                        │
+│                                                                 │
+│  3. CROSS-CRITIQUE                                              │
+│     Each agent critiques other agents' responses                │
+│     Scores 1-10 with feedback                                   │
+│                                                                 │
+│  4. SYNTHESIZE                                                  │
+│     Best response improved with critique feedback               │
+│     Combined insights from all agents                           │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
 ## MCP Server Integration
 
 The backend exposes AI agents as MCP (Model Context Protocol) tools for use with:
@@ -595,11 +689,11 @@ The backend exposes AI agents as MCP (Model Context Protocol) tools for use with
 
 | Tool | Description | Data Source |
 |------|-------------|-------------|
-| `legal_analysis` | Legal advice and compliance | RAG |
-| `finance_analysis` | Financial modeling and projections | RAG |
-| `investor_search` | Find relevant investors | Web Research |
-| `competitor_analysis` | Competitive intelligence | Web Research |
-| `multi_agent_query` | Query multiple agents at once | Mixed |
+| `legal_analysis` | Legal advice and compliance | RAG (document search) |
+| `finance_analysis` | Financial modeling and projections | RAG (document search) |
+| `investor_search` | Find relevant investors | Web Research (Gemini + ScrapingBee) |
+| `competitor_analysis` | Competitive intelligence | Web Research (Gemini + ScrapingBee) |
+| `multi_agent_query` | Query multiple agents at once (A2A) | Mixed |
 
 ### Discovery Endpoint
 

@@ -15,7 +15,7 @@
 # Option 3: Run: npx ts-node scripts/get-token.ts
 # ===========================================
 
-@baseUrl = http://localhost:3000/api/v1
+@baseUrl = https://co-op-80fi.onrender.com/api/v1
 @token = YOUR_SUPABASE_JWT_TOKEN_HERE
 
 # Variables - update after running requests
@@ -31,14 +31,21 @@
 @masterApiKey = master-key-123
 
 # ===========================================
-# HEALTH & METRICS (No Auth Required)
+# HEALTH & METRICS
 # ===========================================
 
-### Health Check
+### Health Check (No Auth Required)
 GET {{baseUrl}}/health
 
-### Prometheus Metrics (requires API key in production)
+### Prometheus Metrics (Requires Master API Key)
+# Returns Prometheus text format metrics:
+# - http_requests_total, http_request_duration_seconds
+# - llm_requests_total, llm_request_duration_seconds, llm_errors_total
+# - agent_tasks_total, agent_task_duration_seconds
+# - circuit_breaker_state
+# - Node.js default metrics (memory, CPU, event loop)
 GET {{baseUrl}}/metrics
+X-API-Key: {{masterApiKey}}
 
 # ===========================================
 # USERS - Authentication & Profile
@@ -51,6 +58,33 @@ Authorization: Bearer {{token}}
 
 ### Check Onboarding Status
 GET {{baseUrl}}/users/me/onboarding-status
+Authorization: Bearer {{token}}
+
+### Get User by ID
+GET {{baseUrl}}/users/{{userId}}
+Authorization: Bearer {{token}}
+
+### Create User (Admin Only)
+POST {{baseUrl}}/users
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "email": "newuser@example.com",
+  "name": "New User"
+}
+
+### Update User by ID (Admin Only)
+PATCH {{baseUrl}}/users/{{userId}}
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "name": "Updated Name"
+}
+
+### Delete User (Admin Only)
+DELETE {{baseUrl}}/users/{{userId}}
 Authorization: Bearer {{token}}
 
 # ===========================================
@@ -117,8 +151,16 @@ Content-Type: application/json
 # STARTUPS - View Startups
 # ===========================================
 
+### List All Startups (Admin Only)
+GET {{baseUrl}}/startups
+Authorization: Bearer {{token}}
+
 ### Get Startup by ID
 GET {{baseUrl}}/startups/{{startupId}}
+Authorization: Bearer {{token}}
+
+### Delete Startup (Admin Only)
+DELETE {{baseUrl}}/startups/{{startupId}}
 Authorization: Bearer {{token}}
 
 # ===========================================
@@ -173,6 +215,10 @@ Content-Type: application/json
 
 ### Get Session Messages
 GET {{baseUrl}}/sessions/{{sessionId}}/messages
+Authorization: Bearer {{token}}
+
+### Get Session Messages (with limit)
+GET {{baseUrl}}/sessions/{{sessionId}}/messages?limit=50
 Authorization: Bearer {{token}}
 
 ### Get Full Session History
@@ -278,6 +324,12 @@ Authorization: Bearer {{token}}
 
 ### Cancel Task
 DELETE {{baseUrl}}/agents/tasks/{{taskId}}
+Authorization: Bearer {{token}}
+
+### Stream Agent Responses (SSE)
+# Opens Server-Sent Events connection for real-time updates
+# Use in browser or SSE-compatible client
+GET {{baseUrl}}/agents/stream/{{taskId}}
 Authorization: Bearer {{token}}
 
 # ===========================================
@@ -469,13 +521,53 @@ Content-Type: application/json
 # ===========================================
 # MCP CLIENT - Connect to External MCP Servers
 # ===========================================
+# This is for connecting to EXTERNAL MCP servers (not the built-in MCP Server)
+# Admin can register external MCP servers, users can list and call their tools
 
 ### List MCP Servers
 GET {{baseUrl}}/mcp/servers
 Authorization: Bearer {{token}}
 
-### List All MCP Tools
+### List All MCP Tools (from all servers)
 GET {{baseUrl}}/mcp/tools
+Authorization: Bearer {{token}}
+
+### Register MCP Server (Admin Only)
+POST {{baseUrl}}/mcp/servers
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "id": "external-mcp-1",
+  "name": "External MCP Server",
+  "baseUrl": "https://mcp.example.com",
+  "apiKey": "external-api-key",
+  "enabled": true
+}
+
+### Get Server Tools
+GET {{baseUrl}}/mcp/servers/external-mcp-1/tools
+Authorization: Bearer {{token}}
+
+### Discover Tools from Server (Admin Only)
+POST {{baseUrl}}/mcp/servers/external-mcp-1/discover
+Authorization: Bearer {{token}}
+
+### Execute MCP Tool
+POST {{baseUrl}}/mcp/execute
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "serverId": "external-mcp-1",
+  "toolName": "example_tool",
+  "arguments": {
+    "param1": "value1"
+  }
+}
+
+### Unregister MCP Server (Admin Only)
+DELETE {{baseUrl}}/mcp/servers/external-mcp-1
 Authorization: Bearer {{token}}
 
 # ===========================================

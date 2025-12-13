@@ -238,18 +238,18 @@ async def vectorize_file(file_id: str, file_info: dict) -> int:
                 
             chunk_id = f"{file_id}_{chunk_idx}"
 
-            vectors_to_upsert.append((
-                chunk_id,
-                embedding,
-                {
+            vectors_to_upsert.append({
+                "id": chunk_id,
+                "vector": embedding,
+                "metadata": {
                     "file_id": file_id,
                     "filename": file_info["filename"],
                     "chunk_index": chunk_idx,
                     "domain": file_info["domain"],
                     "sector": file_info["sector"]
                 },
-                chunk  # Store text in 'data' field for retrieval
-            ))
+                "data": chunk  # Store text in 'data' field for retrieval
+            })
 
     if not vectors_to_upsert:
         raise ValueError("No vectors created - all embeddings failed")

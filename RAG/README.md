@@ -8,27 +8,27 @@ Python vector search service with **lazy vectorization**, **domain** (legal/fina
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                    Lazy Vectorization Architecture                           │
+│                    Lazy Vectorization Architecture                          │
 ├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                              │
-│  UPLOAD (Admin via Backend):                                                 │
+│                                                                             │
+│  UPLOAD (Admin via Backend):                                                │
 │  PDF → Backend → Supabase Storage → Register with RAG (status: pending)     │
-│                                                                              │
-│  QUERY (User via Backend):                                                   │
+│                                                                             │
+│  QUERY (User via Backend):                                                  │
 │  Question → Backend → RAG Service → Check pending files → Lazy vectorize    │
-│                                    ↓                                         │
+│                                    ↓                                        │
 │                    Download from Supabase → Chunk → Embed → Upstash         │
-│                                    ↓                                         │
-│                    Search vectors (filtered by domain+sector)                │
-│                                    ↓                                         │
-│                    Return context chunks to Backend                          │
-│                                    ↓                                         │
-│                    Backend LLM Council generates answer                      │
-│                                                                              │
-│  CLEANUP (Cron):                                                             │
+│                                    ↓                                        │
+│                    Search vectors (filtered by domain+sector)               │
+│                                    ↓                                        │
+│                    Return context chunks to Backend                         │
+│                                    ↓                                        │
+│                    Backend LLM Council generates answer                     │
+│                                                                             │
+│  CLEANUP (Cron):                                                            │
 │  Files not accessed in 30 days → Remove vectors → Status: expired           │
 │  (Files remain in Supabase Storage for future re-vectorization)             │
-│                                                                              │
+│                                                                             │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -316,6 +316,21 @@ The RAG service intentionally does NOT include LLM answer generation:
 5. **Cost Efficiency**: One LLM layer instead of two
 
 The backend receives context from RAG and uses it to augment the LLM Council prompt, ensuring accurate, cross-validated answers.
+
+---
+
+## RAG vs Web Research
+
+The Co-Op platform uses two different data sources depending on the agent:
+
+| Agent | Data Source | Service |
+|-------|-------------|---------|
+| Legal | RAG | This service (document search) |
+| Finance | RAG | This service (document search) |
+| Investor | Web Research | Backend (Gemini + ScrapingBee) |
+| Competitor | Web Research | Backend (Gemini + ScrapingBee) |
+
+RAG is used for legal and finance because these domains require searching through uploaded documents (contracts, financial reports, compliance docs). Investor and competitor agents need real-time web data, so they use Gemini Search Grounding with ScrapingBee fallback.
 
 ---
 

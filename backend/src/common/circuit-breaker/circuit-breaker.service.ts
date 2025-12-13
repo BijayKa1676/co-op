@@ -97,34 +97,38 @@ export class CircuitBreakerService {
    * Use this when the function changes between calls
    */
   async executeOnce<T>(name: string, fn: AsyncFunction<T>, fallback?: () => T): Promise<T> {
-    const breaker = this.breakers.get(name);
+    const existingBreaker = this.breakers.get(name);
     
-    if (breaker) {
-      // Reuse existing breaker state but execute new function
-      if (breaker.opened) {
-        this.logger.debug(`Circuit breaker "${name}" is open, using fallback`);
-        if (fallback) return fallback();
-        throw new Error(`Circuit breaker "${name}" is open`);
-      }
-      
-      try {
-        const result = await fn();
-        // Track success manually since we're not using fire()
-        breaker.stats.successes++;
-        return result;
-      } catch (error) {
-        // Track failure manually
-        breaker.stats.failures++;
-        throw error;
-      }
+    // Check if existing breaker is open
+    if (existingBreaker?.opened) {
+      this.logger.debug(`Circuit breaker "${name}" is open, using fallback`);
+      if (fallback) return fallback();
+      throw new Error(`Circuit breaker "${name}" is open`);
     }
 
-    // Create new breaker for first call
-    const newBreaker = this.create(name, fn);
+    // Create temporary breaker with same settings but new function
+    const tempBreaker = new CircuitBreaker(fn, {
+      timeout: this.defaultOptions.timeout,
+      errorThresholdPercentage: this.defaultOptions.errorThresholdPercentage,
+      resetTimeout: this.defaultOptions.resetTimeout,
+      volumeThreshold: this.defaultOptions.volumeThreshold,
+    }) as CircuitBreakerInstance;
+
     if (fallback) {
-      newBreaker.fallback(fallback);
+      tempBreaker.fallback(fallback);
     }
-    return newBreaker.fire() as Promise<T>;
+
+    try {
+      const result = await (tempBreaker.fire() as Promise<T>);
+      return result;
+    } catch (error) {
+      // If this fails, mark the main breaker as having a failure
+      if (!existingBreaker) {
+        // Create the main breaker to track state
+        this.create(name, fn);
+      }
+      throw error;
+    }
   }
 
   getStats(name: string): CircuitBreakerStats | null {
