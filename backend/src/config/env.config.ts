@@ -18,10 +18,10 @@ export const envSchema = z.object({
   UPSTASH_REDIS_URL: z.string(),
   UPSTASH_REDIS_TOKEN: z.string(),
 
-  // Upstash Redis - Standard connection (for BullMQ queues)
-  UPSTASH_REDIS_HOST: z.string(),
-  UPSTASH_REDIS_PORT: z.string().default('6379').transform(Number),
-  UPSTASH_REDIS_PASSWORD: z.string(),
+  // Upstash QStash (serverless queue)
+  QSTASH_TOKEN: z.string().optional(),
+  QSTASH_CURRENT_SIGNING_KEY: z.string().optional(),
+  QSTASH_NEXT_SIGNING_KEY: z.string().optional(),
 
   // LLM Providers (configure at least one)
   GROQ_API_KEY: z.string().optional(),

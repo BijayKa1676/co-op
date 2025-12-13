@@ -79,7 +79,7 @@ Co-Op Backend is an open-source AI platform that provides startup founders with 
 ├─────────────────┤       ├─────────────────────┤       ├─────────────────┤
 │ Groq Provider   │       │ PostgreSQL (Drizzle)│       │ RAG Service     │
 │ Google Provider │       │ Redis (Upstash)     │       │ (Context Only)  │
-│ HuggingFace     │       │ QStash + BullMQ     │       │ Notion API      │
+│ HuggingFace     │       │ QStash (Upstash)    │       │ Notion API      │
 │ Cross-Critique  │       │ Circuit Breaker     │       │ Web Research    │
 │ Consensus       │       │ Prometheus Metrics  │       │ (Gemini Search) │
 └─────────────────┘       └─────────────────────┘       └─────────────────┘
@@ -116,7 +116,7 @@ src/
 │   ├── agents/                # AI agents (legal, finance, etc.)
 │   │   ├── domains/           # Domain-specific agents
 │   │   ├── orchestrator/      # Multi-agent orchestration
-│   │   ├── queue/             # BullMQ job processing
+│   │   ├── queue/             # QStash job processing
 │   │   └── a2a/               # Agent-to-Agent protocol
 │   ├── analytics/             # Event tracking & dashboards
 │   ├── api-keys/              # API key management
@@ -142,8 +142,7 @@ src/
 | **Database** | PostgreSQL (Neon) | Primary data store |
 | **ORM** | Drizzle ORM | Type-safe SQL |
 | **Cache** | Upstash Redis | Caching & rate limiting |
-| **Queue** | Upstash QStash | Serverless message queue (primary) |
-| **Queue Fallback** | BullMQ | Redis-based queue (fallback) |
+| **Queue** | Upstash QStash | Serverless message queue |
 | **Auth** | Supabase Auth | JWT authentication |
 | **Storage** | Supabase Storage | File uploads |
 | **LLM** | Groq, Google AI, HuggingFace | Multi-provider AI |
@@ -181,7 +180,7 @@ All agents support filtering by startup sector:
 - **LLM Council**: Cross-critique consensus for accuracy
 - **Multi-Agent Queries**: Query multiple agents in parallel
 - **SSE Streaming**: Real-time response streaming
-- **Task Queue**: Async processing with BullMQ
+- **Task Queue**: Async processing with QStash
 - **Web Research**: Real-time grounded search with fallback (investor/competitor)
 - **RAG Integration**: Semantic document search (legal/finance)
 - **A2A Protocol**: Agent-to-Agent communication for multi-agent queries
@@ -258,12 +257,7 @@ SUPABASE_SERVICE_KEY="eyJ..."
 UPSTASH_REDIS_URL="https://instance.upstash.io"
 UPSTASH_REDIS_TOKEN="AX..."
 
-# Upstash Redis (Standard for BullMQ fallback)
-UPSTASH_REDIS_HOST="instance.upstash.io"
-UPSTASH_REDIS_PORT="6379"
-UPSTASH_REDIS_PASSWORD="AX..."
-
-# Upstash QStash (Serverless Queue - Primary)
+# Upstash QStash (Serverless Queue)
 QSTASH_URL="https://qstash.upstash.io"
 QSTASH_TOKEN="eyJ..."
 QSTASH_CURRENT_SIGNING_KEY="sig_..."

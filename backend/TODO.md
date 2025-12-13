@@ -42,7 +42,7 @@
 ### Infrastructure
 - [x] NestJS 11 with modular architecture
 - [x] Drizzle ORM with PostgreSQL (no raw SQL)
-- [x] Upstash Redis (caching + BullMQ queues)
+- [x] Upstash Redis (caching) + QStash (queue)
 - [x] Supabase Storage for file uploads
 - [x] ESLint 9 with strict TypeScript rules
 - [x] Swagger/OpenAPI documentation
@@ -76,7 +76,7 @@
 - [x] Finance agent with LLM Council + RAG (sector-filtered)
 - [x] Investor agent with LLM Council + Web Research (no RAG)
 - [x] Competitor agent with LLM Council + Web Research (no RAG)
-- [x] BullMQ job queue
+- [x] QStash serverless queue
 - [x] SSE streaming (5min timeout)
 - [x] Task status polling and cancellation
 

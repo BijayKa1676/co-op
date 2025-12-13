@@ -68,14 +68,14 @@ services:
         sync: false
       
       # ===========================================
-      # Upstash Redis - Standard (BullMQ Queues)
-      # Same instance, different format
+      # Upstash QStash (Serverless Queue)
+      # Get from: https://console.upstash.com/qstash
       # ===========================================
-      - key: UPSTASH_REDIS_HOST
+      - key: QSTASH_TOKEN
         sync: false
-      - key: UPSTASH_REDIS_PORT
-        value: "6379"
-      - key: UPSTASH_REDIS_PASSWORD
+      - key: QSTASH_CURRENT_SIGNING_KEY
+        sync: false
+      - key: QSTASH_NEXT_SIGNING_KEY
         sync: false
       
       # ===========================================

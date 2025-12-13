@@ -14,4 +14,5 @@ export interface AgentJobResult {
   completedAt: Date;
 }
 
+// Queue name constant (kept for compatibility)
 export const AGENTS_QUEUE = 'agents';

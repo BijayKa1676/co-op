@@ -9,7 +9,7 @@ import { TaskStatusDto } from './dto/task-status.dto';
 
 interface QueueTaskResult {
   taskId: string;
-  jobId: string;
+  messageId: string;
 }
 
 @Injectable()

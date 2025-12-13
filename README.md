@@ -301,7 +301,6 @@ Async job processing with automatic retries and webhook callbacks:
 - Serverless — no infrastructure to manage
 - Automatic retries with exponential backoff
 - HMAC signature verification for security
-- BullMQ fallback if QStash unavailable
 - Perfect for Render's serverless environment
 
 ### ⚡ Real-Time Streaming
@@ -371,10 +370,6 @@ Events: `connected` → `status` (progress updates) → `done`
 │  │  │ Job Publish │→ │  Webhook    │→ │  Process    │                  │    │
 │  │  │  (async)    │  │  Callback   │  │  & Store    │                  │    │
 │  │  └─────────────┘  └─────────────┘  └─────────────┘                  │    │
-│  │         ↓ (fallback if QStash unavailable)                          │    │
-│  │  ┌─────────────────────────────────────────────────────────────┐    │    │
-│  │  │                    BullMQ (Redis Queue)                     │    │    │
-│  │  └─────────────────────────────────────────────────────────────┘    │    │
 │  └─────────────────────────────────────────────────────────────────────┘    │
 └─────────────────────────────────────────────────────────────────────────────┘
          │                                              │
@@ -549,8 +544,7 @@ See [Backend README](./backend/README.md) for complete API documentation.
 | NestJS 11 | API framework |
 | TypeScript | Type safety |
 | Drizzle ORM | Database access |
-| QStash | Serverless message queue (primary) |
-| BullMQ | Job queue (fallback) |
+| QStash | Serverless message queue |
 
 ### RAG Service
 | Technology | Purpose |

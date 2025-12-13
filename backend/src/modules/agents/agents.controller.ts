@@ -28,7 +28,7 @@ import { AgentPhaseResult } from './types/agent.types';
 
 interface QueueTaskResponse {
   taskId: string;
-  jobId: string;
+  messageId: string;
 }
 
 @ApiTags('Agents')

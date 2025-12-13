@@ -13,7 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - NestJS 11 with modular architecture
 - TypeScript 5.6 with strict mode
 - Drizzle ORM with PostgreSQL
-- Upstash Redis for caching and BullMQ queues
+- Upstash Redis for caching + QStash for serverless queue
 - Supabase Auth integration (JWT verification)
 - Supabase Storage for file uploads
 - Prometheus metrics endpoint
@@ -33,7 +33,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Investor agent with LLM Council + web research
 - Competitor agent with LLM Council + web research
 - Multi-agent orchestration
-- BullMQ job queue for async processing
+- QStash serverless queue for async processing
 - SSE streaming (5-minute timeout)
 - Task status polling and cancellation
 

@@ -1,17 +1,14 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { InjectQueue } from '@nestjs/bullmq';
-import { Queue, Job } from 'bullmq';
 import { v4 as uuid } from 'uuid';
 import { QStashService } from '@/common/qstash';
 import { RedisService } from '@/common/redis/redis.service';
-import { AgentJobData, AgentJobResult, AGENTS_QUEUE } from './agents.queue.types';
+import { AgentJobResult } from './agents.queue.types';
 import { AgentType, AgentInput } from '../types/agent.types';
 import { TaskStatusDto, TaskState } from '../dto/task-status.dto';
 
 interface AddJobResult {
   taskId: string;
-  jobId: string;
-  provider: 'qstash' | 'bullmq';
+  messageId: string;
 }
 
 const TASK_STATUS_PREFIX = 'task:status:';
@@ -23,123 +20,62 @@ export class AgentsQueueService {
   private readonly logger = new Logger(AgentsQueueService.name);
 
   constructor(
-    @InjectQueue(AGENTS_QUEUE)
-    private readonly agentsQueue: Queue<AgentJobData, AgentJobResult>,
     private readonly qstash: QStashService,
     private readonly redis: RedisService,
   ) {}
 
   /**
-   * Add a job to the queue
-   * Uses QStash if available, falls back to BullMQ
+   * Add a job to QStash queue
    */
   async addJob(agentType: AgentType, input: AgentInput, userId: string): Promise<AddJobResult> {
     const taskId = uuid();
 
-    // Try QStash first (serverless, better for production)
-    if (this.qstash.isAvailable()) {
-      try {
-        const result = await this.qstash.publish({
-          taskId,
-          type: agentType,
-          payload: {
-            agentType,
-            input,
-          },
-          userId,
-          createdAt: new Date().toISOString(),
-        });
-
-        // Store initial status in Redis
-        await this.redis.set(
-          `${TASK_STATUS_PREFIX}${taskId}`,
-          { status: 'waiting', progress: 0, createdAt: new Date().toISOString() },
-          TASK_TTL,
-        );
-
-        this.logger.log(`QStash job published: ${result.messageId} for ${agentType}`);
-        return { taskId, jobId: result.messageId, provider: 'qstash' };
-      } catch (error) {
-        this.logger.warn(`QStash publish failed, falling back to BullMQ: ${String(error)}`);
-      }
+    if (!this.qstash.isAvailable()) {
+      throw new Error('QStash not configured - cannot queue jobs');
     }
 
-    // Fallback to BullMQ
-    const job = await this.agentsQueue.add(
-      `${agentType}-task`,
-      {
-        taskId,
+    const result = await this.qstash.publish({
+      taskId,
+      type: agentType,
+      payload: {
         agentType,
         input,
-        userId,
       },
-      {
-        jobId: taskId,
-        attempts: 3,
-        backoff: {
-          type: 'exponential',
-          delay: 1000,
-        },
-        removeOnComplete: {
-          age: 3600,
-          count: 100,
-        },
-        removeOnFail: {
-          age: 86400,
-        },
-      },
+      userId,
+      createdAt: new Date().toISOString(),
+    });
+
+    // Store initial status in Redis
+    await this.redis.set(
+      `${TASK_STATUS_PREFIX}${taskId}`,
+      { status: 'waiting', progress: 0, createdAt: new Date().toISOString() },
+      TASK_TTL,
     );
 
-    const jobId = job.id ?? taskId;
-    this.logger.log(`BullMQ job added: ${jobId} for ${agentType}`);
-
-    return { taskId, jobId, provider: 'bullmq' };
+    this.logger.log(`QStash job published: ${result.messageId} for ${agentType}`);
+    return { taskId, messageId: result.messageId };
   }
 
   /**
-   * Get job from BullMQ (for backward compatibility)
-   */
-  async getJob(taskId: string): Promise<Job<AgentJobData, AgentJobResult> | null> {
-    const job = await this.agentsQueue.getJob(taskId);
-    return job ?? null;
-  }
-
-  /**
-   * Get job status (checks both QStash Redis status and BullMQ)
+   * Get job status from Redis
    */
   async getJobStatus(taskId: string): Promise<TaskStatusDto | null> {
-    // First check Redis for QStash job status
-    const qstashStatus = await this.redis.get<{
+    const status = await this.redis.get<{
       status: string;
       progress: number;
       result?: AgentJobResult;
       error?: string;
     }>(`${TASK_STATUS_PREFIX}${taskId}`);
 
-    if (qstashStatus) {
-      return {
-        status: qstashStatus.status as TaskState,
-        progress: qstashStatus.progress,
-        result: qstashStatus.result,
-        error: qstashStatus.error,
-      };
-    }
-
-    // Fallback to BullMQ
-    const job = await this.getJob(taskId);
-
-    if (!job) {
+    if (!status) {
       return null;
     }
 
-    const state = await job.getState();
-    const progress = typeof job.progress === 'number' ? job.progress : 0;
-
     return {
-      status: state as TaskState,
-      progress,
-      result: job.returnvalue,
-      error: job.failedReason,
+      status: status.status as TaskState,
+      progress: status.progress,
+      result: status.result,
+      error: status.error,
     };
   }
 
@@ -170,41 +106,24 @@ export class AgentsQueueService {
    * Get task result
    */
   async getTaskResult(taskId: string): Promise<AgentJobResult | null> {
-    // Check Redis first (QStash results)
     const result = await this.redis.get<AgentJobResult>(`${TASK_RESULT_PREFIX}${taskId}`);
-    if (result) {
-      return result;
-    }
-
-    // Fallback to BullMQ
-    const job = await this.getJob(taskId);
-    return job?.returnvalue ?? null;
+    return result;
   }
 
   /**
-   * Cancel a job
+   * Cancel a job (marks as cancelled in Redis, webhook will check before processing)
    */
   async cancelJob(taskId: string): Promise<boolean> {
-    // For QStash, we can only mark it as cancelled in Redis
-    // The webhook will check this before processing
-    const qstashStatus = await this.redis.get(`${TASK_STATUS_PREFIX}${taskId}`);
-    if (qstashStatus) {
-      await this.redis.set(
-        `${TASK_STATUS_PREFIX}${taskId}`,
-        { status: 'cancelled', progress: 0, cancelledAt: new Date().toISOString() },
-        TASK_TTL,
-      );
-      return true;
-    }
-
-    // Fallback to BullMQ
-    const job = await this.getJob(taskId);
-
-    if (!job) {
+    const status = await this.redis.get(`${TASK_STATUS_PREFIX}${taskId}`);
+    if (!status) {
       return false;
     }
 
-    await job.remove();
+    await this.redis.set(
+      `${TASK_STATUS_PREFIX}${taskId}`,
+      { status: 'cancelled', progress: 0, cancelledAt: new Date().toISOString() },
+      TASK_TTL,
+    );
     return true;
   }
 
