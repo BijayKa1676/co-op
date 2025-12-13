@@ -3,7 +3,7 @@
 import { useState, useCallback } from 'react';
 import { api } from '@/lib/api/client';
 import { useSessionStore } from '@/lib/store';
-import type { Session, Message, CreateSessionRequest, CreateMessageRequest } from '@/lib/api/types';
+import type { Message, CreateSessionRequest, CreateMessageRequest } from '@/lib/api/types';
 
 export function useSessions() {
   const { sessions, currentSession, setSessions, setCurrentSession, addSession, updateSession } = useSessionStore();

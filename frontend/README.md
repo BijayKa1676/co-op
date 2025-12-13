@@ -1,83 +1,161 @@
 # Co-Op Frontend
 
-Next.js 14 frontend for the Co-Op AI Advisory platform.
+Modern, responsive web application for the Co-Op AI advisory platform. Built with Next.js 14, React 18, and Tailwind CSS.
 
 ## Tech Stack
 
 - **Framework**: Next.js 14 (App Router)
-- **Styling**: Tailwind CSS
+- **Language**: TypeScript 5
+- **Styling**: Tailwind CSS 3.4
 - **UI Components**: Radix UI primitives
-- **Icons**: Phosphor Icons
-- **State**: Zustand
+- **State Management**: Zustand
+- **Forms**: React Hook Form + Zod
 - **Auth**: Supabase Auth
 - **Animations**: Framer Motion
+- **Icons**: Phosphor Icons
 
 ## Getting Started
 
-1. Install dependencies:
+### Prerequisites
+
+- Node.js 20+
+- npm or yarn
+- Supabase project
+
+### Installation
+
 ```bash
+# Install dependencies
 npm install
-```
 
-2. Set up environment variables:
-```bash
-cp .env.example .env
-```
+# Copy environment variables
+cp .env.example .env.local
 
-Required variables:
-- `NEXT_PUBLIC_SUPABASE_URL` - Supabase project URL
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY` - Supabase anon key
-- `NEXT_PUBLIC_API_URL` - Backend API URL (default: http://localhost:3000/api/v1)
-
-3. Run development server:
-```bash
+# Start development server
 npm run dev
 ```
+
+Open [http://localhost:3000](http://localhost:3000) in your browser.
+
+### Environment Variables
+
+| Variable | Description | Required |
+|----------|-------------|----------|
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL | Yes |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anonymous key | Yes |
+| `NEXT_PUBLIC_API_URL` | Backend API URL | Yes |
+| `NEXT_PUBLIC_APP_URL` | Frontend app URL | No |
 
 ## Project Structure
 
 ```
 src/
 ├── app/                    # Next.js App Router pages
-│   ├── (dashboard)/        # Protected dashboard routes
-│   │   ├── agents/         # Agent-specific pages
-│   │   ├── analytics/      # Admin analytics
-│   │   ├── chat/           # Main chat interface
-│   │   ├── dashboard/      # Dashboard home
+│   ├── (dashboard)/        # Authenticated dashboard routes
+│   │   ├── admin/          # Admin panel (RAG management)
+│   │   ├── agents/         # Individual agent pages
+│   │   ├── analytics/      # Analytics dashboard
+│   │   ├── chat/           # Multi-agent chat
+│   │   ├── dashboard/      # Main dashboard
+│   │   ├── developers/     # API documentation
 │   │   ├── sessions/       # Session history
-│   │   └── settings/       # User settings
-│   ├── auth/               # Auth callback
+│   │   └── settings/       # User settings, API keys, webhooks
+│   ├── auth/               # Auth callback handler
 │   ├── login/              # Login page
-│   └── onboarding/         # Onboarding flow
+│   ├── onboarding/         # Startup onboarding flow
+│   └── page.tsx            # Landing page
 ├── components/
 │   └── ui/                 # Reusable UI components
-└── lib/
-    ├── api/                # API client and types
-    ├── hooks/              # Custom React hooks
-    ├── supabase/           # Supabase client setup
-    ├── store.ts            # Zustand stores
-    └── utils.ts            # Utility functions
+├── lib/
+│   ├── api/                # API client and types
+│   ├── hooks/              # Custom React hooks
+│   ├── supabase/           # Supabase client setup
+│   ├── store.ts            # Zustand stores
+│   └── utils.ts            # Utility functions
+└── middleware.ts           # Auth middleware
+```
+
+## Available Scripts
+
+```bash
+# Development
+npm run dev           # Start dev server on port 3001
+
+# Build
+npm run build         # Production build
+npm run start         # Start production server
+
+# Code Quality
+npm run lint          # Run ESLint
+npm run format        # Format with Prettier
+```
+
+## Deployment
+
+### Vercel (Recommended)
+
+1. Push to GitHub
+2. Import project in Vercel
+3. Add environment variables
+4. Deploy
+
+The `vercel.json` configuration handles:
+- API rewrites to backend
+- Security headers
+- CORS configuration
+
+### Manual Deployment
+
+```bash
+npm run build
+npm run start
 ```
 
 ## Features
 
-- **Authentication**: Google OAuth and email/password via Supabase
-- **Onboarding**: Multi-step startup profile setup
-- **Chat**: Real-time AI agent conversations with SSE streaming
-- **Sessions**: Conversation history and management
-- **API Keys**: Programmatic access management
-- **Webhooks**: Event notification configuration
-- **Analytics**: Admin dashboard with platform stats (admin only)
-- **RAG Management**: Document upload and vectorization (admin only)
+### Dashboard
+- Overview of startup profile
+- Quick access to all agents
+- Recent session history
 
-## API Integration
+### AI Agents
+- **Legal**: Corporate structure, compliance, contracts
+- **Finance**: Financial modeling, metrics, runway
+- **Investor**: VC matching, pitch optimization
+- **Competitor**: Market analysis, positioning
 
-The frontend connects to the NestJS backend via the API client at `src/lib/api/client.ts`. All API types are defined in `src/lib/api/types.ts` and match the backend DTOs.
+### Chat
+- Multi-agent conversations
+- Real-time streaming responses
+- Notion export integration
+- Session persistence
 
-## Scripts
+### Settings
+- Profile management
+- API key generation
+- Webhook configuration
+- Startup profile editing
 
-- `npm run dev` - Start development server
-- `npm run build` - Build for production
-- `npm run start` - Start production server
-- `npm run lint` - Run ESLint
-- `npm run format` - Format with Prettier
+### Admin (Admin users only)
+- RAG document management
+- PDF upload and vectorization
+- Analytics dashboard
+
+## Code Style
+
+- TypeScript strict mode
+- ESLint + Prettier
+- Tailwind CSS class sorting
+- Component-based architecture
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Run `npm run lint` and `npm run format`
+5. Submit a pull request
+
+## License
+
+MIT License - see [LICENSE](../LICENSE) for details.

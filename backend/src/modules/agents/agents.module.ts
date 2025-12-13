@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { AgentsController } from './agents.controller';
 import { AgentsService } from './agents.service';
 import { OrchestratorService } from './orchestrator/orchestrator.service';
@@ -11,6 +11,7 @@ import { ResearchModule } from '@/common/research/research.module';
 import { RedisModule } from '@/common/redis/redis.module';
 import { QStashModule } from '@/common/qstash/qstash.module';
 import { StartupsModule } from '@/modules/startups/startups.module';
+import { WebhooksModule } from '@/modules/webhooks/webhooks.module';
 
 import { LegalAgentService } from './domains/legal/legal-agent.service';
 import { FinanceAgentService } from './domains/finance/finance-agent.service';
@@ -25,6 +26,7 @@ import { CompetitorAgentService } from './domains/competitor/competitor-agent.se
     RedisModule,
     QStashModule,
     StartupsModule,
+    forwardRef(() => WebhooksModule),
   ],
   controllers: [AgentsController, AgentsWebhookController],
   providers: [

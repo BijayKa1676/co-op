@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { WebhooksLogo, Plus, Trash, Pencil, ArrowsClockwise, Check, X } from '@phosphor-icons/react';
+import { WebhooksLogo, Plus, Trash, Pencil, ArrowsClockwise } from '@phosphor-icons/react';
 import { api } from '@/lib/api/client';
 import type { Webhook } from '@/lib/api/types';
 import { Card, CardContent } from '@/components/ui/card';
@@ -20,7 +20,6 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { formatRelativeTime } from '@/lib/utils';
 import { toast } from 'sonner';
 
 const AVAILABLE_EVENTS = [
@@ -154,15 +153,15 @@ export default function WebhooksPage() {
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="flex items-center justify-between"
+        className="flex flex-col sm:flex-row sm:items-start justify-between gap-4"
       >
         <div>
-          <h1 className="font-serif text-3xl font-medium tracking-tight mb-2">Webhooks</h1>
-          <p className="text-muted-foreground">Receive real-time notifications for events</p>
+          <h1 className="font-serif text-2xl sm:text-3xl font-medium tracking-tight mb-1 sm:mb-2">Webhooks</h1>
+          <p className="text-sm sm:text-base text-muted-foreground">Receive real-time notifications for events</p>
         </div>
         <Dialog open={showDialog} onOpenChange={setShowDialog}>
           <DialogTrigger asChild>
-            <Button onClick={() => resetDialog()}>
+            <Button onClick={() => resetDialog()} className="w-full sm:w-auto">
               <Plus weight="bold" className="w-4 h-4" />
               Add Webhook
             </Button>
@@ -192,17 +191,21 @@ export default function WebhooksPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label>Events</Label>
+                <Label className="font-semibold">Events</Label>
                 <div className="flex flex-wrap gap-2">
                   {AVAILABLE_EVENTS.map((event) => (
-                    <Badge
+                    <button
                       key={event}
-                      variant={formData.events.includes(event) ? 'default' : 'outline'}
-                      className="cursor-pointer"
+                      type="button"
                       onClick={() => toggleEvent(event)}
+                      className={`px-3 py-1.5 text-sm font-medium rounded-md border transition-all ${
+                        formData.events.includes(event)
+                          ? 'bg-foreground text-background border-foreground'
+                          : 'bg-background text-foreground border-border hover:bg-muted'
+                      }`}
                     >
                       {event === '*' ? 'All Events' : event}
-                    </Badge>
+                    </button>
                   ))}
                 </div>
               </div>
@@ -244,39 +247,39 @@ export default function WebhooksPage() {
               transition={{ delay: index * 0.05 }}
             >
               <Card className="border-border/40">
-                <CardContent className="p-5">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
-                        <WebhooksLogo weight="regular" className="w-5 h-5 text-muted-foreground" />
+                <CardContent className="p-4 sm:p-5">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="flex items-start sm:items-center gap-3 sm:gap-4 min-w-0">
+                      <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-muted flex items-center justify-center shrink-0">
+                        <WebhooksLogo weight="regular" className="w-4 sm:w-5 h-4 sm:h-5 text-muted-foreground" />
                       </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <p className="font-medium">{webhook.name}</p>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="font-medium text-sm sm:text-base">{webhook.name}</p>
                           {webhook.isActive ? (
-                            <Badge variant="default" className="text-xs">Active</Badge>
+                            <Badge variant="default" className="text-[10px] sm:text-xs">Active</Badge>
                           ) : (
-                            <Badge variant="secondary" className="text-xs">Inactive</Badge>
+                            <Badge variant="secondary" className="text-[10px] sm:text-xs">Inactive</Badge>
                           )}
                         </div>
-                        <p className="text-sm text-muted-foreground truncate max-w-md">
+                        <p className="text-xs sm:text-sm text-muted-foreground truncate max-w-[200px] sm:max-w-md">
                           {webhook.url}
                         </p>
-                        <div className="flex items-center gap-2 mt-1">
-                          {webhook.events.slice(0, 3).map((event) => (
-                            <Badge key={event} variant="outline" className="text-[10px]">
+                        <div className="flex items-center gap-1.5 sm:gap-2 mt-1 flex-wrap">
+                          {webhook.events.slice(0, 2).map((event) => (
+                            <Badge key={event} variant="outline" className="text-[9px] sm:text-[10px]">
                               {event === '*' ? 'All' : event}
                             </Badge>
                           ))}
-                          {webhook.events.length > 3 && (
-                            <span className="text-xs text-muted-foreground">
-                              +{webhook.events.length - 3} more
+                          {webhook.events.length > 2 && (
+                            <span className="text-[10px] sm:text-xs text-muted-foreground">
+                              +{webhook.events.length - 2} more
                             </span>
                           )}
                         </div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1 sm:gap-2 justify-end shrink-0">
                       <Switch
                         checked={webhook.isActive}
                         onCheckedChange={() => handleToggleActive(webhook)}
@@ -286,6 +289,7 @@ export default function WebhooksPage() {
                         size="icon"
                         onClick={() => handleRegenerateSecret(webhook.id)}
                         title="Regenerate secret"
+                        className="h-8 w-8 sm:h-9 sm:w-9"
                       >
                         <ArrowsClockwise weight="regular" className="w-4 h-4" />
                       </Button>
@@ -293,6 +297,7 @@ export default function WebhooksPage() {
                         variant="ghost"
                         size="icon"
                         onClick={() => openEditDialog(webhook)}
+                        className="h-8 w-8 sm:h-9 sm:w-9"
                       >
                         <Pencil weight="regular" className="w-4 h-4" />
                       </Button>
@@ -300,7 +305,7 @@ export default function WebhooksPage() {
                         variant="ghost"
                         size="icon"
                         onClick={() => handleDelete(webhook.id)}
-                        className="text-destructive hover:text-destructive"
+                        className="text-destructive hover:text-destructive h-8 w-8 sm:h-9 sm:w-9"
                       >
                         <Trash weight="regular" className="w-4 h-4" />
                       </Button>

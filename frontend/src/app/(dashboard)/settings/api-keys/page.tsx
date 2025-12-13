@@ -5,7 +5,7 @@ import { motion } from 'framer-motion';
 import { Key, Plus, Trash, Copy, Check, Eye, EyeSlash } from '@phosphor-icons/react';
 import { api } from '@/lib/api/client';
 import type { ApiKey, ApiKeyCreated } from '@/lib/api/types';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -126,15 +126,15 @@ export default function ApiKeysPage() {
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="flex items-center justify-between"
+        className="flex flex-col sm:flex-row sm:items-start justify-between gap-4"
       >
         <div>
-          <h1 className="font-serif text-3xl font-medium tracking-tight mb-2">API Keys</h1>
-          <p className="text-muted-foreground">Manage your API keys for programmatic access</p>
+          <h1 className="font-serif text-2xl sm:text-3xl font-medium tracking-tight mb-1 sm:mb-2">API Keys</h1>
+          <p className="text-sm sm:text-base text-muted-foreground">Manage your API keys for programmatic access</p>
         </div>
         <Dialog open={showDialog} onOpenChange={setShowDialog}>
           <DialogTrigger asChild>
-            <Button>
+            <Button className="w-full sm:w-auto">
               <Plus weight="bold" className="w-4 h-4" />
               Create Key
             </Button>
@@ -205,17 +205,21 @@ export default function ApiKeysPage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Scopes</Label>
+                    <Label className="font-semibold">Scopes</Label>
                     <div className="flex flex-wrap gap-2">
                       {AVAILABLE_SCOPES.map((scope) => (
-                        <Badge
+                        <button
                           key={scope}
-                          variant={selectedScopes.includes(scope) ? 'default' : 'outline'}
-                          className="cursor-pointer"
+                          type="button"
                           onClick={() => toggleScope(scope)}
+                          className={`px-3 py-1.5 text-sm font-medium rounded-md border transition-all ${
+                            selectedScopes.includes(scope)
+                              ? 'bg-foreground text-background border-foreground'
+                              : 'bg-background text-foreground border-border hover:bg-muted'
+                          }`}
                         >
                           {scope}
-                        </Badge>
+                        </button>
                       ))}
                     </div>
                   </div>
@@ -259,25 +263,32 @@ export default function ApiKeysPage() {
               transition={{ delay: index * 0.05 }}
             >
               <Card className="border-border/40">
-                <CardContent className="p-5">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
-                        <Key weight="regular" className="w-5 h-5 text-muted-foreground" />
+                <CardContent className="p-4 sm:p-5">
+                  <div className="flex items-start sm:items-center justify-between gap-3">
+                    <div className="flex items-start sm:items-center gap-3 sm:gap-4 min-w-0">
+                      <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-muted flex items-center justify-center shrink-0">
+                        <Key weight="regular" className="w-4 sm:w-5 h-4 sm:h-5 text-muted-foreground" />
                       </div>
-                      <div>
-                        <p className="font-medium">{key.name}</p>
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <code className="text-xs bg-muted px-1.5 py-0.5 rounded">
+                      <div className="min-w-0">
+                        <p className="font-medium text-sm sm:text-base truncate">{key.name}</p>
+                        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 text-xs sm:text-sm text-muted-foreground">
+                          <code className="text-[10px] sm:text-xs bg-muted px-1 sm:px-1.5 py-0.5 rounded">
                             {key.keyPrefix}...
                           </code>
-                          <span>·</span>
-                          <span>Created {formatRelativeTime(key.createdAt)}</span>
+                          <span className="hidden sm:inline">·</span>
+                          <span className="hidden sm:inline">{formatRelativeTime(key.createdAt)}</span>
+                        </div>
+                        <div className="flex flex-wrap gap-1 mt-2 sm:hidden">
+                          {key.scopes.map((scope) => (
+                            <Badge key={scope} variant="secondary" className="text-[10px]">
+                              {scope}
+                            </Badge>
+                          ))}
                         </div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <div className="flex gap-1">
+                    <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+                      <div className="hidden sm:flex gap-1">
                         {key.scopes.map((scope) => (
                           <Badge key={scope} variant="secondary" className="text-xs">
                             {scope}
@@ -288,7 +299,7 @@ export default function ApiKeysPage() {
                         variant="ghost"
                         size="icon"
                         onClick={() => handleRevoke(key.id)}
-                        className="text-destructive hover:text-destructive"
+                        className="text-destructive hover:text-destructive h-8 w-8 sm:h-9 sm:w-9"
                       >
                         <Trash weight="regular" className="w-4 h-4" />
                       </Button>

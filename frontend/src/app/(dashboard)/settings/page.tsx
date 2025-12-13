@@ -46,10 +46,10 @@ export default function SettingsPage() {
   if (!user) return null;
 
   return (
-    <div className="space-y-8">
+    <div className="max-w-3xl space-y-6 sm:space-y-8">
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-        <h1 className="font-serif text-3xl font-medium tracking-tight mb-2">Settings</h1>
-        <p className="text-muted-foreground">Manage your account and preferences</p>
+        <h1 className="font-serif text-2xl sm:text-3xl font-medium tracking-tight mb-1 sm:mb-2">Settings</h1>
+        <p className="text-sm sm:text-base text-muted-foreground">Manage your account and preferences</p>
       </motion.div>
 
       {/* Profile */}
@@ -106,18 +106,18 @@ export default function SettingsPage() {
 
             <Separator />
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-3 sm:gap-4">
               <div>
-                <Label className="text-muted-foreground">Role</Label>
-                <p className="font-medium capitalize">{user.role}</p>
+                <Label className="text-xs sm:text-sm text-muted-foreground">Role</Label>
+                <p className="text-sm sm:text-base font-medium capitalize">{user.role}</p>
               </div>
               <div>
-                <Label className="text-muted-foreground">Auth Provider</Label>
-                <p className="font-medium capitalize">{user.authProvider || 'Email'}</p>
+                <Label className="text-xs sm:text-sm text-muted-foreground">Auth Provider</Label>
+                <p className="text-sm sm:text-base font-medium capitalize">{user.authProvider || 'Email'}</p>
               </div>
               <div>
-                <Label className="text-muted-foreground">Member Since</Label>
-                <p className="font-medium">
+                <Label className="text-xs sm:text-sm text-muted-foreground">Member Since</Label>
+                <p className="text-sm sm:text-base font-medium">
                   {new Date(user.createdAt).toLocaleDateString('en-US', {
                     month: 'long',
                     year: 'numeric',
@@ -125,8 +125,8 @@ export default function SettingsPage() {
                 </p>
               </div>
               <div>
-                <Label className="text-muted-foreground">Onboarding</Label>
-                <Badge variant={user.onboardingCompleted ? 'default' : 'secondary'}>
+                <Label className="text-xs sm:text-sm text-muted-foreground">Onboarding</Label>
+                <Badge variant={user.onboardingCompleted ? 'default' : 'secondary'} className="text-[10px] sm:text-xs">
                   {user.onboardingCompleted ? 'Completed' : 'Pending'}
                 </Badge>
               </div>
@@ -151,29 +151,29 @@ export default function SettingsPage() {
               <CardDescription>Your startup information</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-3 sm:gap-4">
                 <div>
-                  <Label className="text-muted-foreground">Company Name</Label>
-                  <p className="font-medium">{user.startup.companyName}</p>
+                  <Label className="text-xs sm:text-sm text-muted-foreground">Company Name</Label>
+                  <p className="text-sm sm:text-base font-medium">{user.startup.companyName}</p>
                 </div>
                 <div>
-                  <Label className="text-muted-foreground">Industry</Label>
-                  <p className="font-medium capitalize">{user.startup.industry.replace('_', ' ')}</p>
+                  <Label className="text-xs sm:text-sm text-muted-foreground">Industry</Label>
+                  <p className="text-sm sm:text-base font-medium capitalize">{user.startup.industry.replace('_', ' ')}</p>
                 </div>
                 <div>
-                  <Label className="text-muted-foreground">Sector</Label>
-                  <Badge variant="outline" className="capitalize">
+                  <Label className="text-xs sm:text-sm text-muted-foreground">Sector</Label>
+                  <Badge variant="outline" className="capitalize text-[10px] sm:text-xs">
                     {user.startup.sector}
                   </Badge>
                 </div>
                 <div>
-                  <Label className="text-muted-foreground">Stage</Label>
-                  <p className="font-medium capitalize">{user.startup.stage}</p>
+                  <Label className="text-xs sm:text-sm text-muted-foreground">Stage</Label>
+                  <p className="text-sm sm:text-base font-medium capitalize">{user.startup.stage}</p>
                 </div>
                 {user.startup.fundingStage && (
                   <div>
-                    <Label className="text-muted-foreground">Funding Stage</Label>
-                    <p className="font-medium capitalize">
+                    <Label className="text-xs sm:text-sm text-muted-foreground">Funding Stage</Label>
+                    <p className="text-sm sm:text-base font-medium capitalize">
                       {user.startup.fundingStage.replace('_', ' ')}
                     </p>
                   </div>

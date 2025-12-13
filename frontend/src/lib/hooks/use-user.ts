@@ -1,11 +1,10 @@
 'use client';
 
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { api } from '@/lib/api/client';
 import { useUserStore } from '@/lib/store';
-import type { User } from '@/lib/api/types';
 
 export function useUser() {
   const router = useRouter();
@@ -66,8 +65,12 @@ export function useUser() {
 export function useRequireAuth(options?: { requireOnboarding?: boolean }) {
   const router = useRouter();
   const { user, isLoading, fetchUser } = useUser();
+  const hasChecked = useRef(false);
 
   useEffect(() => {
+    if (hasChecked.current) return;
+    hasChecked.current = true;
+    
     const checkAuth = async () => {
       const userData = await fetchUser();
       
@@ -83,32 +86,51 @@ export function useRequireAuth(options?: { requireOnboarding?: boolean }) {
     };
 
     checkAuth();
-  }, [fetchUser, router, options?.requireOnboarding]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return { user, isLoading };
 }
 
 export function useRequireAdmin() {
   const router = useRouter();
-  const { user, isLoading, fetchUser } = useUser();
+  const hasChecked = useRef(false);
+  const [state, setState] = useState<{
+    isLoading: boolean;
+    isAdmin: boolean;
+    user: Awaited<ReturnType<typeof api.getMe>> | null;
+  }>({ isLoading: true, isAdmin: false, user: null });
 
   useEffect(() => {
+    if (hasChecked.current) return;
+    hasChecked.current = true;
+    
     const checkAuth = async () => {
-      const userData = await fetchUser();
-      
-      if (!userData) {
-        router.push('/login');
-        return;
-      }
+      try {
+        const supabase = createClient();
+        const { data: { session } } = await supabase.auth.getSession();
 
-      if (userData.role !== 'admin') {
-        router.push('/dashboard');
-        return;
+        if (!session) {
+          router.push('/login');
+          return;
+        }
+
+        const userData = await api.getMe();
+        
+        if (userData.role !== 'admin') {
+          router.push('/dashboard');
+          return;
+        }
+        
+        setState({ isLoading: false, isAdmin: true, user: userData });
+      } catch {
+        router.push('/login');
       }
     };
 
     checkAuth();
-  }, [fetchUser, router]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  return { user, isLoading, isAdmin: user?.role === 'admin' };
+  return state;
 }

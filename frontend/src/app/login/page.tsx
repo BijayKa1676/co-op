@@ -108,7 +108,7 @@ export default function LoginPage() {
               Advisory Board
             </h1>
             <p className="text-muted-foreground text-lg max-w-md leading-relaxed">
-              Expert guidance across legal, finance, investor relations, and competitive analysis.
+              Expert guidance for founders at every stage. Legal, finance, investor relations, and competitive analysis.
             </p>
           </motion.div>
 
@@ -119,6 +119,7 @@ export default function LoginPage() {
             className="mt-16 space-y-4"
           >
             {[
+              'Built for serial founders & first-time entrepreneurs',
               'Multiple AI models cross-validate responses',
               'Real-time web research for market intelligence',
               'Curated knowledge base for legal & finance',

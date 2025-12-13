@@ -101,11 +101,11 @@ export default function DashboardPage() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
       >
-        <h1 className="font-serif text-4xl font-medium tracking-tight mb-2">
+        <h1 className="font-serif text-2xl sm:text-3xl md:text-4xl font-medium tracking-tight mb-2">
           Welcome back, {user?.name?.split(' ')[0] || 'there'}
         </h1>
-        <p className="text-muted-foreground">
-          {user?.startup?.companyName} · {user?.startup?.stage} stage
+        <p className="text-sm sm:text-base text-muted-foreground">
+          {user?.startup?.companyName ? `${user.startup.companyName} · ${user.startup.stage} stage` : 'Your AI advisory board is ready'}
         </p>
       </motion.div>
 
@@ -114,7 +114,7 @@ export default function DashboardPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1, duration: 0.5 }}
-          className="grid md:grid-cols-4 gap-4"
+          className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4"
         >
           {[
             { label: 'Sessions', value: stats.totalSessions, icon: ChatCircle },
@@ -142,15 +142,15 @@ export default function DashboardPage() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2, duration: 0.5 }}
       >
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="font-serif text-2xl font-medium">Agents</h2>
+        <div className="flex items-center justify-between mb-4 sm:mb-6">
+          <h2 className="font-serif text-xl sm:text-2xl font-medium">Agents</h2>
           <Link href="/chat">
             <Button variant="ghost" size="sm">
               Open Chat <ArrowRight weight="bold" className="w-4 h-4" />
             </Button>
           </Link>
         </div>
-        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           {agents.map((agent, index) => (
             <motion.div
               key={agent.id}
@@ -160,10 +160,10 @@ export default function DashboardPage() {
             >
               <Link href={agent.href}>
                 <Card className="h-full border-border/40 hover:border-border transition-colors">
-                  <CardContent className="p-6">
-                    <agent.icon weight="light" className="w-7 h-7 text-foreground/70 mb-4" />
-                    <h3 className="font-serif text-lg font-medium mb-1">{agent.name}</h3>
-                    <p className="text-sm text-muted-foreground">{agent.description}</p>
+                  <CardContent className="p-4 sm:p-6">
+                    <agent.icon weight="light" className="w-6 sm:w-7 h-6 sm:h-7 text-foreground/70 mb-3 sm:mb-4" />
+                    <h3 className="font-serif text-base sm:text-lg font-medium mb-1">{agent.name}</h3>
+                    <p className="text-xs sm:text-sm text-muted-foreground">{agent.description}</p>
                   </CardContent>
                 </Card>
               </Link>
@@ -177,8 +177,8 @@ export default function DashboardPage() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.3, duration: 0.5 }}
       >
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="font-serif text-2xl font-medium">Recent Sessions</h2>
+        <div className="flex items-center justify-between mb-4 sm:mb-6">
+          <h2 className="font-serif text-xl sm:text-2xl font-medium">Recent Sessions</h2>
           <Link href="/sessions">
             <Button variant="ghost" size="sm">
               View All <ArrowRight weight="bold" className="w-4 h-4" />
@@ -231,15 +231,15 @@ export default function DashboardPage() {
         transition={{ delay: 0.4, duration: 0.5 }}
       >
         <Card className="border-border/40">
-          <CardContent className="p-8 flex items-center justify-between">
+          <CardContent className="p-5 sm:p-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div>
-              <h3 className="font-serif text-xl font-medium mb-1">Need guidance?</h3>
-              <p className="text-sm text-muted-foreground">
+              <h3 className="font-serif text-lg sm:text-xl font-medium mb-1">Need guidance?</h3>
+              <p className="text-xs sm:text-sm text-muted-foreground">
                 Ask any question and our AI council will provide expert advice
               </p>
             </div>
-            <Link href="/chat">
-              <Button>
+            <Link href="/chat" className="w-full sm:w-auto">
+              <Button className="w-full sm:w-auto">
                 <Sparkle weight="fill" className="w-4 h-4" />
                 Start Conversation
               </Button>

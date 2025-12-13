@@ -4,6 +4,7 @@ import { eq, desc, and, isNull, lt, asc } from 'drizzle-orm';
 import { DATABASE_CONNECTION } from '@/database/database.module';
 import { RedisService } from '@/common/redis/redis.service';
 import { UsersService } from '@/modules/users/users.service';
+import { WebhooksService } from '@/modules/webhooks/webhooks.service';
 import * as schema from '@/database/schema';
 import { CreateSessionDto, SessionResponseDto, CreateMessageDto, MessageResponseDto } from './dto';
 
@@ -20,6 +21,7 @@ export class SessionsService {
     private readonly db: NodePgDatabase<typeof schema>,
     private readonly redis: RedisService,
     private readonly usersService: UsersService,
+    private readonly webhooksService: WebhooksService,
   ) {}
 
   async create(userId: string, dto: CreateSessionDto): Promise<SessionResponseDto> {
@@ -36,6 +38,14 @@ export class SessionsService {
       .returning();
 
     await this.redis.set(`${this.SESSION_PREFIX}${session.id}`, session, this.SESSION_TTL);
+
+    // Trigger webhook for session creation
+    await this.webhooksService.trigger('session.created', {
+      sessionId: session.id,
+      userId,
+      startupId: dto.startupId,
+      createdAt: session.createdAt.toISOString(),
+    });
 
     return this.toResponse(session);
   }
@@ -89,6 +99,13 @@ export class SessionsService {
 
     // Invalidate all session-related cache
     await this.invalidateSessionCache(id);
+
+    // Trigger webhook for session ended
+    await this.webhooksService.trigger('session.ended', {
+      sessionId: id,
+      userId,
+      endedAt: new Date().toISOString(),
+    });
   }
 
   /**

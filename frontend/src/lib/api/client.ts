@@ -26,6 +26,10 @@ import type {
   EventAggregation,
   PaginatedResult,
   Startup,
+  NotionStatus,
+  NotionPage,
+  ExportToNotionRequest,
+  NotionExportResult,
 } from './types';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api/v1';
@@ -210,7 +214,7 @@ class ApiClient {
       onDone();
     });
     
-    eventSource.onerror = (e) => {
+    eventSource.onerror = () => {
       eventSource.close();
       onError?.(new Error('Stream connection failed'));
       onDone();
@@ -323,6 +327,51 @@ class ApiClient {
   }
 
   // ============================================
+  // METRICS ENDPOINTS (Requires API Key)
+  // ============================================
+
+  async getPrometheusMetrics(apiKey?: string): Promise<string> {
+    // Try to get API key from localStorage if not provided
+    const key = apiKey || (typeof window !== 'undefined' ? localStorage.getItem('metrics_api_key') : null);
+    
+    if (!key) {
+      throw new ApiError('Metrics API key not configured. Set a Master API Key in environment or store one in settings.', 401);
+    }
+    
+    const res = await fetch(`${API_URL}/metrics`, {
+      method: 'GET',
+      headers: {
+        'X-API-Key': key,
+      },
+    });
+    
+    if (!res.ok) {
+      throw new ApiError('Invalid API key or metrics unavailable', res.status);
+    }
+    
+    return res.text();
+  }
+
+  setMetricsApiKey(apiKey: string): void {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('metrics_api_key', apiKey);
+    }
+  }
+
+  getStoredMetricsApiKey(): string | null {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('metrics_api_key');
+    }
+    return null;
+  }
+
+  clearMetricsApiKey(): void {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('metrics_api_key');
+    }
+  }
+
+  // ============================================
   // STARTUPS ENDPOINTS (Admin only)
   // ============================================
 
@@ -332,6 +381,54 @@ class ApiClient {
 
   async getStartup(id: string): Promise<Startup> {
     return this.get<Startup>(`/startups/${id}`);
+  }
+
+  // ============================================
+  // NOTION ENDPOINTS
+  // ============================================
+
+  async getNotionStatus(): Promise<NotionStatus> {
+    return this.get<NotionStatus>('/notion/status');
+  }
+
+  async searchNotionPages(query: string): Promise<NotionPage[]> {
+    return this.get<NotionPage[]>(`/notion/pages?query=${encodeURIComponent(query)}`);
+  }
+
+  async exportToNotion(data: ExportToNotionRequest): Promise<NotionExportResult> {
+    return this.post<NotionExportResult>('/notion/export', data);
+  }
+
+  // ============================================
+  // MCP ENDPOINTS (Admin only)
+  // ============================================
+
+  async getMcpServers(): Promise<import('./types').McpServer[]> {
+    return this.get<import('./types').McpServer[]>('/mcp/servers');
+  }
+
+  async registerMcpServer(data: import('./types').RegisterMcpServerRequest): Promise<void> {
+    await this.post('/mcp/servers', data);
+  }
+
+  async unregisterMcpServer(id: string): Promise<void> {
+    await this.delete(`/mcp/servers/${id}`);
+  }
+
+  async getMcpServerTools(serverId: string): Promise<import('./types').McpTool[]> {
+    return this.get<import('./types').McpTool[]>(`/mcp/servers/${serverId}/tools`);
+  }
+
+  async discoverMcpTools(serverId: string): Promise<import('./types').McpTool[]> {
+    return this.post<import('./types').McpTool[]>(`/mcp/servers/${serverId}/discover`);
+  }
+
+  async getAllMcpTools(): Promise<{ serverId: string; tools: import('./types').McpTool[] }[]> {
+    return this.get<{ serverId: string; tools: import('./types').McpTool[] }[]>('/mcp/tools');
+  }
+
+  async callMcpTool(data: import('./types').CallMcpToolRequest): Promise<import('./types').McpToolResult> {
+    return this.post<import('./types').McpToolResult>('/mcp/execute', data);
   }
 }
 

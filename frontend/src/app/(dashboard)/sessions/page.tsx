@@ -6,10 +6,10 @@ import Link from 'next/link';
 import { ChatCircle, Clock, ArrowRight, Plus } from '@phosphor-icons/react';
 import { api } from '@/lib/api/client';
 import type { Session } from '@/lib/api/types';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { formatRelativeTime, formatDateTime } from '@/lib/utils';
+import { formatRelativeTime } from '@/lib/utils';
 
 export default function SessionsPage() {
   const [sessions, setSessions] = useState<Session[]>([]);
@@ -43,18 +43,18 @@ export default function SessionsPage() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="max-w-4xl mx-auto space-y-8">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="flex items-center justify-between"
+        className="flex flex-col sm:flex-row sm:items-center justify-between gap-4"
       >
         <div>
-          <h1 className="font-serif text-3xl font-medium tracking-tight mb-2">Sessions</h1>
-          <p className="text-muted-foreground">Your conversation history with AI agents</p>
+          <h1 className="font-serif text-2xl sm:text-3xl font-medium tracking-tight mb-1 sm:mb-2">Sessions</h1>
+          <p className="text-sm sm:text-base text-muted-foreground">Your conversation history with AI agents</p>
         </div>
-        <Link href="/chat">
-          <Button>
+        <Link href="/chat" className="w-full sm:w-auto">
+          <Button className="w-full sm:w-auto">
             <Plus weight="bold" className="w-4 h-4" />
             New Session
           </Button>
@@ -90,23 +90,21 @@ export default function SessionsPage() {
             >
               <Link href={`/sessions/${session.id}`}>
                 <Card className="border-border/40 hover:border-border transition-colors cursor-pointer">
-                  <CardContent className="p-5">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
-                          <ChatCircle weight="regular" className="w-5 h-5 text-muted-foreground" />
+                  <CardContent className="p-4 sm:p-5">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+                        <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-muted flex items-center justify-center shrink-0">
+                          <ChatCircle weight="regular" className="w-4 sm:w-5 h-4 sm:h-5 text-muted-foreground" />
                         </div>
-                        <div>
-                          <p className="font-medium">Session</p>
-                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <Clock weight="regular" className="w-3.5 h-3.5" />
-                            <span>{formatDateTime(session.createdAt)}</span>
-                            <span>·</span>
-                            <span>{formatRelativeTime(session.createdAt)}</span>
+                        <div className="min-w-0">
+                          <p className="font-medium text-sm sm:text-base">Session</p>
+                          <div className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm text-muted-foreground">
+                            <Clock weight="regular" className="w-3 sm:w-3.5 h-3 sm:h-3.5 shrink-0" />
+                            <span className="truncate">{formatRelativeTime(session.createdAt)}</span>
                           </div>
                         </div>
                       </div>
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-2 sm:gap-3 shrink-0">
                         <Badge
                           variant={
                             session.status === 'active'
@@ -115,10 +113,11 @@ export default function SessionsPage() {
                               ? 'secondary'
                               : 'outline'
                           }
+                          className="text-[10px] sm:text-xs"
                         >
                           {session.status}
                         </Badge>
-                        <ArrowRight weight="bold" className="w-4 h-4 text-muted-foreground" />
+                        <ArrowRight weight="bold" className="w-4 h-4 text-muted-foreground hidden sm:block" />
                       </div>
                     </div>
                   </CardContent>

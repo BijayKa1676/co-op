@@ -1,45 +1,120 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { motion } from 'framer-motion';
-import { ArrowRight, Scales, ChartLineUp, UsersThree, Globe, Sparkle } from '@phosphor-icons/react';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  ArrowRight,
+  Scales,
+  ChartLineUp,
+  UsersThree,
+  Globe,
+  Sparkle,
+  CheckCircle,
+  Code,
+  Plugs,
+  Lightning,
+  Lightbulb,
+  Rocket,
+  Check,
+  X,
+} from '@phosphor-icons/react';
 import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { LandingBackground } from '@/components/ui/background';
 
-const features = [
+// Multilingual "Op" translations
+const opTranslations = [
+  { text: 'Op', label: 'English' },
+  { text: 'ഓപ്', label: 'Malayalam' },
+  { text: 'ऑप', label: 'Hindi' },
+  { text: 'ஆப்', label: 'Tamil' },
+  { text: 'ఆప్', label: 'Telugu' },
+  { text: 'অপ', label: 'Bengali' },
+  { text: 'أوب', label: 'Arabic' },
+  { text: '合作', label: 'Chinese' },
+  { text: 'オプ', label: 'Japanese' },
+  { text: '옵', label: 'Korean' },
+];
+
+const agents = [
+  { icon: Scales, title: 'Legal', description: 'Corporate structure, contracts, compliance' },
+  { icon: ChartLineUp, title: 'Finance', description: 'Financial modeling, metrics, runway' },
+  { icon: UsersThree, title: 'Investor', description: 'VC matching, pitch optimization' },
+  { icon: Globe, title: 'Competitor', description: 'Market analysis, positioning' },
+];
+
+const pricingPlans = [
   {
-    icon: Scales,
-    title: 'Legal',
-    description: 'Corporate structure, contracts, compliance guidance',
+    name: 'Self-Hosted',
+    price: 'Free',
+    description: 'Deploy on your own infrastructure',
+    features: [
+      { text: 'All 4 AI agents', included: true },
+      { text: 'LLM Council architecture', included: true },
+      { text: 'RAG document search', included: true },
+      { text: 'MCP & A2A protocols', included: true },
+      { text: 'Bring your own API keys', included: true },
+      { text: 'Community support', included: true },
+      { text: 'Managed infrastructure', included: false },
+      { text: 'Priority support', included: false },
+    ],
+    cta: 'View on GitHub',
+    href: 'https://github.com/Afnanksalal/co-op',
+    popular: false,
   },
   {
-    icon: ChartLineUp,
-    title: 'Finance',
-    description: 'Financial modeling, metrics, runway calculations',
+    name: 'Pro',
+    price: '$49',
+    period: '/month',
+    description: 'Fully managed on our servers',
+    features: [
+      { text: 'All 4 AI agents', included: true },
+      { text: 'LLM Council architecture', included: true },
+      { text: 'RAG document search', included: true },
+      { text: 'MCP & A2A protocols', included: true },
+      { text: 'No API keys needed', included: true },
+      { text: 'Managed infrastructure', included: true },
+      { text: 'Priority support', included: true },
+      { text: 'Custom integrations', included: true },
+    ],
+    cta: 'Start Free Trial',
+    href: '/login',
+    popular: true,
   },
   {
-    icon: UsersThree,
-    title: 'Investor',
-    description: 'VC matching, pitch optimization, fundraising',
-  },
-  {
-    icon: Globe,
-    title: 'Competitor',
-    description: 'Market analysis, competitive positioning',
+    name: 'Enterprise',
+    price: 'Custom',
+    description: 'For teams and organizations',
+    features: [
+      { text: 'Everything in Pro', included: true },
+      { text: 'Dedicated infrastructure', included: true },
+      { text: 'Custom AI model training', included: true },
+      { text: 'SSO & advanced security', included: true },
+      { text: 'SLA guarantee', included: true },
+      { text: 'Dedicated success manager', included: true },
+      { text: 'On-premise deployment', included: true },
+      { text: 'White-label options', included: true },
+    ],
+    cta: 'Contact Sales',
+    href: 'mailto:sales@co-op.ai',
+    popular: false,
   },
 ];
 
 export default function HomePage() {
   const router = useRouter();
+  const [currentOpIndex, setCurrentOpIndex] = useState(0);
 
-  // Redirect if already logged in
   useEffect(() => {
     const checkSession = async () => {
       const supabase = createClient();
-      const { data: { session } } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
       if (session) {
         router.push('/dashboard');
       }
@@ -47,144 +122,337 @@ export default function HomePage() {
     checkSession();
   }, [router]);
 
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentOpIndex((prev) => (prev + 1) % opTranslations.length);
+    }, 2000);
+    return () => clearInterval(interval);
+  }, []);
+
   return (
     <div className="min-h-screen bg-background relative">
       <LandingBackground />
 
-      {/* Header */}
+      {/* Header - Static */}
       <header className="relative z-10 border-b border-border/40">
-        <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-          <Link href="/" className="font-serif text-xl font-semibold tracking-tight">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-14 sm:h-16 flex items-center justify-between">
+          <Link href="/" className="font-serif text-lg sm:text-xl font-semibold tracking-tight">
             Co-Op
           </Link>
-          <div className="flex items-center gap-4">
-            <Link href="/login">
-              <Button variant="ghost">Sign In</Button>
+          <nav className="hidden md:flex items-center gap-6 lg:gap-8 text-sm">
+            <a href="#features" className="text-muted-foreground hover:text-foreground transition-colors">Features</a>
+            <a href="#verticals" className="text-muted-foreground hover:text-foreground transition-colors">Solutions</a>
+            <a href="#pricing" className="text-muted-foreground hover:text-foreground transition-colors">Pricing</a>
+            <a href="#developers" className="text-muted-foreground hover:text-foreground transition-colors">Developers</a>
+          </nav>
+          <div className="flex items-center gap-2 sm:gap-4">
+            <Link href="/login" className="hidden sm:block">
+              <Button variant="ghost" size="sm">Sign In</Button>
             </Link>
             <Link href="/login">
-              <Button>
-                Get Started
-                <ArrowRight weight="bold" className="w-4 h-4" />
-              </Button>
+              <Button size="sm">Get Started</Button>
             </Link>
           </div>
         </div>
       </header>
 
-      {/* Hero */}
       <main className="relative z-10">
-        <section className="max-w-6xl mx-auto px-6 py-24 text-center">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-          >
+        {/* Hero */}
+        <section className="max-w-6xl mx-auto px-6 py-24 md:py-32 text-center">
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-sm mb-8">
               <Sparkle weight="fill" className="w-4 h-4" />
-              AI-Powered Advisory for Startups
+              AI-Powered Advisory Platform
             </div>
 
-            <h1 className="font-serif text-5xl md:text-6xl font-medium tracking-tight mb-6 leading-[1.1]">
-              Your AI
-              <br />
-              Advisory Board
+            {/* Animated Co-Op Logo */}
+            <h1 className="font-serif text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-medium tracking-tight mb-6 leading-[1.1]">
+              <span className="inline-flex items-baseline justify-center">
+                <span>Co-</span>
+                <span className="relative inline-flex items-baseline min-w-[80px] sm:min-w-[100px] md:min-w-[120px] lg:min-w-[140px] h-[1.1em] overflow-hidden">
+                  <AnimatePresence mode="wait">
+                    <motion.span
+                      key={currentOpIndex}
+                      initial={{ y: '100%', opacity: 0 }}
+                      animate={{ y: 0, opacity: 1 }}
+                      exit={{ y: '-100%', opacity: 0 }}
+                      transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+                      className="absolute left-0 whitespace-nowrap"
+                    >
+                      {opTranslations[currentOpIndex].text}
+                    </motion.span>
+                  </AnimatePresence>
+                </span>
+              </span>
             </h1>
+            
+            {/* Language indicator */}
+            <motion.p 
+              key={currentOpIndex}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="text-xs text-muted-foreground/60 mb-4 h-4"
+            >
+              {opTranslations[currentOpIndex].label}
+            </motion.p>
 
-            <p className="text-xl text-muted-foreground max-w-2xl mx-auto mb-10 leading-relaxed">
-              Expert guidance across legal, finance, investor relations, and competitive analysis.
-              Multiple AI models cross-validate every response.
+            <p className="text-2xl md:text-3xl text-muted-foreground font-serif mb-4">
+              Cross the gaps. Build the future.
             </p>
 
-            <div className="flex items-center justify-center gap-4">
+            <p className="text-lg text-muted-foreground max-w-2xl mx-auto mb-10 leading-relaxed">
+              Your AI advisory board for legal, finance, investor relations, and competitive analysis.
+              Multiple AI models cross-validate every response for accuracy you can trust.
+            </p>
+
+            <div className="flex items-center justify-center gap-4 flex-wrap">
               <Link href="/login">
                 <Button size="lg" className="h-12 px-8">
-                  Start Free
-                  <ArrowRight weight="bold" className="w-4 h-4" />
+                  Start Free <ArrowRight weight="bold" className="w-4 h-4" />
                 </Button>
               </Link>
+              <a href="#pricing">
+                <Button variant="outline" size="lg" className="h-12 px-8">
+                  View Pricing
+                </Button>
+              </a>
             </div>
           </motion.div>
         </section>
 
         {/* Features */}
-        <section className="max-w-6xl mx-auto px-6 py-24">
+        <section id="features" className="max-w-6xl mx-auto px-6 py-24">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2, duration: 0.6 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
             className="text-center mb-16"
           >
-            <h2 className="font-serif text-3xl font-medium tracking-tight mb-4">
-              Four Expert Agents
-            </h2>
+            <h2 className="font-serif text-3xl md:text-4xl font-medium tracking-tight mb-4">Four Expert Agents</h2>
             <p className="text-muted-foreground max-w-xl mx-auto">
-              Each agent specializes in a critical area of startup operations,
-              powered by curated knowledge bases and real-time research.
+              Each agent specializes in a critical area, powered by curated knowledge bases and real-time research.
             </p>
           </motion.div>
 
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {features.map((feature, index) => (
+            {agents.map((agent, index) => (
               <motion.div
-                key={feature.title}
+                key={agent.title}
                 initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.1 * index + 0.3, duration: 0.5 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: index * 0.1 }}
                 className="p-6 rounded-xl border border-border/40 bg-card/50 hover:border-border transition-colors"
               >
-                <feature.icon weight="light" className="w-8 h-8 mb-4 text-foreground/70" />
-                <h3 className="font-serif text-lg font-medium mb-2">{feature.title}</h3>
-                <p className="text-sm text-muted-foreground">{feature.description}</p>
+                <agent.icon weight="light" className="w-8 h-8 mb-4 text-foreground/70" />
+                <h3 className="font-serif text-lg font-medium mb-2">{agent.title}</h3>
+                <p className="text-sm text-muted-foreground">{agent.description}</p>
               </motion.div>
             ))}
           </div>
         </section>
 
-        {/* How it Works */}
-        <section className="max-w-6xl mx-auto px-6 py-24">
+        {/* Two Verticals */}
+        <section id="verticals" className="max-w-6xl mx-auto px-6 py-24 border-t border-border/40">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.4, duration: 0.6 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
             className="text-center mb-16"
           >
-            <h2 className="font-serif text-3xl font-medium tracking-tight mb-4">
-              How It Works
+            <h2 className="font-serif text-3xl md:text-4xl font-medium tracking-tight mb-4">
+              Built for Every Stage
             </h2>
+            <p className="text-muted-foreground max-w-xl mx-auto">
+              Whether you&apos;re scaling your next venture or just starting with an idea.
+            </p>
           </motion.div>
 
-          <div className="grid md:grid-cols-3 gap-8">
-            {[
-              {
-                step: '01',
-                title: 'Tell us about your startup',
-                description: 'Complete a quick onboarding to help our agents understand your business.',
-              },
-              {
-                step: '02',
-                title: 'Ask any question',
-                description: 'Get expert advice on legal, finance, investors, or competitors.',
-              },
-              {
-                step: '03',
-                title: 'Get validated answers',
-                description: 'Multiple AI models cross-check responses for accuracy and depth.',
-              },
-            ].map((item, index) => (
-              <motion.div
-                key={item.step}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.1 * index + 0.5, duration: 0.5 }}
-                className="text-center"
-              >
-                <div className="text-4xl font-serif font-medium text-muted-foreground/30 mb-4">
-                  {item.step}
+          <div className="grid md:grid-cols-2 gap-8">
+            {/* Existing Founders */}
+            <motion.div
+              initial={{ opacity: 0, x: -20 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              className="p-8 rounded-2xl border border-border/40 bg-card/50"
+            >
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                  <Rocket weight="fill" className="w-6 h-6" />
                 </div>
-                <h3 className="font-serif text-lg font-medium mb-2">{item.title}</h3>
-                <p className="text-sm text-muted-foreground">{item.description}</p>
+                <div>
+                  <h3 className="font-serif text-xl font-medium">Existing Founders</h3>
+                  <p className="text-sm text-muted-foreground">Scale faster with AI-powered insights</p>
+                </div>
+              </div>
+              <p className="text-muted-foreground mb-6">
+                You&apos;ve built before. Skip the basics and get straight to strategic decisions with our full agent suite.
+              </p>
+              <ul className="space-y-3 mb-6">
+                {['Advanced financial modeling', 'Complex legal structures', 'Investor relationship strategies', 'Competitive intelligence'].map((item) => (
+                  <li key={item} className="flex items-center gap-2 text-sm">
+                    <CheckCircle weight="fill" className="w-4 h-4 text-green-500" />
+                    {item}
+                  </li>
+                ))}
+              </ul>
+              <Link href="/login">
+                <Button className="w-full">Get Started <ArrowRight weight="bold" className="w-4 h-4" /></Button>
+              </Link>
+            </motion.div>
+
+            {/* Idea Stage */}
+            <motion.div
+              initial={{ opacity: 0, x: 20 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              className="p-8 rounded-2xl border border-border/40 bg-card/50"
+            >
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                  <Lightbulb weight="fill" className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="font-serif text-xl font-medium">Idea Stage</h3>
+                  <Badge variant="secondary" className="mt-1">Coming Soon</Badge>
+                </div>
+              </div>
+              <p className="text-muted-foreground mb-6">
+                Have an idea but haven&apos;t started? Our A2A (Agent-to-Agent) protocol helps validate and refine your concept.
+              </p>
+              <ul className="space-y-3 mb-6">
+                {['Idea validation & refinement', 'Market opportunity analysis', 'Business model exploration', 'Multi-agent brainstorming (A2A)'].map((item) => (
+                  <li key={item} className="flex items-center gap-2 text-sm">
+                    <CheckCircle weight="fill" className="w-4 h-4 text-green-500" />
+                    {item}
+                  </li>
+                ))}
+              </ul>
+              <Button variant="outline" className="w-full" disabled>
+                Join Waitlist
+              </Button>
+            </motion.div>
+          </div>
+        </section>
+
+        {/* Pricing */}
+        <section id="pricing" className="max-w-6xl mx-auto px-6 py-24 border-t border-border/40">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="text-center mb-16"
+          >
+            <h2 className="font-serif text-3xl md:text-4xl font-medium tracking-tight mb-4">Simple Pricing</h2>
+            <p className="text-muted-foreground max-w-xl mx-auto">
+              Self-host for free or let us handle everything. No hidden fees.
+            </p>
+          </motion.div>
+
+          <div className="grid md:grid-cols-3 gap-6">
+            {pricingPlans.map((plan, index) => (
+              <motion.div
+                key={plan.name}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: index * 0.1 }}
+              >
+                <Card className={`h-full border-border/40 ${plan.popular ? 'ring-2 ring-primary' : ''}`}>
+                  <CardHeader>
+                    {plan.popular && (
+                      <Badge className="w-fit mb-2">Most Popular</Badge>
+                    )}
+                    <CardTitle className="font-serif text-xl">{plan.name}</CardTitle>
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-4xl font-serif font-medium">{plan.price}</span>
+                      {plan.period && <span className="text-muted-foreground">{plan.period}</span>}
+                    </div>
+                    <p className="text-sm text-muted-foreground">{plan.description}</p>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <ul className="space-y-3">
+                      {plan.features.map((feature) => (
+                        <li key={feature.text} className="flex items-center gap-2 text-sm">
+                          {feature.included ? (
+                            <Check weight="bold" className="w-4 h-4 text-green-500" />
+                          ) : (
+                            <X weight="bold" className="w-4 h-4 text-muted-foreground/50" />
+                          )}
+                          <span className={feature.included ? '' : 'text-muted-foreground/50'}>{feature.text}</span>
+                        </li>
+                      ))}
+                    </ul>
+                    <Link href={plan.href} className="block">
+                      <Button variant={plan.popular ? 'default' : 'outline'} className="w-full">
+                        {plan.cta}
+                      </Button>
+                    </Link>
+                  </CardContent>
+                </Card>
               </motion.div>
             ))}
+          </div>
+        </section>
+
+        {/* Developers */}
+        <section id="developers" className="max-w-6xl mx-auto px-6 py-24 border-t border-border/40">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="text-center mb-16"
+          >
+            <h2 className="font-serif text-3xl md:text-4xl font-medium tracking-tight mb-4">Built for Developers</h2>
+            <p className="text-muted-foreground max-w-xl mx-auto">
+              Integrate Co-Op&apos;s AI capabilities into your own platforms with our APIs and protocols.
+            </p>
+          </motion.div>
+
+          <div className="grid md:grid-cols-3 gap-6">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              className="p-6 rounded-xl border border-border/40 bg-card/50"
+            >
+              <Code weight="light" className="w-8 h-8 mb-4 text-foreground/70" />
+              <h3 className="font-serif text-lg font-medium mb-2">REST API</h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                Full REST API access to all agents. Run queries, manage sessions, and retrieve results.
+              </p>
+              <code className="text-xs bg-muted px-2 py-1 rounded">POST /api/v1/agents/run</code>
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.1 }}
+              className="p-6 rounded-xl border border-border/40 bg-card/50"
+            >
+              <Plugs weight="light" className="w-8 h-8 mb-4 text-foreground/70" />
+              <h3 className="font-serif text-lg font-medium mb-2">MCP Protocol</h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                Use Co-Op agents in Claude Desktop, Cursor, Kiro, and any MCP-compatible client.
+              </p>
+              <code className="text-xs bg-muted px-2 py-1 rounded">GET /api/v1/mcp-server/discover</code>
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.2 }}
+              className="p-6 rounded-xl border border-border/40 bg-card/50"
+            >
+              <Lightning weight="light" className="w-8 h-8 mb-4 text-foreground/70" />
+              <h3 className="font-serif text-lg font-medium mb-2">A2A Protocol</h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                Agent-to-Agent communication for multi-agent queries with cross-critique consensus.
+              </p>
+              <code className="text-xs bg-muted px-2 py-1 rounded">multi_agent_query</code>
+            </motion.div>
           </div>
         </section>
 
@@ -192,20 +460,19 @@ export default function HomePage() {
         <section className="max-w-6xl mx-auto px-6 py-24">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.6, duration: 0.6 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
             className="text-center p-12 rounded-2xl border border-border/40 bg-card/50"
           >
-            <h2 className="font-serif text-3xl font-medium tracking-tight mb-4">
-              Ready to get started?
+            <h2 className="font-serif text-3xl md:text-4xl font-medium tracking-tight mb-4">
+              Ready to cross the gaps?
             </h2>
             <p className="text-muted-foreground mb-8 max-w-md mx-auto">
-              Join founders who use Co-Op to make better decisions faster.
+              Join founders worldwide who use Co-Op to make better decisions faster.
             </p>
             <Link href="/login">
               <Button size="lg" className="h-12 px-8">
-                Get Started Free
-                <ArrowRight weight="bold" className="w-4 h-4" />
+                Get Started Free <ArrowRight weight="bold" className="w-4 h-4" />
               </Button>
             </Link>
           </motion.div>
@@ -214,17 +481,12 @@ export default function HomePage() {
 
       {/* Footer */}
       <footer className="relative z-10 border-t border-border/40">
-        <div className="max-w-6xl mx-auto px-6 py-8 flex items-center justify-between">
-          <span className="font-serif text-sm text-muted-foreground">
-            © {new Date().getFullYear()} Co-Op
-          </span>
-          <div className="flex items-center gap-6 text-sm text-muted-foreground">
-            <Link href="#" className="hover:text-foreground transition-colors">
-              Privacy
-            </Link>
-            <Link href="#" className="hover:text-foreground transition-colors">
-              Terms
-            </Link>
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <span className="font-serif text-sm text-muted-foreground">© {new Date().getFullYear()} Co-Op</span>
+          <div className="flex items-center gap-4 sm:gap-6 text-sm text-muted-foreground">
+            <Link href="#" className="hover:text-foreground transition-colors">Privacy</Link>
+            <Link href="#" className="hover:text-foreground transition-colors">Terms</Link>
+            <a href="https://github.com/Afnanksalal/co-op" target="_blank" rel="noopener noreferrer" className="hover:text-foreground transition-colors">GitHub</a>
           </div>
         </div>
       </footer>

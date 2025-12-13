@@ -382,21 +382,28 @@ export class LlmCouncilService implements OnModuleInit, OnModuleDestroy {
 
 Question: ${originalPrompt}
 
-Response:
+Response to evaluate:
 ${response.content}
 
-JSON format only:
-{"score":1-10,"feedback":"1 sentence","strengths":["max 2"],"weaknesses":["max 2"]}`;
+IMPORTANT: Respond with ONLY a JSON object, no markdown, no code blocks, no explanation.
+Use this exact format:
+{"score": 7, "feedback": "Brief one sentence evaluation", "strengths": ["strength 1", "strength 2"], "weaknesses": ["weakness 1", "weakness 2"]}
+
+Rules:
+- score: integer from 1 to 10
+- feedback: single sentence
+- strengths: array of max 2 short strings
+- weaknesses: array of max 2 short strings`;
 
     const messages: ChatMessage[] = [
-      { role: 'system', content: 'You are a critical evaluator. Respond only with valid JSON.' },
+      { role: 'system', content: 'You are a critical evaluator. Output ONLY valid JSON. No markdown. No code blocks. No explanation.' },
       { role: 'user', content: critiquePrompt },
     ];
 
     const result = await provider.chat(messages, {
       model: criticModel.model,
       temperature: 0.3,
-      maxTokens: 1024,
+      maxTokens: 512,
     });
 
     const parsed = this.parseCritiqueWithFallback(result.content, criticModel.name);
@@ -412,17 +419,23 @@ JSON format only:
       };
     }
 
-    this.logger.warn(`Failed to parse critique from ${criticModel.name}: ${result.content.slice(0, 100)}`);
+    this.logger.warn(`Failed to parse critique from ${criticModel.name}: ${result.content.slice(0, 200)}`);
     return null;
   }
 
   private extractJsonFromResponse(content: string): string {
     // Remove thinking tags from reasoning models (DeepSeek R1, etc.)
-    const cleaned = content
+    let cleaned = content
       .replace(/<think>[\s\S]*?<\/think>/gi, '')
       .replace(/<thinking>[\s\S]*?<\/thinking>/gi, '')
       .replace(/<reasoning>[\s\S]*?<\/reasoning>/gi, '')
       .replace(/<reflection>[\s\S]*?<\/reflection>/gi, '')
+      .trim();
+
+    // Remove markdown code blocks (common in Gemini responses)
+    cleaned = cleaned
+      .replace(/```json\s*/gi, '')
+      .replace(/```\s*/g, '')
       .trim();
 
     // Try to find JSON object in the response
@@ -448,36 +461,77 @@ JSON format only:
   }
 
   private parseCritiqueWithFallback(content: string, modelName: string): CritiqueJson | null {
+    // Clean content first - remove markdown code blocks
+    const cleanedContent = content
+      .replace(/```json\s*/gi, '')
+      .replace(/```\s*/g, '')
+      .trim();
+
     // Try standard JSON extraction first
     try {
-      const jsonContent = this.extractJsonFromResponse(content);
+      const jsonContent = this.extractJsonFromResponse(cleanedContent);
       const parsed = JSON.parse(jsonContent) as CritiqueJson;
       if (typeof parsed.score === 'number' && typeof parsed.feedback === 'string') {
-        return parsed;
+        return {
+          score: Math.min(10, Math.max(1, parsed.score)),
+          feedback: parsed.feedback,
+          strengths: Array.isArray(parsed.strengths) ? parsed.strengths.slice(0, 3) : [],
+          weaknesses: Array.isArray(parsed.weaknesses) ? parsed.weaknesses.slice(0, 3) : [],
+        };
       }
     } catch {
       // Continue to fallback parsing
     }
 
+    // Try to fix common JSON issues (trailing commas, unquoted keys)
+    try {
+      const jsonMatch = /\{[\s\S]*\}/.exec(cleanedContent);
+      if (jsonMatch) {
+        let jsonStr = jsonMatch[0]
+          // Fix trailing commas before closing brackets
+          .replace(/,\s*([}\]])/g, '$1')
+          // Fix unquoted keys
+          .replace(/(\{|,)\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*:/g, '$1"$2":')
+          // Fix single quotes to double quotes
+          .replace(/'/g, '"');
+        
+        const parsed = JSON.parse(jsonStr) as CritiqueJson;
+        if (typeof parsed.score === 'number') {
+          this.logger.debug(`Fixed JSON parsing succeeded for ${modelName}`);
+          return {
+            score: Math.min(10, Math.max(1, parsed.score)),
+            feedback: String(parsed.feedback ?? 'No feedback'),
+            strengths: Array.isArray(parsed.strengths) ? parsed.strengths.slice(0, 3) : [],
+            weaknesses: Array.isArray(parsed.weaknesses) ? parsed.weaknesses.slice(0, 3) : [],
+          };
+        }
+      }
+    } catch {
+      // Continue to regex fallback
+    }
+
     // Fallback: Extract values using regex patterns
     try {
-      const scoreMatch = /["']?score["']?\s*[:=]\s*(\d+)/i.exec(content);
-      const feedbackMatch = /["']?feedback["']?\s*[:=]\s*["']([^"']+)["']/i.exec(content);
+      // More flexible score matching
+      const scoreMatch = /["']?score["']?\s*[:=]\s*(\d+(?:\.\d+)?)/i.exec(cleanedContent);
+      // More flexible feedback matching - handle multi-line and various quote styles
+      const feedbackMatch = /["']?feedback["']?\s*[:=]\s*["']([^"']+)["']/i.exec(cleanedContent) ||
+                           /["']?feedback["']?\s*[:=]\s*"([^"]+)"/i.exec(cleanedContent);
       
       if (scoreMatch) {
-        const score = parseInt(scoreMatch[1], 10);
+        const score = Math.round(parseFloat(scoreMatch[1]));
         const feedback = feedbackMatch?.[1] ?? 'No detailed feedback provided';
         
-        // Extract arrays if possible
-        const strengthsMatch = /["']?strengths["']?\s*[:=]\s*\[(.*?)\]/is.exec(content);
-        const weaknessesMatch = /["']?weaknesses["']?\s*[:=]\s*\[(.*?)\]/is.exec(content);
+        // Extract arrays if possible - handle multi-line arrays
+        const strengthsMatch = /["']?strengths["']?\s*[:=]\s*\[([\s\S]*?)\]/i.exec(cleanedContent);
+        const weaknessesMatch = /["']?weaknesses["']?\s*[:=]\s*\[([\s\S]*?)\]/i.exec(cleanedContent);
         
         const parseArray = (match: RegExpMatchArray | null): string[] => {
           if (!match) return [];
           return match[1]
-            .split(',')
+            .split(/,(?=\s*["'])/)
             .map(s => s.replace(/["']/g, '').trim())
-            .filter(s => s.length > 0)
+            .filter(s => s.length > 0 && s.length < 200)
             .slice(0, 3);
         };
 
@@ -493,8 +547,8 @@ JSON format only:
       // Fallback parsing also failed
     }
 
-    // Last resort: Look for just a number that could be a score
-    const numberMatch = /\b([1-9]|10)\b/.exec(content);
+    // Last resort: Look for just a number that could be a score (1-10)
+    const numberMatch = /\b([1-9]|10)\b/.exec(cleanedContent);
     if (numberMatch) {
       this.logger.debug(`Minimal parsing for ${modelName} - extracted score only`);
       return {

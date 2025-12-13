@@ -323,6 +323,82 @@ export interface PaginatedResult<T> {
   meta: PaginationMeta;
 }
 
+// === NOTION ===
+export interface NotionStatus {
+  connected: boolean;
+  workspaceName: string | null;
+  workspaceIcon: string | null;
+  defaultPageId: string | null;
+}
+
+export interface NotionPage {
+  id: string;
+  title: string;
+  url: string;
+  lastEditedTime: string;
+}
+
+export interface ExportToNotionRequest {
+  pageId?: string;
+  title: string;
+  agentType: string;
+  content: string;
+  sources: string[];
+  metadata: Record<string, unknown>;
+}
+
+export interface NotionExportResult {
+  pageId: string;
+  pageUrl: string;
+  title: string;
+  exportedAt: string;
+}
+
+// === MCP ===
+export interface McpServer {
+  id: string;
+  name: string;
+  baseUrl: string;
+  apiKey: string;
+  enabled: boolean;
+}
+
+export interface McpTool {
+  name: string;
+  description: string;
+  inputSchema: {
+    type: string;
+    properties: Record<string, { type: string; description: string; enum?: string[] }>;
+    required: string[];
+  };
+  outputSchema: {
+    type: string;
+    properties: Record<string, { type: string; description: string }>;
+    required: string[];
+  };
+}
+
+export interface McpToolResult {
+  success: boolean;
+  data: unknown;
+  error: string;
+  toolName: string;
+  executionTime: number;
+}
+
+export interface RegisterMcpServerRequest {
+  id: string;
+  name: string;
+  baseUrl: string;
+  apiKey?: string;
+}
+
+export interface CallMcpToolRequest {
+  serverId: string;
+  toolName: string;
+  arguments: Record<string, unknown>;
+}
+
 // === API RESPONSE ===
 export interface ApiResponse<T> {
   success: boolean;

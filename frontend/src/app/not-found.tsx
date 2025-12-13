@@ -1,3 +1,5 @@
+'use client';
+
 import Link from 'next/link';
 import { MagnifyingGlass, ArrowLeft } from '@phosphor-icons/react';
 import { Button } from '@/components/ui/button';

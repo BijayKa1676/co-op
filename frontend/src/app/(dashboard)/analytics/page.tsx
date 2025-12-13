@@ -1,172 +1,262 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { motion } from 'framer-motion';
 import {
-  ChartBar,
   Users,
   ChatCircle,
   Buildings,
   Pulse,
+  ChartLine,
   Lightning,
-  FilePdf,
-  Upload,
-  Trash,
-  Database,
-  Broom,
-  Check,
+  Timer,
   Warning,
-  Clock,
+  CheckCircle,
+  XCircle,
+  ArrowsClockwise,
+  Key,
+  Trash,
 } from '@phosphor-icons/react';
 import { api } from '@/lib/api/client';
 import { useRequireAdmin } from '@/lib/hooks';
-import type { DashboardStats, Embedding, EventAggregation } from '@/lib/api/types';
+import type { DashboardStats } from '@/lib/api/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { formatRelativeTime } from '@/lib/utils';
 import { toast } from 'sonner';
 
-const DOMAINS = [
-  { value: 'legal', label: 'Legal' },
-  { value: 'finance', label: 'Finance' },
-];
+function MetricsSetup({ onConfigured }: { onConfigured: () => void }) {
+  const [apiKey, setApiKey] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const storedKey = api.getStoredMetricsApiKey();
 
-const SECTORS = [
-  { value: 'fintech', label: 'Fintech' },
-  { value: 'greentech', label: 'Greentech' },
-  { value: 'healthtech', label: 'Healthtech' },
-  { value: 'saas', label: 'SaaS' },
-  { value: 'ecommerce', label: 'E-commerce' },
-];
-
-export default function AnalyticsPage() {
-  const { isAdmin, isLoading: authLoading } = useRequireAdmin();
-  const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [events, setEvents] = useState<EventAggregation[]>([]);
-  const [embeddings, setEmbeddings] = useState<Embedding[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-
-  // Upload state
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [uploadDomain, setUploadDomain] = useState('legal');
-  const [uploadSector, setUploadSector] = useState('saas');
-  const [isUploading, setIsUploading] = useState(false);
-
-  // Filter state
-  const [filterDomain, setFilterDomain] = useState<string>('');
-  const [filterSector, setFilterSector] = useState<string>('');
-
-  useEffect(() => {
-    if (!isAdmin) return;
-    fetchData();
-  }, [isAdmin]);
-
-  useEffect(() => {
-    if (!isAdmin) return;
-    fetchEmbeddings();
-  }, [isAdmin, filterDomain, filterSector]);
-
-  const fetchData = async () => {
+  const handleSave = async () => {
+    if (!apiKey.trim()) {
+      toast.error('Please enter an API key');
+      return;
+    }
+    
+    setIsLoading(true);
     try {
-      const [statsData, eventsData] = await Promise.all([
-        api.getDashboardStats(),
-        api.getEventAggregation(7),
-      ]);
-      setStats(statsData);
-      setEvents(eventsData);
-    } catch (error) {
-      console.error('Failed to fetch analytics:', error);
-      toast.error('Failed to load analytics');
+      // Test the key
+      await api.getPrometheusMetrics(apiKey.trim());
+      api.setMetricsApiKey(apiKey.trim());
+      toast.success('Metrics API key configured');
+      onConfigured();
+    } catch {
+      toast.error('Invalid API key');
     }
     setIsLoading(false);
   };
 
-  const fetchEmbeddings = async () => {
-    try {
-      const result = await api.getEmbeddings({
-        domain: filterDomain || undefined,
-        sector: filterSector || undefined,
-        limit: 20,
-      });
-      setEmbeddings(result.data);
-    } catch (error) {
-      console.error('Failed to fetch embeddings:', error);
-    }
+  const handleClear = () => {
+    api.clearMetricsApiKey();
+    setApiKey('');
+    toast.success('API key cleared');
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      if (file.type !== 'application/pdf') {
-        toast.error('Only PDF files are allowed');
-        return;
+  return (
+    <Card className="border-border/40">
+      <CardHeader>
+        <CardTitle className="font-serif text-lg flex items-center gap-2">
+          <Key weight="regular" className="w-5 h-5" />
+          Configure Metrics Access
+        </CardTitle>
+        <CardDescription>
+          Prometheus metrics require a Master API Key. Set the <code className="text-xs bg-muted px-1 py-0.5 rounded">MASTER_API_KEY</code> environment variable in your backend, then enter it below.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="space-y-2">
+          <Label>Master API Key</Label>
+          <div className="flex gap-2">
+            <Input
+              type="password"
+              placeholder="Enter your Master API Key"
+              value={apiKey}
+              onChange={(e) => setApiKey(e.target.value)}
+              className="flex-1"
+            />
+            <Button onClick={handleSave} disabled={isLoading}>
+              {isLoading ? 'Testing...' : 'Save'}
+            </Button>
+            {storedKey && (
+              <Button variant="outline" onClick={handleClear}>
+                <Trash weight="regular" className="w-4 h-4" />
+              </Button>
+            )}
+          </div>
+        </div>
+        {storedKey && (
+          <p className="text-xs text-muted-foreground">
+            A key is already configured. Enter a new one to replace it.
+          </p>
+        )}
+        <div className="p-3 rounded-lg bg-muted/50 text-sm text-muted-foreground">
+          <p className="font-medium mb-1">How to set up:</p>
+          <ol className="list-decimal list-inside space-y-1 text-xs">
+            <li>Add <code className="bg-muted px-1 rounded">MASTER_API_KEY=your-secret-key</code> to your backend .env</li>
+            <li>Restart your backend server</li>
+            <li>Enter the same key above</li>
+          </ol>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+interface PrometheusMetric {
+  name: string;
+  help: string;
+  type: string;
+  values: { labels: Record<string, string>; value: number }[];
+}
+
+function parsePrometheusMetrics(text: string): PrometheusMetric[] {
+  const metrics: PrometheusMetric[] = [];
+  const lines = text.split('\n');
+  let currentMetric: PrometheusMetric | null = null;
+
+  for (const line of lines) {
+    if (line.startsWith('# HELP ')) {
+      const parts = line.substring(7).split(' ');
+      const name = parts[0];
+      const help = parts.slice(1).join(' ');
+      currentMetric = { name, help, type: '', values: [] };
+    } else if (line.startsWith('# TYPE ')) {
+      const parts = line.substring(7).split(' ');
+      if (currentMetric && parts[0] === currentMetric.name) {
+        currentMetric.type = parts[1];
       }
-      if (file.size > 50 * 1024 * 1024) {
-        toast.error('File size exceeds 50MB limit');
-        return;
+    } else if (line && !line.startsWith('#') && currentMetric) {
+      const match = line.match(/^([a-zA-Z_:][a-zA-Z0-9_:]*)\{?([^}]*)\}?\s+(.+)$/);
+      if (match) {
+        const [, metricName, labelsStr, valueStr] = match;
+        if (metricName.startsWith(currentMetric.name)) {
+          const labels: Record<string, string> = {};
+          if (labelsStr) {
+            const labelMatches = Array.from(labelsStr.matchAll(/([a-zA-Z_][a-zA-Z0-9_]*)="([^"]*)"/g));
+            for (const m of labelMatches) {
+              labels[m[1]] = m[2];
+            }
+          }
+          const value = parseFloat(valueStr);
+          if (!isNaN(value)) {
+            currentMetric.values.push({ labels, value });
+          }
+        }
       }
-      setSelectedFile(file);
+      // Check if this is a simple metric without labels
+      const simpleMatch = line.match(/^([a-zA-Z_:][a-zA-Z0-9_:]*)\s+(.+)$/);
+      if (simpleMatch && !line.includes('{')) {
+        const [, metricName, valueStr] = simpleMatch;
+        if (metricName === currentMetric.name) {
+          const value = parseFloat(valueStr);
+          if (!isNaN(value)) {
+            currentMetric.values.push({ labels: {}, value });
+          }
+        }
+      }
+    }
+
+    // Push metric when we hit a new HELP or end
+    if ((line.startsWith('# HELP ') || line === '') && currentMetric && currentMetric.values.length > 0) {
+      metrics.push(currentMetric);
+      if (!line.startsWith('# HELP ')) {
+        currentMetric = null;
+      }
+    }
+  }
+
+  // Push last metric
+  if (currentMetric && currentMetric.values.length > 0) {
+    metrics.push(currentMetric);
+  }
+
+  return metrics;
+}
+
+export default function AnalyticsPage() {
+  const { isAdmin, isLoading: authLoading } = useRequireAdmin();
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [metrics, setMetrics] = useState<PrometheusMetric[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [metricsError, setMetricsError] = useState<string | null>(null);
+  const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
+  const dataLoadedRef = useRef(false);
+
+  const loadStats = async () => {
+    try {
+      const statsData = await api.getDashboardStats();
+      setStats(statsData);
+    } catch (error) {
+      console.error('Failed to fetch analytics:', error);
+      toast.error('Failed to load analytics');
     }
   };
 
-  const handleUpload = async () => {
-    if (!selectedFile) {
-      toast.error('Please select a file');
-      return;
-    }
-
-    setIsUploading(true);
+  const loadMetrics = async () => {
     try {
-      await api.uploadPdf(selectedFile, uploadDomain, uploadSector);
-      toast.success('PDF uploaded successfully');
-      setSelectedFile(null);
-      await fetchEmbeddings();
+      const metricsText = await api.getPrometheusMetrics();
+      const parsed = parsePrometheusMetrics(metricsText);
+      setMetrics(parsed);
+      setMetricsError(null);
+      setLastRefresh(new Date());
     } catch (error) {
-      console.error('Failed to upload:', error);
-      toast.error('Failed to upload PDF');
-    }
-    setIsUploading(false);
-  };
-
-  const handleVectorize = async (id: string) => {
-    try {
-      const result = await api.vectorizeEmbedding(id);
-      toast.success(`Vectorized ${result.chunksCreated} chunks`);
-      await fetchEmbeddings();
-    } catch (error) {
-      console.error('Failed to vectorize:', error);
-      toast.error('Failed to vectorize');
+      console.error('Failed to fetch metrics:', error);
+      setMetricsError('Metrics require a Master API Key. Create one in API Keys settings.');
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Delete this embedding?')) return;
+  useEffect(() => {
+    if (authLoading || !isAdmin || dataLoadedRef.current) return;
+    dataLoadedRef.current = true;
+    
+    const loadAll = async () => {
+      await Promise.all([loadStats(), loadMetrics()]);
+      setIsLoading(false);
+    };
+    loadAll();
+  }, [authLoading, isAdmin]);
 
-    try {
-      await api.deleteEmbedding(id);
-      toast.success('Embedding deleted');
-      await fetchEmbeddings();
-    } catch (error) {
-      console.error('Failed to delete:', error);
-      toast.error('Failed to delete');
-    }
+  const handleRefresh = async () => {
+    await Promise.all([loadStats(), loadMetrics()]);
+    toast.success('Metrics refreshed');
   };
 
-  const handleCleanup = async () => {
-    if (!confirm('Remove vectors not accessed in 30 days?')) return;
+  // Extract specific metrics
+  const getMetricTotal = (name: string): number => {
+    const metric = metrics.find(m => m.name === name);
+    if (!metric) return 0;
+    return metric.values.reduce((sum, v) => sum + v.value, 0);
+  };
 
-    try {
-      const result = await api.cleanupEmbeddings(30);
-      toast.success(`Cleaned ${result.filesCleaned} files, removed ${result.vectorsRemoved} vectors`);
-      await fetchEmbeddings();
-    } catch (error) {
-      console.error('Failed to cleanup:', error);
-      toast.error('Failed to cleanup');
+  const getMetricByLabel = (name: string, labelKey: string): { label: string; value: number }[] => {
+    const metric = metrics.find(m => m.name === name);
+    if (!metric) return [];
+    
+    const grouped: Record<string, number> = {};
+    for (const v of metric.values) {
+      const label = v.labels[labelKey] || 'unknown';
+      grouped[label] = (grouped[label] || 0) + v.value;
     }
+    
+    return Object.entries(grouped)
+      .map(([label, value]) => ({ label, value }))
+      .sort((a, b) => b.value - a.value);
+  };
+
+  const getCircuitBreakerStates = (): { name: string; state: string }[] => {
+    const metric = metrics.find(m => m.name === 'circuit_breaker_state');
+    if (!metric) return [];
+    
+    return metric.values.map(v => ({
+      name: v.labels.name || 'unknown',
+      state: v.value === 0 ? 'closed' : v.value === 1 ? 'open' : 'half-open',
+    }));
   };
 
   if (authLoading || isLoading) {
@@ -184,20 +274,50 @@ export default function AnalyticsPage() {
 
   if (!isAdmin) return null;
 
+  const httpRequestsTotal = getMetricTotal('http_requests_total');
+  const llmRequestsTotal = getMetricTotal('llm_requests_total');
+  const llmErrorsTotal = getMetricTotal('llm_errors_total');
+  const agentTasksTotal = getMetricTotal('agent_tasks_total');
+  
+  const httpByStatus = getMetricByLabel('http_requests_total', 'status');
+  const httpByPath = getMetricByLabel('http_requests_total', 'path');
+  const llmByProvider = getMetricByLabel('llm_requests_total', 'provider');
+  const llmByModel = getMetricByLabel('llm_requests_total', 'model');
+  const agentsByType = getMetricByLabel('agent_tasks_total', 'agent');
+  const agentsByStatus = getMetricByLabel('agent_tasks_total', 'status');
+  const circuitBreakers = getCircuitBreakerStates();
+
   return (
-    <div className="space-y-8">
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-        <h1 className="font-serif text-3xl font-medium tracking-tight mb-2">Analytics</h1>
-        <p className="text-muted-foreground">Platform statistics and RAG management</p>
+    <div className="max-w-6xl mx-auto space-y-8">
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }} 
+        animate={{ opacity: 1, y: 0 }}
+        className="flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+      >
+        <div>
+          <h1 className="font-serif text-2xl sm:text-3xl font-medium tracking-tight mb-1 sm:mb-2">Analytics</h1>
+          <p className="text-sm sm:text-base text-muted-foreground">Platform statistics and Prometheus metrics</p>
+        </div>
+        <div className="flex items-center gap-2 sm:gap-3">
+          {lastRefresh && (
+            <span className="text-[10px] sm:text-xs text-muted-foreground hidden sm:block">
+              Last updated: {lastRefresh.toLocaleTimeString()}
+            </span>
+          )}
+          <Button variant="outline" onClick={handleRefresh} size="sm" className="h-9">
+            <ArrowsClockwise weight="bold" className="w-4 h-4" />
+            <span className="hidden sm:inline">Refresh</span>
+          </Button>
+        </div>
       </motion.div>
 
-      {/* Stats */}
+      {/* Platform Stats */}
       {stats && (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="grid md:grid-cols-4 gap-4"
+          className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4"
         >
           {[
             { label: 'Total Users', value: stats.totalUsers, icon: Users },
@@ -244,7 +364,7 @@ export default function AnalyticsPage() {
         </motion.div>
       )}
 
-      {/* RAG Management */}
+      {/* Prometheus Metrics */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -252,175 +372,205 @@ export default function AnalyticsPage() {
         className="space-y-6"
       >
         <div className="flex items-center gap-3">
-          <Database weight="bold" className="w-6 h-6" />
-          <h2 className="font-serif text-2xl font-medium">RAG Management</h2>
+          <ChartLine weight="bold" className="w-6 h-6" />
+          <h2 className="font-serif text-2xl font-medium">Prometheus Metrics</h2>
         </div>
 
-        {/* Upload */}
-        <Card className="border-border/40">
-          <CardHeader className="pb-4">
-            <CardTitle className="flex items-center gap-2 font-serif text-lg">
-              <Upload weight="bold" className="w-5 h-5" />
-              Upload PDF
-            </CardTitle>
-            <CardDescription>Upload documents for legal and finance agents</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label>Domain</Label>
-                <Select value={uploadDomain} onValueChange={setUploadDomain}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {DOMAINS.map((d) => (
-                      <SelectItem key={d.value} value={d.value}>
-                        {d.label}
-                      </SelectItem>
+        {metricsError ? (
+          <MetricsSetup onConfigured={loadMetrics} />
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+            {/* HTTP Requests */}
+            <Card className="border-border/40">
+              <CardContent className="p-5">
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-sm text-muted-foreground">HTTP Requests</p>
+                  <ChartLine weight="regular" className="w-4 h-4 text-muted-foreground" />
+                </div>
+                <p className="text-3xl font-serif font-medium">{httpRequestsTotal.toLocaleString()}</p>
+                {httpByStatus.length > 0 && (
+                  <div className="flex gap-2 mt-3">
+                    {httpByStatus.slice(0, 3).map(s => (
+                      <Badge 
+                        key={s.label} 
+                        variant={s.label.startsWith('2') ? 'default' : s.label.startsWith('4') ? 'secondary' : 'destructive'}
+                        className="text-xs"
+                      >
+                        {s.label}: {s.value}
+                      </Badge>
                     ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Sector</Label>
-                <Select value={uploadSector} onValueChange={setUploadSector}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {SECTORS.map((s) => (
-                      <SelectItem key={s.value} value={s.value}>
-                        {s.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>PDF File</Label>
-                <Input type="file" accept=".pdf" onChange={handleFileChange} />
-              </div>
-            </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
 
-            {selectedFile && (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <FilePdf weight="fill" className="w-4 h-4 text-red-500" />
-                {selectedFile.name} ({(selectedFile.size / 1024 / 1024).toFixed(2)} MB)
-              </div>
+            {/* LLM Requests */}
+            <Card className="border-border/40">
+              <CardContent className="p-5">
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-sm text-muted-foreground">LLM Requests</p>
+                  <Lightning weight="regular" className="w-4 h-4 text-muted-foreground" />
+                </div>
+                <p className="text-3xl font-serif font-medium">{llmRequestsTotal.toLocaleString()}</p>
+                {llmByProvider.length > 0 && (
+                  <div className="flex gap-2 mt-3 flex-wrap">
+                    {llmByProvider.slice(0, 3).map(p => (
+                      <Badge key={p.label} variant="outline" className="text-xs">
+                        {p.label}: {p.value}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* LLM Errors */}
+            <Card className="border-border/40">
+              <CardContent className="p-5">
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-sm text-muted-foreground">LLM Errors</p>
+                  <Warning weight="regular" className="w-4 h-4 text-muted-foreground" />
+                </div>
+                <p className="text-3xl font-serif font-medium">{llmErrorsTotal.toLocaleString()}</p>
+                {llmRequestsTotal > 0 && (
+                  <div className="mt-3">
+                    <div className="flex justify-between text-xs text-muted-foreground mb-1">
+                      <span>Error Rate</span>
+                      <span>{((llmErrorsTotal / llmRequestsTotal) * 100).toFixed(2)}%</span>
+                    </div>
+                    <Progress value={(llmErrorsTotal / llmRequestsTotal) * 100} className="h-1" />
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Agent Tasks */}
+            <Card className="border-border/40">
+              <CardContent className="p-5">
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-sm text-muted-foreground">Agent Tasks</p>
+                  <Timer weight="regular" className="w-4 h-4 text-muted-foreground" />
+                </div>
+                <p className="text-3xl font-serif font-medium">{agentTasksTotal.toLocaleString()}</p>
+                {agentsByStatus.length > 0 && (
+                  <div className="flex gap-2 mt-3">
+                    {agentsByStatus.map(s => (
+                      <Badge 
+                        key={s.label} 
+                        variant={s.label === 'completed' ? 'default' : s.label === 'failed' ? 'destructive' : 'secondary'}
+                        className="text-xs"
+                      >
+                        {s.label}: {s.value}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* Detailed Breakdowns */}
+        {!metricsError && (httpByPath.length > 0 || llmByModel.length > 0 || agentsByType.length > 0) && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
+            {/* Top Endpoints */}
+            {httpByPath.length > 0 && (
+              <Card className="border-border/40">
+                <CardHeader className="pb-3">
+                  <CardTitle className="font-serif text-lg">Top Endpoints</CardTitle>
+                  <CardDescription>Most requested API paths</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {httpByPath.slice(0, 5).map((endpoint) => (
+                      <div key={endpoint.label} className="flex items-center justify-between">
+                        <code className="text-xs bg-muted px-2 py-1 rounded truncate max-w-[180px]">
+                          {endpoint.label}
+                        </code>
+                        <span className="text-sm font-medium">{endpoint.value}</span>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
             )}
 
-            <Button onClick={handleUpload} disabled={!selectedFile || isUploading}>
-              <Upload weight="bold" className="w-4 h-4" />
-              {isUploading ? 'Uploading...' : 'Upload'}
-            </Button>
-          </CardContent>
-        </Card>
-
-        {/* Embeddings List */}
-        <Card className="border-border/40">
-          <CardHeader className="pb-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="font-serif text-lg">Embeddings</CardTitle>
-                <CardDescription>{embeddings.length} documents</CardDescription>
-              </div>
-              <Button variant="outline" size="sm" onClick={handleCleanup}>
-                <Broom weight="bold" className="w-4 h-4" />
-                Cleanup
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="flex gap-4 mb-4">
-              <Select value={filterDomain} onValueChange={setFilterDomain}>
-                <SelectTrigger className="w-36">
-                  <SelectValue placeholder="All Domains" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="">All Domains</SelectItem>
-                  {DOMAINS.map((d) => (
-                    <SelectItem key={d.value} value={d.value}>
-                      {d.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select value={filterSector} onValueChange={setFilterSector}>
-                <SelectTrigger className="w-36">
-                  <SelectValue placeholder="All Sectors" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="">All Sectors</SelectItem>
-                  {SECTORS.map((s) => (
-                    <SelectItem key={s.value} value={s.value}>
-                      {s.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {embeddings.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-8">No embeddings yet</p>
-            ) : (
-              <div className="space-y-2">
-                {embeddings.map((emb) => (
-                  <div
-                    key={emb.id}
-                    className="flex items-center justify-between p-3 rounded-lg border border-border/40"
-                  >
-                    <div className="flex items-center gap-3">
-                      <FilePdf weight="fill" className="w-6 h-6 text-red-500" />
-                      <div>
-                        <p className="font-medium text-sm">{emb.filename}</p>
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <Badge variant="outline" className="text-[10px]">
-                            {emb.domain}
-                          </Badge>
-                          <Badge variant="secondary" className="text-[10px]">
-                            {emb.sector}
-                          </Badge>
-                          <span>{formatRelativeTime(emb.createdAt)}</span>
-                        </div>
+            {/* LLM Models */}
+            {llmByModel.length > 0 && (
+              <Card className="border-border/40">
+                <CardHeader className="pb-3">
+                  <CardTitle className="font-serif text-lg">LLM Models</CardTitle>
+                  <CardDescription>Requests by model</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {llmByModel.slice(0, 5).map((model) => (
+                      <div key={model.label} className="flex items-center justify-between">
+                        <span className="text-sm truncate max-w-[180px]">{model.label}</span>
+                        <span className="text-sm font-medium">{model.value}</span>
                       </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Badge
-                        variant={
-                          emb.status === 'indexed'
-                            ? 'default'
-                            : emb.status === 'expired'
-                            ? 'secondary'
-                            : 'outline'
-                        }
-                        className="text-[10px]"
-                      >
-                        {emb.status === 'indexed' && <Check weight="bold" className="w-3 h-3 mr-1" />}
-                        {emb.status === 'expired' && <Warning weight="bold" className="w-3 h-3 mr-1" />}
-                        {emb.status === 'pending' && <Clock weight="bold" className="w-3 h-3 mr-1" />}
-                        {emb.status}
-                      </Badge>
-                      {emb.status === 'pending' && (
-                        <Button variant="outline" size="sm" onClick={() => handleVectorize(emb.id)}>
-                          <Lightning weight="bold" className="w-3 h-3" />
-                        </Button>
-                      )}
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleDelete(emb.id)}
-                        className="text-destructive hover:text-destructive h-7 w-7"
-                      >
-                        <Trash weight="regular" className="w-4 h-4" />
-                      </Button>
-                    </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Agent Types */}
+            {agentsByType.length > 0 && (
+              <Card className="border-border/40">
+                <CardHeader className="pb-3">
+                  <CardTitle className="font-serif text-lg">Agent Tasks</CardTitle>
+                  <CardDescription>Tasks by agent type</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {agentsByType.map((agent) => (
+                      <div key={agent.label} className="flex items-center justify-between">
+                        <span className="text-sm capitalize">{agent.label}</span>
+                        <span className="text-sm font-medium">{agent.value}</span>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        )}
+
+        {/* Circuit Breakers */}
+        {!metricsError && circuitBreakers.length > 0 && (
+          <Card className="border-border/40">
+            <CardHeader className="pb-3">
+              <CardTitle className="font-serif text-lg">Circuit Breakers</CardTitle>
+              <CardDescription>Service health status</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-wrap gap-3">
+                {circuitBreakers.map((cb) => (
+                  <div 
+                    key={cb.name} 
+                    className="flex items-center gap-2 px-3 py-2 rounded-lg border border-border/40"
+                  >
+                    {cb.state === 'closed' ? (
+                      <CheckCircle weight="fill" className="w-4 h-4 text-green-500" />
+                    ) : cb.state === 'open' ? (
+                      <XCircle weight="fill" className="w-4 h-4 text-red-500" />
+                    ) : (
+                      <Warning weight="fill" className="w-4 h-4 text-yellow-500" />
+                    )}
+                    <span className="text-sm font-medium">{cb.name}</span>
+                    <Badge 
+                      variant={cb.state === 'closed' ? 'default' : cb.state === 'open' ? 'destructive' : 'secondary'}
+                      className="text-xs"
+                    >
+                      {cb.state}
+                    </Badge>
                   </div>
                 ))}
               </div>
-            )}
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        )}
       </motion.div>
     </div>
   );

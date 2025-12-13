@@ -142,7 +142,7 @@ async function main(): Promise<void> {
     console.log('       Email: ' + ADMIN_EMAIL);
     
     const { data: listData } = await supabase.auth.admin.listUsers();
-    const existingUser = listData?.users?.find((u) => u.email === ADMIN_EMAIL);
+    const existingUser = listData?.users?.find((u: { email?: string }) => u.email === ADMIN_EMAIL);
     
     let supabaseUserId: string;
     

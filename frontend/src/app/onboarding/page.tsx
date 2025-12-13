@@ -28,7 +28,7 @@ import { PremiumBackground } from '@/components/ui/background';
 
 const steps = [
   { id: 'founder', title: 'About You', icon: User },
-  { id: 'company', title: 'Company', icon: Buildings },
+  { id: 'company', title: 'Your Business', icon: Buildings },
   { id: 'location', title: 'Location', icon: MapPin },
   { id: 'financials', title: 'Financials', icon: CurrencyDollar },
   { id: 'market', title: 'Market', icon: Target },
@@ -38,8 +38,8 @@ const sectors: { value: Sector; label: string; description: string }[] = [
   { value: 'fintech', label: 'Fintech', description: 'Financial technology, payments, banking' },
   { value: 'greentech', label: 'Greentech', description: 'Clean energy, sustainability, climate' },
   { value: 'healthtech', label: 'Healthtech', description: 'Healthcare, medical, wellness' },
-  { value: 'saas', label: 'SaaS', description: 'Software as a Service, B2B tools' },
-  { value: 'ecommerce', label: 'E-commerce', description: 'Online retail, marketplaces' },
+  { value: 'saas', label: 'SaaS', description: 'Software as a Service, B2B/B2C tools' },
+  { value: 'ecommerce', label: 'E-commerce', description: 'Online retail, marketplaces, D2C' },
 ];
 
 export default function OnboardingPage() {
@@ -163,7 +163,7 @@ export default function OnboardingPage() {
         return (
           <div className="space-y-6">
             <div className="space-y-2">
-              <Label>Company Name *</Label>
+              <Label>Business Name *</Label>
               <Input
                 placeholder="Acme Inc"
                 value={formData.companyName || ''}
@@ -181,7 +181,7 @@ export default function OnboardingPage() {
             <div className="space-y-2">
               <Label>Description *</Label>
               <Textarea
-                placeholder="Tell us about your company (min 20 characters)..."
+                placeholder="Tell us about your business (min 20 characters)..."
                 value={formData.description || ''}
                 onChange={(e) => updateField('description', e.target.value)}
                 className="min-h-[100px]"
@@ -223,6 +223,49 @@ export default function OnboardingPage() {
                     </div>
                   </button>
                 ))}
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Industry *</Label>
+                <Select value={formData.industry} onValueChange={(v) => updateField('industry', v as OnboardingData['industry'])}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="saas">SaaS</SelectItem>
+                    <SelectItem value="fintech">Fintech</SelectItem>
+                    <SelectItem value="healthtech">Healthtech</SelectItem>
+                    <SelectItem value="edtech">Edtech</SelectItem>
+                    <SelectItem value="ecommerce">E-commerce</SelectItem>
+                    <SelectItem value="marketplace">Marketplace</SelectItem>
+                    <SelectItem value="ai_ml">AI/ML</SelectItem>
+                    <SelectItem value="cybersecurity">Cybersecurity</SelectItem>
+                    <SelectItem value="cleantech">Cleantech</SelectItem>
+                    <SelectItem value="biotech">Biotech</SelectItem>
+                    <SelectItem value="developer_tools">Developer Tools</SelectItem>
+                    <SelectItem value="other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Business Model *</Label>
+                <Select value={formData.businessModel} onValueChange={(v) => updateField('businessModel', v as OnboardingData['businessModel'])}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="b2b">B2B</SelectItem>
+                    <SelectItem value="b2c">B2C</SelectItem>
+                    <SelectItem value="b2b2c">B2B2C</SelectItem>
+                    <SelectItem value="marketplace">Marketplace</SelectItem>
+                    <SelectItem value="d2c">D2C</SelectItem>
+                    <SelectItem value="enterprise">Enterprise</SelectItem>
+                    <SelectItem value="platform">Platform</SelectItem>
+                    <SelectItem value="api">API</SelectItem>
+                    <SelectItem value="other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
@@ -407,32 +450,32 @@ export default function OnboardingPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-8 relative">
+    <div className="min-h-screen bg-background flex items-center justify-center p-4 sm:p-8 relative">
       <PremiumBackground />
 
       <div className="w-full max-w-xl relative z-10">
         {/* Progress */}
-        <div className="mb-10">
+        <div className="mb-6 sm:mb-10">
           <div className="flex items-center justify-between">
             {steps.map((step, index) => (
               <div key={step.id} className="flex items-center">
                 <div
                   className={cn(
-                    'w-10 h-10 rounded-full flex items-center justify-center transition-all',
+                    'w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center transition-all',
                     index <= currentStep
                       ? 'bg-primary/10 text-foreground'
                       : 'bg-muted text-muted-foreground'
                   )}
                 >
                   {index < currentStep ? (
-                    <Check weight="bold" className="w-5 h-5" />
+                    <Check weight="bold" className="w-4 sm:w-5 h-4 sm:h-5" />
                   ) : (
-                    <step.icon weight={index === currentStep ? 'fill' : 'regular'} className="w-5 h-5" />
+                    <step.icon weight={index === currentStep ? 'fill' : 'regular'} className="w-4 sm:w-5 h-4 sm:h-5" />
                   )}
                 </div>
                 {index < steps.length - 1 && (
                   <div
-                    className={cn('w-12 h-px mx-2', index < currentStep ? 'bg-primary/50' : 'bg-border')}
+                    className={cn('w-4 sm:w-12 h-px mx-1 sm:mx-2', index < currentStep ? 'bg-primary/50' : 'bg-border')}
                   />
                 )}
               </div>
@@ -442,13 +485,13 @@ export default function OnboardingPage() {
 
         {/* Form */}
         <Card className="border-border/40">
-          <CardHeader>
-            <CardTitle className="font-serif text-2xl">{steps[currentStep].title}</CardTitle>
-            <CardDescription>
+          <CardHeader className="p-4 sm:p-6">
+            <CardTitle className="font-serif text-xl sm:text-2xl">{steps[currentStep].title}</CardTitle>
+            <CardDescription className="text-xs sm:text-sm">
               Step {currentStep + 1} of {steps.length}
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-4 sm:p-6 pt-0 sm:pt-0">
             <AnimatePresence mode="wait">
               <motion.div
                 key={currentStep}
@@ -461,18 +504,18 @@ export default function OnboardingPage() {
               </motion.div>
             </AnimatePresence>
 
-            <div className="flex justify-between mt-10 pt-6 border-t border-border/40">
-              <Button variant="outline" onClick={prevStep} disabled={currentStep === 0}>
+            <div className="flex justify-between mt-6 sm:mt-10 pt-4 sm:pt-6 border-t border-border/40">
+              <Button variant="outline" onClick={prevStep} disabled={currentStep === 0} size="sm" className="h-9 sm:h-10">
                 <ArrowLeft weight="bold" className="w-4 h-4" />
-                Back
+                <span className="hidden sm:inline">Back</span>
               </Button>
               {currentStep === steps.length - 1 ? (
-                <Button onClick={handleSubmit} disabled={isLoading}>
-                  {isLoading ? 'Completing...' : 'Complete Setup'}
+                <Button onClick={handleSubmit} disabled={isLoading} size="sm" className="h-9 sm:h-10">
+                  {isLoading ? 'Completing...' : 'Complete'}
                   <Check weight="bold" className="w-4 h-4" />
                 </Button>
               ) : (
-                <Button onClick={nextStep}>
+                <Button onClick={nextStep} size="sm" className="h-9 sm:h-10">
                   Continue
                   <ArrowRight weight="bold" className="w-4 h-4" />
                 </Button>

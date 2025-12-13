@@ -9,13 +9,14 @@ import {
   User as UserIcon,
   Clock,
   StopCircle,
+  ChatCircle,
 } from '@phosphor-icons/react';
 import { api } from '@/lib/api/client';
 import type { Session, Message } from '@/lib/api/types';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { formatDateTime, formatRelativeTime, cn } from '@/lib/utils';
+import { formatRelativeTime, cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
 export default function SessionDetailPage() {
@@ -75,28 +76,26 @@ export default function SessionDetailPage() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="max-w-4xl mx-auto space-y-8">
       {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="flex items-center justify-between"
+        className="flex flex-col sm:flex-row sm:items-center justify-between gap-4"
       >
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => router.push('/sessions')}>
-            <ArrowLeft weight="bold" className="w-5 h-5" />
+        <div className="flex items-center gap-2 sm:gap-4">
+          <Button variant="ghost" size="icon" onClick={() => router.push('/sessions')} className="shrink-0 h-8 w-8 sm:h-9 sm:w-9">
+            <ArrowLeft weight="bold" className="w-4 sm:w-5 h-4 sm:h-5" />
           </Button>
-          <div>
-            <h1 className="font-serif text-2xl font-medium tracking-tight">Session Details</h1>
-            <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
-              <Clock weight="regular" className="w-4 h-4" />
-              <span>{formatDateTime(session.createdAt)}</span>
-              <span>·</span>
-              <span>{formatRelativeTime(session.createdAt)}</span>
+          <div className="min-w-0">
+            <h1 className="font-serif text-xl sm:text-2xl font-medium tracking-tight">Session Details</h1>
+            <div className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm text-muted-foreground mt-0.5 sm:mt-1">
+              <Clock weight="regular" className="w-3.5 sm:w-4 h-3.5 sm:h-4 shrink-0" />
+              <span className="truncate">{formatRelativeTime(session.createdAt)}</span>
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3 justify-end">
           <Badge
             variant={
               session.status === 'active'
@@ -105,13 +104,15 @@ export default function SessionDetailPage() {
                 ? 'secondary'
                 : 'outline'
             }
+            className="text-[10px] sm:text-xs"
           >
             {session.status}
           </Badge>
           {session.status === 'active' && (
-            <Button variant="outline" onClick={handleEndSession}>
+            <Button variant="outline" onClick={handleEndSession} size="sm" className="h-8 sm:h-9">
               <StopCircle weight="bold" className="w-4 h-4" />
-              End Session
+              <span className="hidden sm:inline">End Session</span>
+              <span className="sm:hidden">End</span>
             </Button>
           )}
         </div>
@@ -126,8 +127,12 @@ export default function SessionDetailPage() {
       >
         {messages.length === 0 ? (
           <Card className="border-border/40">
-            <CardContent className="p-8 text-center">
-              <p className="text-muted-foreground">No messages in this session</p>
+            <CardContent className="p-12 text-center">
+              <ChatCircle weight="light" className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+              <h3 className="font-serif text-xl font-medium mb-2">No messages yet</h3>
+              <p className="text-muted-foreground">
+                This session doesn&apos;t have any messages recorded.
+              </p>
             </CardContent>
           </Card>
         ) : (
@@ -137,39 +142,39 @@ export default function SessionDetailPage() {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.03 }}
-              className={cn('flex gap-4', message.role === 'user' ? 'justify-end' : 'justify-start')}
+              className={cn('flex gap-2 sm:gap-4', message.role === 'user' ? 'justify-end' : 'justify-start')}
             >
               {message.role !== 'user' && (
-                <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center shrink-0">
-                  <Robot weight="regular" className="w-4 h-4 text-muted-foreground" />
+                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-muted flex items-center justify-center shrink-0">
+                  <Robot weight="regular" className="w-3.5 sm:w-4 h-3.5 sm:h-4 text-muted-foreground" />
                 </div>
               )}
 
               <Card
                 className={cn(
-                  'max-w-[70%] border-border/40',
+                  'max-w-[85%] sm:max-w-[70%] border-border/40',
                   message.role === 'user' ? 'bg-primary/10' : 'bg-card'
                 )}
               >
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="text-xs font-medium capitalize">{message.role}</span>
+                <CardContent className="p-3 sm:p-4">
+                  <div className="flex items-center gap-1.5 sm:gap-2 mb-1.5 sm:mb-2 flex-wrap">
+                    <span className="text-[10px] sm:text-xs font-medium capitalize">{message.role}</span>
                     {message.agent && (
-                      <Badge variant="outline" className="text-[10px]">
+                      <Badge variant="outline" className="text-[9px] sm:text-[10px]">
                         {message.agent}
                       </Badge>
                     )}
-                    <span className="text-xs text-muted-foreground">
+                    <span className="text-[10px] sm:text-xs text-muted-foreground">
                       {formatRelativeTime(message.createdAt)}
                     </span>
                   </div>
-                  <p className="text-sm whitespace-pre-wrap leading-relaxed">{message.content}</p>
+                  <p className="text-xs sm:text-sm whitespace-pre-wrap leading-relaxed">{message.content}</p>
                 </CardContent>
               </Card>
 
               {message.role === 'user' && (
-                <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center shrink-0">
-                  <UserIcon weight="regular" className="w-4 h-4 text-muted-foreground" />
+                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-muted flex items-center justify-center shrink-0">
+                  <UserIcon weight="regular" className="w-3.5 sm:w-4 h-3.5 sm:h-4 text-muted-foreground" />
                 </div>
               )}
             </motion.div>
