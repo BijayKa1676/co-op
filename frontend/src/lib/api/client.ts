@@ -72,8 +72,6 @@ class ApiClient {
     
     if (!res.ok) {
       const error = await res.json().catch(() => ({ error: 'Request failed' }));
-      // Debug: log the full error response
-      console.error('API Error Response:', JSON.stringify(error, null, 2));
       
       // Handle backend error format: { success: false, error: string, details?: string[] }
       // Also handle NestJS validation errors: { message: string | string[] }
@@ -205,6 +203,10 @@ class ApiClient {
 
   async cancelTask(taskId: string): Promise<void> {
     await this.delete(`/agents/tasks/${taskId}`);
+  }
+
+  async getUsageStats(): Promise<import('./types').UsageStats> {
+    return this.get<import('./types').UsageStats>('/agents/usage');
   }
 
   streamTask(

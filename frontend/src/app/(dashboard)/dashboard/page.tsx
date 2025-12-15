@@ -12,13 +12,16 @@ import {
   ArrowRight,
   Sparkle,
   Pulse,
+  Lightning,
+  Gauge,
 } from '@phosphor-icons/react/dist/ssr';
 import { api } from '@/lib/api/client';
 import { useUser } from '@/lib/hooks';
-import type { Session, DashboardStats } from '@/lib/api/types';
+import type { Session, DashboardStats, UsageStats } from '@/lib/api/types';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
 import { formatRelativeTime } from '@/lib/utils';
 
 const agents = [
@@ -56,13 +59,18 @@ export default function DashboardPage() {
   const { user, isAdmin } = useUser();
   const [sessions, setSessions] = useState<Session[]>([]);
   const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [usage, setUsage] = useState<UsageStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const sessionsData = await api.getSessions();
+        const [sessionsData, usageData] = await Promise.all([
+          api.getSessions(),
+          api.getUsageStats(),
+        ]);
         setSessions(sessionsData.slice(0, 5));
+        setUsage(usageData);
 
         if (isAdmin) {
           try {
@@ -134,6 +142,55 @@ export default function DashboardPage() {
               </CardContent>
             </Card>
           ))}
+        </motion.div>
+      )}
+
+      {/* Usage Stats Card */}
+      {usage && usage.limit !== -1 && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.15, duration: 0.5 }}
+        >
+          <Card className="border-border/40">
+            <CardContent className="p-5 sm:p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <Gauge weight="light" className="w-5 h-5 text-muted-foreground" />
+                  <h3 className="font-serif text-lg font-medium">Monthly Usage</h3>
+                </div>
+                <Badge variant={usage.remaining <= 5 ? 'destructive' : 'secondary'}>
+                  {usage.remaining} left
+                </Badge>
+              </div>
+              <div className="space-y-3">
+                <Progress value={(usage.used / usage.limit) * 100} className="h-2" />
+                <div className="flex items-center justify-between text-sm text-muted-foreground">
+                  <span>{usage.used} / {usage.limit} AI requests used</span>
+                  {usage.resetsAt && (
+                    <span>Resets {new Date(usage.resetsAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+      )}
+
+      {/* Unlimited badge for admins */}
+      {usage && usage.limit === -1 && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.15, duration: 0.5 }}
+        >
+          <Card className="border-border/40 bg-gradient-to-r from-primary/5 to-transparent">
+            <CardContent className="p-4 flex items-center gap-3">
+              <Lightning weight="fill" className="w-5 h-5 text-primary" />
+              <span className="text-sm font-medium">Unlimited AI requests</span>
+              <Badge variant="outline" className="ml-auto">Admin</Badge>
+            </CardContent>
+          </Card>
         </motion.div>
       )}
 

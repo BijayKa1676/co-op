@@ -183,12 +183,12 @@ export class ResearchService {
     const [investorResults, fundingResults, marketResults] = await Promise.all([
       this.searchWithGrounding({
         query: `${industry} ${fundingStage} investors venture capital ${location} 2024`,
-        context: `Find investors for ${fundingStage} stage startups in ${industry}`,
+        context: `Find investors for ${fundingStage} stage startups in ${industry} like ${startupName}`,
         type: 'investor',
       }),
       this.searchWithGrounding({
         query: `${industry} startup funding rounds ${fundingStage} recent deals 2024`,
-        context: `Recent funding activity in ${industry} for ${fundingStage} stage`,
+        context: `Recent funding activity in ${industry} for ${fundingStage} stage startups similar to ${startupName}`,
         type: 'funding',
       }),
       this.searchWithGrounding({

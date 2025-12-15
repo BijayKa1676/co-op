@@ -157,7 +157,7 @@ export default function HomePage() {
             <Link href="/login" className="hidden sm:block">
               <Button variant="ghost" size="sm">Sign In</Button>
             </Link>
-            <Link href="/login">
+            <Link href="/login?mode=signup">
               <Button size="sm">Get Started</Button>
             </Link>
           </div>
@@ -174,10 +174,10 @@ export default function HomePage() {
             </div>
 
             {/* Animated Co-Op Logo */}
-            <h1 className="font-serif text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-medium tracking-tight mb-6 leading-[1.1]">
-              <span className="inline-flex items-baseline justify-center gap-0">
+            <h1 className="font-serif text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-medium tracking-tight mb-8 leading-[1.2]">
+              <span className="inline-flex items-center justify-center">
                 <span>Co-</span>
-                <span className="relative inline-block w-[90px] sm:w-[110px] md:w-[140px] lg:w-[160px] h-[1.15em] overflow-hidden align-baseline">
+                <span className="relative inline-flex w-[80px] sm:w-[100px] md:w-[120px] lg:w-[140px] h-[1.2em] overflow-hidden ml-1">
                   <AnimatePresence mode="wait">
                     <motion.span
                       key={currentOpIndex}
@@ -185,7 +185,7 @@ export default function HomePage() {
                       animate={{ y: 0, opacity: 1 }}
                       exit={{ y: '-100%', opacity: 0 }}
                       transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-                      className="absolute inset-0 flex items-center justify-start"
+                      className="absolute inset-0 flex items-center justify-center"
                     >
                       {opTranslations[currentOpIndex].text}
                     </motion.span>
@@ -214,7 +214,7 @@ export default function HomePage() {
             </p>
 
             <div className="flex items-center justify-center gap-4 flex-wrap">
-              <Link href="/login">
+              <Link href="/login?mode=signup">
                 <Button size="lg" className="h-12 px-8">
                   Start Free <ArrowRight weight="bold" className="w-4 h-4" />
                 </Button>
@@ -304,7 +304,7 @@ export default function HomePage() {
                   </li>
                 ))}
               </ul>
-              <Link href="/login">
+              <Link href="/login?mode=signup">
                 <Button className="w-full">Get Started <ArrowRight weight="bold" className="w-4 h-4" /></Button>
               </Link>
             </motion.div>
@@ -322,7 +322,7 @@ export default function HomePage() {
                 </div>
                 <div>
                   <h3 className="font-serif text-xl font-medium">Idea Stage</h3>
-                  <Badge variant="secondary" className="mt-1">Coming Soon</Badge>
+                  <p className="text-sm text-muted-foreground">Validate your concept with AI</p>
                 </div>
               </div>
               <p className="text-muted-foreground mb-6">
@@ -336,9 +336,9 @@ export default function HomePage() {
                   </li>
                 ))}
               </ul>
-              <Button variant="outline" className="w-full" disabled>
-                Join Waitlist
-              </Button>
+              <Link href="/login?mode=signup">
+                <Button className="w-full">Get Started <ArrowRight weight="bold" className="w-4 h-4" /></Button>
+              </Link>
             </motion.div>
           </div>
         </section>
@@ -524,7 +524,7 @@ export default function HomePage() {
             <p className="text-muted-foreground mb-8 max-w-md mx-auto">
               Join founders worldwide who use Co-Op to make better decisions faster.
             </p>
-            <Link href="/login">
+            <Link href="/login?mode=signup">
               <Button size="lg" className="h-12 px-8">
                 Get Started Free <ArrowRight weight="bold" className="w-4 h-4" />
               </Button>

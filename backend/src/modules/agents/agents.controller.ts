@@ -86,6 +86,16 @@ export class AgentsController {
     return ApiResponseDto.message('Task cancelled');
   }
 
+  @Get('usage')
+  @ApiOperation({ summary: 'Get current usage stats for pilot plan' })
+  @ApiResponse({ status: 200, description: 'Usage statistics' })
+  async getUsage(
+    @CurrentUser() user: CurrentUserPayload,
+  ): Promise<ApiResponseDto<{ used: number; limit: number; remaining: number; resetsAt: string }>> {
+    const usage = await this.agentsService.getUsageStats(user.id);
+    return ApiResponseDto.success(usage);
+  }
+
   @Get('stream/:taskId')
   @ApiOperation({ summary: 'Stream agent responses (SSE)' })
   @ApiResponse({ status: 200, description: 'SSE stream' })

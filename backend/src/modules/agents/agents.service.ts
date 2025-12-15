@@ -5,9 +5,13 @@ import { AgentsQueueService } from './queue/agents.queue.service';
 import { StartupsService } from '@/modules/startups/startups.service';
 import { UsersService } from '@/modules/users/users.service';
 import { LlmCouncilService } from '@/common/llm/llm-council.service';
+import { RedisService } from '@/common/redis/redis.service';
 import { AgentType, AgentInput, AgentPhaseResult } from './types/agent.types';
 import { RunAgentDto } from './dto/run-agent.dto';
 import { TaskStatusDto } from './dto/task-status.dto';
+
+// Pilot plan limits
+const PILOT_MONTHLY_LIMIT = 30;
 
 interface QueueTaskResult {
   taskId: string;
@@ -41,9 +45,85 @@ export class AgentsService {
     private readonly startupsService: StartupsService,
     private readonly usersService: UsersService,
     private readonly council: LlmCouncilService,
+    private readonly redis: RedisService,
   ) {}
 
+  /**
+   * Get usage key for current month
+   */
+  private getUsageKey(userId: string): string {
+    const now = new Date();
+    const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    return `usage:${userId}:${month}`;
+  }
+
+  /**
+   * Check and increment usage for pilot users
+   */
+  private async checkAndIncrementUsage(userId: string): Promise<{ used: number; limit: number; remaining: number }> {
+    const key = this.getUsageKey(userId);
+    const user = await this.usersService.findById(userId);
+    
+    // Admins have unlimited usage
+    if (user.role === 'admin') {
+      return { used: 0, limit: -1, remaining: -1 };
+    }
+
+    // Check current usage first before incrementing
+    const currentUsage = await this.redis.get<number>(key) ?? 0;
+    
+    if (currentUsage >= PILOT_MONTHLY_LIMIT) {
+      throw new ForbiddenException(`Monthly limit of ${PILOT_MONTHLY_LIMIT} AI requests reached. Resets on the 1st of next month.`);
+    }
+
+    // Now increment
+    const newCount = await this.redis.incr(key);
+    
+    // Set expiry to end of month if this is the first request
+    if (newCount === 1) {
+      const now = new Date();
+      const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+      const ttl = Math.floor((endOfMonth.getTime() - now.getTime()) / 1000);
+      await this.redis.expire(key, ttl);
+    }
+
+    return {
+      used: newCount,
+      limit: PILOT_MONTHLY_LIMIT,
+      remaining: PILOT_MONTHLY_LIMIT - newCount,
+    };
+  }
+
+  /**
+   * Get current usage stats for a user
+   */
+  async getUsageStats(userId: string): Promise<{ used: number; limit: number; remaining: number; resetsAt: string }> {
+    const user = await this.usersService.findById(userId);
+    
+    // Admins have unlimited usage
+    if (user.role === 'admin') {
+      return { used: 0, limit: -1, remaining: -1, resetsAt: '' };
+    }
+
+    const key = this.getUsageKey(userId);
+    const current = await this.redis.get<number>(key) ?? 0;
+    
+    // Calculate reset date (1st of next month)
+    const now = new Date();
+    const resetsAt = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+
+    return {
+      used: current,
+      limit: PILOT_MONTHLY_LIMIT,
+      remaining: Math.max(0, PILOT_MONTHLY_LIMIT - current),
+      resetsAt: resetsAt.toISOString(),
+    };
+  }
+
   async run(userId: string, dto: RunAgentDto): Promise<AgentPhaseResult[]> {
+    // Check usage limits for pilot users
+    await this.checkAndIncrementUsage(userId);
+    
     const input = await this.buildAgentInput(userId, dto);
     
     // Multi-agent mode: no agentType specified or agents array provided
@@ -56,6 +136,9 @@ export class AgentsService {
   }
 
   async queueTask(userId: string, dto: RunAgentDto): Promise<QueueTaskResult> {
+    // Check usage limits for pilot users
+    await this.checkAndIncrementUsage(userId);
+    
     const input = await this.buildAgentInput(userId, dto);
     
     // For multi-agent, we use 'legal' as the primary but the queue service will handle multi-agent

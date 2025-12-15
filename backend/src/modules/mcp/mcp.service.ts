@@ -75,13 +75,19 @@ export class McpService {
     }
 
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
+
       const response = await fetch(`${server.baseUrl}/discover`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${server.apiKey}`,
           'Content-Type': 'application/json',
         },
+        signal: controller.signal,
       });
+
+      clearTimeout(timeoutId);
 
       if (!response.ok) {
         throw new Error(`Discovery failed: ${response.statusText}`);
@@ -93,7 +99,11 @@ export class McpService {
 
       return discovery.tools;
     } catch (error) {
-      this.logger.error(`Failed to discover tools from ${server.name}`, error);
+      if (error instanceof Error && error.name === 'AbortError') {
+        this.logger.error(`Tool discovery timed out for ${server.name}`);
+      } else {
+        this.logger.error(`Failed to discover tools from ${server.name}`, error);
+      }
       return [];
     }
   }
@@ -112,6 +122,9 @@ export class McpService {
     const startTime = Date.now();
 
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 60000); // 60s timeout for tool execution
+
       const response = await fetch(`${server.baseUrl}/execute`, {
         method: 'POST',
         headers: {
@@ -122,7 +135,10 @@ export class McpService {
           tool: toolCall.name,
           arguments: toolCall.arguments,
         }),
+        signal: controller.signal,
       });
+
+      clearTimeout(timeoutId);
 
       const result = await response.json() as McpExecuteResponse;
       const executionTime = Date.now() - startTime;
@@ -136,7 +152,16 @@ export class McpService {
       };
     } catch (error) {
       const executionTime = Date.now() - startTime;
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      let errorMessage = 'Unknown error';
+      
+      if (error instanceof Error) {
+        if (error.name === 'AbortError') {
+          errorMessage = 'Tool execution timed out (60s limit)';
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
       this.logger.error(`MCP tool call failed: ${toolCall.name}`, error);
 
       return {

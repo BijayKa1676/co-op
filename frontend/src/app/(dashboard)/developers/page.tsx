@@ -481,12 +481,14 @@ curl -N ${API_URL}/agents/stream/<taskId>`} />
               Each model generates a response, then critiques other models&apos; responses anonymously.
               The final answer synthesizes the best insights with critique feedback.
             </p>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               {[
-                { name: 'Llama 3.3 70B', provider: 'Groq' },
+                { name: 'Llama 3.3 70B Versatile', provider: 'Groq' },
+                { name: 'Llama 3.3 70B SpecDec', provider: 'Groq' },
                 { name: 'Gemini 2.5 Flash', provider: 'Google' },
-                { name: 'Llama 3.1 8B', provider: 'Groq' },
-                { name: 'Mistral 7B', provider: 'HuggingFace' },
+                { name: 'DeepSeek R1 32B', provider: 'HuggingFace' },
+                { name: 'Phi-3 Mini', provider: 'HuggingFace' },
+                { name: 'Qwen 2.5 72B', provider: 'HuggingFace' },
               ].map((model) => (
                 <div key={model.name} className="p-3 rounded-lg bg-muted/30 text-center">
                   <p className="text-xs font-medium truncate">{model.name}</p>

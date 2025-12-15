@@ -35,7 +35,7 @@ export function useUser() {
     const supabase = createClient();
     await supabase.auth.signOut();
     clear();
-    router.push('/login');
+    router.push('/');
   }, [router, clear]);
 
   const refreshUser = useCallback(async () => {

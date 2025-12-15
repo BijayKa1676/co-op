@@ -308,6 +308,14 @@ export interface CleanupResult {
   vectorsRemoved: number;
 }
 
+// === USAGE ===
+export interface UsageStats {
+  used: number;
+  limit: number;
+  remaining: number;
+  resetsAt: string;
+}
+
 // === ANALYTICS ===
 export interface DashboardStats {
   totalUsers: number;
