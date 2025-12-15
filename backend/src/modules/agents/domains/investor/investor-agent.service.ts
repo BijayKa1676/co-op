@@ -56,8 +56,8 @@ export class InvestorAgentService implements BaseAgent {
     const result = await this.council.runCouncil(INVESTOR_SYSTEM_PROMPT, userPrompt, {
       minModels: this.minModels,
       maxModels: this.maxModels,
-      temperature: 0.7,
-      maxTokens: 1500,
+      temperature: 0.6,
+      maxTokens: 1000,
     });
 
     // Extract sources from research

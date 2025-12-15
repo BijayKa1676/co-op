@@ -62,8 +62,8 @@ export class LegalAgentService implements BaseAgent {
     const result = await this.council.runCouncil(LEGAL_SYSTEM_PROMPT, userPrompt, {
       minModels: this.minModels,
       maxModels: this.maxModels,
-      temperature: 0.7,
-      maxTokens: 2048,
+      temperature: 0.6,
+      maxTokens: 1200,
     });
 
     return {

@@ -120,19 +120,34 @@ export class AgentsService {
     };
   }
 
-  async run(userId: string, dto: RunAgentDto): Promise<AgentPhaseResult[]> {
+  async run(
+    userId: string,
+    dto: RunAgentDto,
+    onProgress?: (step: string) => void,
+  ): Promise<AgentPhaseResult[]> {
     // Check usage limits for pilot users
     await this.checkAndIncrementUsage(userId);
     
+    return this.runWithoutUsageCheck(userId, dto, onProgress);
+  }
+
+  /**
+   * Run agent without incrementing usage (for webhook handler where queueTask already incremented)
+   */
+  async runWithoutUsageCheck(
+    userId: string,
+    dto: RunAgentDto,
+    onProgress?: (step: string) => void,
+  ): Promise<AgentPhaseResult[]> {
     const input = await this.buildAgentInput(userId, dto);
     
     // Multi-agent mode: no agentType specified or agents array provided
     if (!dto.agentType) {
       const agents = dto.agents?.filter((a): a is AgentType => ALL_AGENTS.includes(a as AgentType)) ?? ALL_AGENTS;
-      return this.runMultiAgent(agents, input, dto.prompt);
+      return this.runMultiAgent(agents, input, dto.prompt, onProgress);
     }
     
-    return this.orchestrator.runAgent(dto.agentType, input);
+    return this.orchestrator.runAgent(dto.agentType, input, onProgress);
   }
 
   async queueTask(userId: string, dto: RunAgentDto): Promise<QueueTaskResult> {
@@ -150,29 +165,44 @@ export class AgentsService {
 
   /**
    * Run multi-agent A2A query with cross-critique
+   * @param onProgress - Optional callback for realtime progress updates
    */
-  private async runMultiAgent(agents: AgentType[], input: AgentInput, prompt: string): Promise<AgentPhaseResult[]> {
+  private async runMultiAgent(
+    agents: AgentType[],
+    input: AgentInput,
+    prompt: string,
+    onProgress?: (step: string) => void,
+  ): Promise<AgentPhaseResult[]> {
     this.logger.log(`A2A Multi-Agent: ${agents.join(', ')}`);
+    onProgress?.(`Starting multi-agent analysis with ${agents.length} agents: ${agents.join(', ')}`);
     
     // Phase 1: All agents generate responses in parallel
-    const responses = await this.gatherAgentResponses(agents, input);
+    onProgress?.('Phase 1: Gathering responses from all domain agents...');
+    const responses = await this.gatherAgentResponses(agents, input, onProgress);
     
     if (responses.length < 2) {
       throw new BadRequestException('Need at least 2 agent responses for A2A critique');
     }
+    onProgress?.(`Received ${responses.length} agent responses`);
     
     // Phase 2: Shuffle responses (anonymize for fair critique)
     const shuffledResponses = this.shuffleArray(responses);
+    onProgress?.('Shuffling responses for anonymous cross-critique...');
     
     // Phase 3: Cross-critique
-    const critiques = await this.generateA2ACritiques(agents, shuffledResponses, prompt);
+    onProgress?.('Phase 2: Cross-critiquing responses between agents...');
+    const critiques = await this.generateA2ACritiques(agents, shuffledResponses, prompt, onProgress);
+    onProgress?.(`Generated ${critiques.length} cross-critiques`);
     
     // Phase 4: Synthesize
+    onProgress?.('Phase 3: Synthesizing final response from best insights...');
     const { averageScore, synthesizedContent, allSources } = await this.synthesizeA2AResult(
       responses,
       critiques,
       prompt,
+      onProgress,
     );
+    onProgress?.(`Synthesis complete. Consensus score: ${averageScore.toFixed(1)}/10`);
     
     return [
       {
@@ -214,14 +244,20 @@ export class AgentsService {
     ];
   }
 
-  private async gatherAgentResponses(agents: AgentType[], input: AgentInput): Promise<A2AAgentResponse[]> {
+  private async gatherAgentResponses(
+    agents: AgentType[],
+    input: AgentInput,
+    onProgress?: (step: string) => void,
+  ): Promise<A2AAgentResponse[]> {
     const results = await Promise.all(
       agents.map(async (agent) => {
         try {
-          const output = await this.orchestrator.runAgent(agent, input);
+          onProgress?.(`${agent.charAt(0).toUpperCase() + agent.slice(1)} agent analyzing...`);
+          const output = await this.orchestrator.runAgent(agent, input, onProgress);
           const final = output.find((r) => r.phase === 'final');
           if (!final) return null;
           
+          onProgress?.(`${agent.charAt(0).toUpperCase() + agent.slice(1)} agent completed`);
           return {
             agent,
             id: uuid(),
@@ -231,6 +267,7 @@ export class AgentsService {
           };
         } catch (error) {
           this.logger.warn(`Agent ${agent} failed`, error);
+          onProgress?.(`${agent.charAt(0).toUpperCase() + agent.slice(1)} agent failed - skipping`);
           return null;
         }
       }),
@@ -243,23 +280,37 @@ export class AgentsService {
     agents: AgentType[],
     responses: A2AAgentResponse[],
     prompt: string,
+    onProgress?: (step: string) => void,
   ): Promise<A2ACritique[]> {
-    const critiques: A2ACritique[] = [];
+    // Build all critique tasks for parallel execution
+    const critiqueTasks: Promise<A2ACritique | null>[] = [];
     
     for (const criticAgent of agents) {
-      const otherResponses = responses.filter((r) => r.agent !== criticAgent);
+      // Each agent critiques only 1 other response for speed
+      const otherResponses = responses.filter((r) => r.agent !== criticAgent).slice(0, 1);
       
       for (const response of otherResponses) {
-        try {
-          const critique = await this.critiqueResponse(criticAgent, response, prompt);
-          if (critique) critiques.push(critique);
-        } catch (error) {
-          this.logger.warn(`Critique by ${criticAgent} failed`, error);
-        }
+        onProgress?.(`${criticAgent.charAt(0).toUpperCase() + criticAgent.slice(1)} critiquing ${response.agent}'s response...`);
+        critiqueTasks.push(
+          this.critiqueResponse(criticAgent, response, prompt)
+            .then(result => {
+              if (result) {
+                onProgress?.(`${criticAgent.charAt(0).toUpperCase() + criticAgent.slice(1)} scored ${response.agent}: ${result.score}/10`);
+              }
+              return result;
+            })
+            .catch(error => {
+              this.logger.warn(`Critique by ${criticAgent} failed`, error);
+              onProgress?.(`${criticAgent.charAt(0).toUpperCase() + criticAgent.slice(1)} critique failed - skipping`);
+              return null;
+            })
+        );
       }
     }
     
-    return critiques;
+    // Run all critiques in parallel
+    const results = await Promise.all(critiqueTasks);
+    return results.filter((c): c is A2ACritique => c !== null);
   }
 
   private async critiqueResponse(
@@ -267,30 +318,29 @@ export class AgentsService {
     response: A2AAgentResponse,
     prompt: string,
   ): Promise<A2ACritique | null> {
-    const critiquePrompt = `As ${criticAgent} expert, critique this response:
-
-Question: ${prompt}
-
-Response:
-${response.content.slice(0, 1000)}
-
-Rate 1-10 and give brief feedback. JSON only:
-{"score":1-10,"feedback":"1 sentence"}`;
+    const critiquePrompt = `Rate 1-10. JSON only.
+Q: ${prompt.slice(0, 150)}
+R: ${response.content.slice(0, 500)}
+{"score":7,"feedback":"brief"}`;
 
     try {
       const result = await this.council.runCouncil(
-        'You are a critical evaluator. JSON only.',
+        'JSON only. No markdown.',
         critiquePrompt,
-        { minModels: 1, maxModels: 1, temperature: 0.3, maxTokens: 200 },
+        { minModels: 1, maxModels: 1, temperature: 0.2, maxTokens: 100 },
       );
       
-      const parsed = JSON.parse(result.finalResponse) as { score: number; feedback: string };
+      // Try to extract JSON from response
+      const jsonMatch = /\{[^}]+\}/.exec(result.finalResponse);
+      if (!jsonMatch) return null;
+      
+      const parsed = JSON.parse(jsonMatch[0]) as { score: number; feedback: string };
       
       return {
         responseId: response.id,
         criticAgent,
         score: Math.min(10, Math.max(1, parsed.score)),
-        feedback: parsed.feedback,
+        feedback: parsed.feedback || 'Good response',
       };
     } catch {
       return null;
@@ -301,6 +351,7 @@ Rate 1-10 and give brief feedback. JSON only:
     responses: A2AAgentResponse[],
     critiques: A2ACritique[],
     prompt: string,
+    onProgress?: (step: string) => void,
   ): Promise<{ bestResponse: A2AAgentResponse; averageScore: number; synthesizedContent: string; allSources: string[] }> {
     const scoreMap = new Map<string, number[]>();
     for (const critique of critiques) {
@@ -330,46 +381,42 @@ Rate 1-10 and give brief feedback. JSON only:
     const averageScore = count > 0 ? totalAvg / count : 5;
     const allSources = [...new Set(responses.flatMap((r) => r.sources))];
     
+    onProgress?.(`Best response from ${bestResponse.agent} agent (score: ${highestAvg.toFixed(1)}/10)`);
+    
     const bestCritiques = critiques.filter((c) => c.responseId === bestResponse.id);
     
-    const synthesisPrompt = `You are synthesizing expert advice for a startup founder who needs ACTIONABLE guidance.
+    // Truncate responses for faster synthesis
+    const truncatedResponses = responses.map((r) => `${r.agent.toUpperCase()}: ${r.content.slice(0, 600)}`).join('\n\n');
+    
+    const synthesisPrompt = `Synthesize expert advice for a founder.
 
 QUESTION: ${prompt}
 
 EXPERT RESPONSES:
+${truncatedResponses}
 
-${responses.map((r) => `=== ${r.agent.toUpperCase()} EXPERT ===
-${r.content}
-`).join('\n')}
+SCORES: ${bestCritiques.map((c) => `${c.criticAgent}:${String(c.score)}/10`).join(', ')}
 
-PEER REVIEW SCORES:
-${bestCritiques.map((c) => `- ${c.criticAgent}: ${String(c.score)}/10 - ${c.feedback}`).join('\n')}
+Create actionable response:
+- Brief summary (2 sentences)
+- Key insights from each expert
+- Numbered action items
+- Immediate next steps
 
-YOUR TASK:
-Create a comprehensive, actionable response that:
-1. Combines the BEST insights from ALL experts
-2. Provides SPECIFIC, ACTIONABLE steps (not vague advice)
-3. Includes concrete examples, numbers, or frameworks where relevant
-4. Addresses the question from multiple angles (legal, financial, strategic)
-5. Prioritizes recommendations by importance/urgency
-
-FORMAT YOUR RESPONSE:
-- Start with a brief executive summary (2-3 sentences)
-- Use clear sections with headers for different aspects
-- Include numbered action items where appropriate
-- End with immediate next steps the founder should take
-
-Be thorough but organized. Founders need detailed guidance, not surface-level advice.`;
+Be specific and practical.`;
 
     try {
+      onProgress?.('Running LLM council for final synthesis...');
       const result = await this.council.runCouncil(
-        'You are a senior startup advisor synthesizing expert opinions into actionable guidance. Be thorough and specific.',
+        'Senior startup advisor. Be concise and actionable.',
         synthesisPrompt,
-        { minModels: 2, maxModels: 3, temperature: 0.4, maxTokens: 3000 },
+        { minModels: 2, maxModels: 2, temperature: 0.4, maxTokens: 1500, onProgress },
       );
       
+      onProgress?.('Final response ready');
       return { bestResponse, averageScore, synthesizedContent: result.finalResponse, allSources };
     } catch {
+      onProgress?.('Using best agent response as fallback');
       return { bestResponse, averageScore, synthesizedContent: bestResponse.content, allSources };
     }
   }

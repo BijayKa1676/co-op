@@ -100,6 +100,23 @@ export class AgentsWebhookController {
       });
 
       let results;
+      const councilSteps: string[] = [];
+      
+      // Progress callback to capture realtime thinking steps
+      const onProgress = async (step: string): Promise<void> => {
+        councilSteps.push(step);
+        // Keep only last 20 steps to avoid memory issues
+        if (councilSteps.length > 20) {
+          councilSteps.shift();
+        }
+        // Update status with latest steps (fire and forget)
+        void this.queueService.updateTaskStatus(taskId, 'active', 50, undefined, undefined, {
+          phase: 'gathering',
+          startedAt,
+          message: step,
+          councilSteps: [...councilSteps],
+        });
+      };
       
       if (isMultiAgent && agents) {
         // Multi-agent A2A mode with progress callbacks
@@ -113,35 +130,18 @@ export class AgentsWebhookController {
           startedAt,
           message: 'Gathering responses from all agents...',
           estimatedTimeRemaining: 40,
+          councilSteps: [],
         });
         
-        results = await this.agentsService.run(body.userId, {
+        // Call runWithoutUsageCheck to avoid double-counting (queueTask already incremented)
+        results = await this.agentsService.runWithoutUsageCheck(body.userId, {
           agents,
           prompt: input.prompt,
           sessionId: input.context.sessionId,
           startupId: input.context.startupId,
           documents: input.documents,
-        });
+        }, onProgress);
         
-        // Update to critiquing phase
-        await this.queueService.updateTaskStatus(taskId, 'active', 60, undefined, undefined, {
-          phase: 'critiquing',
-          totalAgents: agents.length,
-          agentsCompleted: agents.length,
-          startedAt,
-          message: 'Cross-critiquing responses...',
-          estimatedTimeRemaining: 15,
-        });
-        
-        // Update to synthesizing phase
-        await this.queueService.updateTaskStatus(taskId, 'active', 85, undefined, undefined, {
-          phase: 'synthesizing',
-          totalAgents: agents.length,
-          agentsCompleted: agents.length,
-          startedAt,
-          message: 'Synthesizing final response...',
-          estimatedTimeRemaining: 5,
-        });
       } else if (agentType) {
         // Single agent mode
         this.logger.log(`Processing agent job: ${taskId} - ${agentType}`);
@@ -154,19 +154,11 @@ export class AgentsWebhookController {
           startedAt,
           message: `${agentType.charAt(0).toUpperCase() + agentType.slice(1)} agent analyzing...`,
           estimatedTimeRemaining: 15,
+          councilSteps: [],
         });
         
-        results = await this.orchestrator.runAgent(agentType, input);
+        results = await this.orchestrator.runAgent(agentType, input, onProgress);
         
-        await this.queueService.updateTaskStatus(taskId, 'active', 90, undefined, undefined, {
-          phase: 'synthesizing',
-          currentAgent: agentType,
-          totalAgents: 1,
-          agentsCompleted: 1,
-          startedAt,
-          message: 'Finalizing response...',
-          estimatedTimeRemaining: 2,
-        });
       } else {
         throw new Error('No agent type or agents array provided');
       }

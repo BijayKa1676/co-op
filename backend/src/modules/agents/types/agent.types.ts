@@ -37,8 +37,10 @@ export interface OrchestratorTask {
   updatedAt: Date;
 }
 
+export type ProgressCallback = (step: string) => void;
+
 export interface BaseAgent {
-  runDraft(input: AgentInput): Promise<AgentOutput>;
-  runCritique(input: AgentInput, draft: AgentOutput): Promise<AgentOutput>;
-  runFinal(input: AgentInput, draft: AgentOutput, critique: AgentOutput): Promise<AgentOutput>;
+  runDraft(input: AgentInput, onProgress?: ProgressCallback): Promise<AgentOutput>;
+  runCritique(input: AgentInput, draft: AgentOutput, onProgress?: ProgressCallback): Promise<AgentOutput>;
+  runFinal(input: AgentInput, draft: AgentOutput, critique: AgentOutput, onProgress?: ProgressCallback): Promise<AgentOutput>;
 }

@@ -21,6 +21,7 @@ export interface TaskProgressDetail {
   estimatedTimeRemaining?: number;
   startedAt?: string;
   message?: string;
+  councilSteps?: string[]; // Realtime thinking steps from LLM council
 }
 
 export class TaskStatusDto {

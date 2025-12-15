@@ -34,22 +34,33 @@ export class OrchestratorService {
     return agents[type];
   }
 
-  async runAgent(agentType: AgentType, input: AgentInput): Promise<AgentPhaseResult[]> {
+  async runAgent(
+    agentType: AgentType,
+    input: AgentInput,
+    onProgress?: (step: string) => void,
+  ): Promise<AgentPhaseResult[]> {
     const agent = this.getAgent(agentType);
     const results: AgentPhaseResult[] = [];
+    const agentName = agentType.charAt(0).toUpperCase() + agentType.slice(1);
 
     try {
       this.logger.log(`Running ${agentType} agent - Draft phase`);
-      const draft = await agent.runDraft(input);
+      onProgress?.(`${agentName} agent: Generating initial draft...`);
+      const draft = await agent.runDraft(input, onProgress);
       results.push({ phase: 'draft', output: draft, timestamp: new Date() });
+      onProgress?.(`${agentName} agent: Draft complete`);
 
       this.logger.log(`Running ${agentType} agent - Critique phase`);
-      const critique = await agent.runCritique(input, draft);
+      onProgress?.(`${agentName} agent: Self-critiquing response...`);
+      const critique = await agent.runCritique(input, draft, onProgress);
       results.push({ phase: 'critique', output: critique, timestamp: new Date() });
+      onProgress?.(`${agentName} agent: Critique complete`);
 
       this.logger.log(`Running ${agentType} agent - Final phase`);
-      const final = await agent.runFinal(input, draft, critique);
+      onProgress?.(`${agentName} agent: Generating final response...`);
+      const final = await agent.runFinal(input, draft, critique, onProgress);
       results.push({ phase: 'final', output: final, timestamp: new Date() });
+      onProgress?.(`${agentName} agent: Final response ready`);
 
       return results;
     } catch (error) {

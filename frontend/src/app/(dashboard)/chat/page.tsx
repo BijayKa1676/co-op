@@ -18,6 +18,7 @@ import {
   CaretUp,
   NotionLogo,
   Lightning,
+  Brain,
 } from '@phosphor-icons/react/dist/ssr';
 import { api } from '@/lib/api/client';
 import { useUser } from '@/lib/hooks';
@@ -62,13 +63,20 @@ export default function ChatPage() {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [expandedDetails, setExpandedDetails] = useState<string | null>(null);
   const [isExporting, setIsExporting] = useState<string | null>(null);
+  const [thinkingSteps, setThinkingSteps] = useState<string[]>([]);
+  const [showThinking, setShowThinking] = useState(false);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const sessionInitRef = useRef(false);
 
   // Initialize session and load existing messages
   useEffect(() => {
     const initSession = async () => {
       if (!user?.startup) return;
+      
+      // Prevent duplicate session creation (React StrictMode runs effects twice)
+      if (sessionInitRef.current) return;
+      sessionInitRef.current = true;
 
       // Check if we're continuing from a previous session
       const continueSessionStr = sessionStorage.getItem('continueSession');
@@ -99,7 +107,7 @@ export default function ChatPage() {
         }
       }
 
-      // If we have a current session, load its messages
+      // If we have a current session in store, load its messages
       if (currentSession) {
         try {
           const existingMessages = await api.getSessionMessages(currentSession.id);
@@ -121,7 +129,34 @@ export default function ChatPage() {
         return;
       }
 
-      // Create new session if none exists
+      // Check for existing active sessions before creating a new one
+      try {
+        const existingSessions = await api.getSessions();
+        const activeSession = existingSessions.find(s => s.status === 'active');
+        
+        if (activeSession) {
+          // Use the most recent active session
+          setCurrentSession(activeSession);
+          const existingMessages = await api.getSessionMessages(activeSession.id);
+          if (existingMessages.length > 0) {
+            clearMessages();
+            existingMessages.forEach((msg) => {
+              addMessage({
+                id: msg.id,
+                role: msg.role as 'user' | 'assistant',
+                content: msg.content,
+                agent: msg.agent as AgentType | 'multi' | undefined,
+                timestamp: new Date(msg.createdAt),
+              });
+            });
+          }
+          return;
+        }
+      } catch (error) {
+        console.error('Failed to check existing sessions:', error);
+      }
+
+      // Create new session if no active session exists
       try {
         const session = await api.createSession({
           startupId: user.startup.id,
@@ -203,6 +238,8 @@ export default function ChatPage() {
 
     setInput('');
     setLoading(true);
+    setThinkingSteps([]);
+    setShowThinking(false);
 
     try {
       // Build request based on mode
@@ -232,6 +269,7 @@ export default function ChatPage() {
 
       let completed = false;
       let finalContent = '';
+      
       while (!completed) {
         await new Promise((resolve) => setTimeout(resolve, 800));
         const status = await api.getTaskStatus(taskId);
@@ -245,13 +283,14 @@ export default function ChatPage() {
               confidence: finalResult.output.confidence,
               sources: finalResult.output.sources,
               isStreaming: false,
+              thinkingSteps: [...thinkingSteps],
             });
           }
           completed = true;
         } else if (status.status === 'failed') {
           throw new Error(status.error || 'Task failed');
         } else {
-          // Show detailed progress
+          // Show detailed progress with thinking steps
           const detail = status.progressDetail;
           let progressText = '';
           
@@ -274,6 +313,15 @@ export default function ChatPage() {
                 break;
               default:
                 progressText = detail.message ?? `Processing... ${status.progress}%`;
+            }
+            
+            // Add thinking steps from council progress
+            if (detail.councilSteps && detail.councilSteps.length > 0) {
+              setThinkingSteps(detail.councilSteps);
+              // Auto-expand thinking steps when they first appear
+              if (detail.councilSteps.length === 1) {
+                setShowThinking(true);
+              }
             }
           } else {
             progressText = isMultiAgent
@@ -327,6 +375,7 @@ export default function ChatPage() {
     // Clear current messages and session
     clearMessages();
     setCurrentSession(null);
+    setThinkingSteps([]);
     
     // Create new session
     try {
@@ -473,6 +522,51 @@ export default function ChatPage() {
                               <span>All agents collaborating</span>
                             </div>
                           )}
+                          {/* Thinking Steps Dropdown */}
+                          {thinkingSteps.length > 0 && (
+                            <div className="mt-2">
+                              <button
+                                onClick={() => setShowThinking(!showThinking)}
+                                className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                              >
+                                <Brain weight="regular" className="w-3.5 h-3.5 text-primary" />
+                                {showThinking ? (
+                                  <CaretUp weight="bold" className="w-3 h-3" />
+                                ) : (
+                                  <CaretDown weight="bold" className="w-3 h-3" />
+                                )}
+                                <span>Thinking process ({thinkingSteps.length} steps)</span>
+                              </button>
+                              <AnimatePresence>
+                                {showThinking && (
+                                  <motion.div
+                                    initial={{ opacity: 0, height: 0 }}
+                                    animate={{ opacity: 1, height: 'auto' }}
+                                    exit={{ opacity: 0, height: 0 }}
+                                    className="overflow-hidden"
+                                  >
+                                    <div className="mt-2 p-3 rounded-lg bg-muted/30 border border-border/40 space-y-1.5 max-h-48 overflow-y-auto">
+                                      {thinkingSteps.map((step, i) => (
+                                        <motion.div 
+                                          key={i} 
+                                          initial={{ opacity: 0, x: -10 }}
+                                          animate={{ opacity: 1, x: 0 }}
+                                          transition={{ delay: i * 0.05 }}
+                                          className={cn(
+                                            "flex items-start gap-2 text-xs",
+                                            i === thinkingSteps.length - 1 && "text-primary font-medium"
+                                          )}
+                                        >
+                                          <span className="text-muted-foreground shrink-0">{i + 1}.</span>
+                                          <span className={i === thinkingSteps.length - 1 ? "text-foreground" : "text-foreground/70"}>{step}</span>
+                                        </motion.div>
+                                      ))}
+                                    </div>
+                                  </motion.div>
+                                )}
+                              </AnimatePresence>
+                            </div>
+                          )}
                         </div>
                       </CardContent>
                     </Card>
@@ -508,6 +602,9 @@ export default function ChatPage() {
                               <CaretDown weight="bold" className="w-3 h-3" />
                             )}
                             <span>{Math.round(message.confidence * 100)}% confidence</span>
+                            {message.thinkingSteps && message.thinkingSteps.length > 0 && (
+                              <span>· {message.thinkingSteps.length} thinking steps</span>
+                            )}
                             {message.sources && message.sources.length > 0 && (
                               <span>· {message.sources.length} sources</span>
                             )}
@@ -544,23 +641,43 @@ export default function ChatPage() {
                       )}
 
                       <AnimatePresence>
-                        {expandedDetails === message.id && message.sources && message.sources.length > 0 && (
+                        {expandedDetails === message.id && (
                           <motion.div
                             initial={{ opacity: 0, height: 0 }}
                             animate={{ opacity: 1, height: 'auto' }}
                             exit={{ opacity: 0, height: 0 }}
-                            className="overflow-hidden"
+                            className="overflow-hidden space-y-2"
                           >
-                            <div className="p-3 rounded-lg bg-muted/30 border border-border/40">
-                              <p className="text-xs font-medium text-muted-foreground mb-2">Sources</p>
-                              <div className="flex flex-wrap gap-1">
-                                {message.sources.map((source, i) => (
-                                  <Badge key={i} variant="outline" className="text-xs">
-                                    {source}
-                                  </Badge>
-                                ))}
+                            {/* Thinking Steps */}
+                            {message.thinkingSteps && message.thinkingSteps.length > 0 && (
+                              <div className="p-3 rounded-lg bg-muted/30 border border-border/40">
+                                <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground mb-2">
+                                  <Brain weight="regular" className="w-3.5 h-3.5 text-primary" />
+                                  <span>Thinking Process ({message.thinkingSteps.length} steps)</span>
+                                </div>
+                                <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                                  {message.thinkingSteps.map((step, i) => (
+                                    <div key={i} className="flex items-start gap-2 text-xs">
+                                      <span className="text-muted-foreground shrink-0">{i + 1}.</span>
+                                      <span className="text-foreground/80">{step}</span>
+                                    </div>
+                                  ))}
+                                </div>
                               </div>
-                            </div>
+                            )}
+                            {/* Sources */}
+                            {message.sources && message.sources.length > 0 && (
+                              <div className="p-3 rounded-lg bg-muted/30 border border-border/40">
+                                <p className="text-xs font-medium text-muted-foreground mb-2">Sources</p>
+                                <div className="flex flex-wrap gap-1">
+                                  {message.sources.map((source, i) => (
+                                    <Badge key={i} variant="outline" className="text-xs">
+                                      {source}
+                                    </Badge>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
                           </motion.div>
                         )}
                       </AnimatePresence>

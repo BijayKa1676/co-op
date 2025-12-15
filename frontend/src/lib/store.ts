@@ -63,6 +63,7 @@ interface ChatMessage {
   sources?: string[];
   timestamp: Date;
   isStreaming?: boolean;
+  thinkingSteps?: string[];
 }
 
 interface ChatState {

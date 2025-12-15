@@ -21,6 +21,7 @@ export interface TaskProgressDetail {
   estimatedTimeRemaining?: number; // seconds
   startedAt?: string;
   message?: string;
+  councilSteps?: string[]; // Realtime thinking steps from LLM council
 }
 
 const TASK_STATUS_PREFIX = 'task:status:';

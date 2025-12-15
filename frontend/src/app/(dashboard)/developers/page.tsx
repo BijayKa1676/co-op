@@ -484,11 +484,11 @@ curl -N ${API_URL}/agents/stream/<taskId>`} />
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               {[
                 { name: 'Llama 3.3 70B Versatile', provider: 'Groq' },
-                { name: 'Llama 3.3 70B SpecDec', provider: 'Groq' },
+                { name: 'Kimi K2 Instruct', provider: 'Groq' },
                 { name: 'Gemini 2.5 Flash', provider: 'Google' },
                 { name: 'DeepSeek R1 32B', provider: 'HuggingFace' },
-                { name: 'Phi-3 Mini', provider: 'HuggingFace' },
-                { name: 'Qwen 2.5 72B', provider: 'HuggingFace' },
+                { name: 'Phi-3 Mini 4K', provider: 'HuggingFace' },
+                { name: 'Qwen 2.5 14B 1M', provider: 'HuggingFace' },
               ].map((model) => (
                 <div key={model.name} className="p-3 rounded-lg bg-muted/30 text-center">
                   <p className="text-xs font-medium truncate">{model.name}</p>

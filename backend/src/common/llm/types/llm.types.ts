@@ -105,13 +105,13 @@ export interface ModelHealthCheck {
 export const AVAILABLE_MODELS: ModelConfig[] = [
   // Groq - verified working, fastest inference
   { provider: 'groq', model: 'llama-3.3-70b-versatile', name: 'Llama 3.3 70B Versatile' },
-  { provider: 'groq', model: 'llama-3.3-70b-specdec', name: 'Llama 3.3 70B SpecDec' },
+  { provider: 'groq', model: 'kimi-k2-instruct-0905', name: 'Kimi K2 Instruct' },
 
   // Google AI - Gemini 2.5 Flash (fast, production-ready)
   { provider: 'google', model: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash' },
 
   // HuggingFace - multiple models for diversity
   { provider: 'huggingface', model: 'deepseek-ai/DeepSeek-R1-Distill-Qwen-32B', name: 'DeepSeek R1 32B' },
-  { provider: 'huggingface', model: 'microsoft/Phi-3-mini-4k-instruct', name: 'Phi-3 Mini' },
-  { provider: 'huggingface', model: 'Qwen/Qwen2.5-72B-Instruct', name: 'Qwen 2.5 72B' },
+  { provider: 'huggingface', model: 'microsoft/Phi-3-mini-4k-instruct', name: 'Phi-3 Mini 4K' },
+  { provider: 'huggingface', model: 'Qwen/Qwen2.5-14B-Instruct-1M', name: 'Qwen 2.5 14B 1M' },
 ];
