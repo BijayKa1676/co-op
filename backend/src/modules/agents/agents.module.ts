@@ -9,6 +9,7 @@ import { LlmModule } from '@/common/llm/llm.module';
 import { RagModule } from '@/common/rag/rag.module';
 import { ResearchModule } from '@/common/research/research.module';
 import { RedisModule } from '@/common/redis/redis.module';
+import { CacheModule } from '@/common/cache/cache.module';
 import { QStashModule } from '@/common/qstash/qstash.module';
 import { StartupsModule } from '@/modules/startups/startups.module';
 import { UsersModule } from '@/modules/users/users.module';
@@ -25,6 +26,7 @@ import { CompetitorAgentService } from './domains/competitor/competitor-agent.se
     RagModule,
     ResearchModule,
     RedisModule,
+    CacheModule,
     QStashModule,
     StartupsModule,
     forwardRef(() => UsersModule),

@@ -57,7 +57,7 @@ export class InvestorAgentService implements BaseAgent {
       minModels: this.minModels,
       maxModels: this.maxModels,
       temperature: 0.6,
-      maxTokens: 1000,
+      maxTokens: 600,
     });
 
     // Extract sources from research

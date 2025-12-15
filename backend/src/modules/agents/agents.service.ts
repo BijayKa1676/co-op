@@ -1,17 +1,19 @@
 import { Injectable, BadRequestException, ForbiddenException, Logger } from '@nestjs/common';
 import { v4 as uuid } from 'uuid';
+import { createHash } from 'crypto';
 import { OrchestratorService } from './orchestrator/orchestrator.service';
 import { AgentsQueueService } from './queue/agents.queue.service';
 import { StartupsService } from '@/modules/startups/startups.service';
 import { UsersService } from '@/modules/users/users.service';
 import { LlmCouncilService } from '@/common/llm/llm-council.service';
 import { RedisService } from '@/common/redis/redis.service';
+import { CacheService, CACHE_TTL } from '@/common/cache/cache.service';
 import { AgentType, AgentInput, AgentPhaseResult } from './types/agent.types';
 import { RunAgentDto } from './dto/run-agent.dto';
 import { TaskStatusDto } from './dto/task-status.dto';
 
 // Pilot plan limits
-const PILOT_MONTHLY_LIMIT = 30;
+const PILOT_MONTHLY_LIMIT = 3;
 
 interface QueueTaskResult {
   taskId: string;
@@ -35,6 +37,9 @@ interface A2ACritique {
 
 const ALL_AGENTS: AgentType[] = ['legal', 'finance', 'investor', 'competitor'];
 
+// Response cache TTL (15 minutes for similar queries)
+const RESPONSE_CACHE_TTL = 15 * 60;
+
 @Injectable()
 export class AgentsService {
   private readonly logger = new Logger(AgentsService.name);
@@ -46,7 +51,19 @@ export class AgentsService {
     private readonly usersService: UsersService,
     private readonly council: LlmCouncilService,
     private readonly redis: RedisService,
+    private readonly cache: CacheService,
   ) {}
+
+  /**
+   * Generate cache key for a prompt (normalized hash)
+   */
+  private getPromptCacheKey(startupId: string, prompt: string, agents?: string[]): string {
+    // Normalize prompt: lowercase, trim, remove extra spaces
+    const normalizedPrompt = prompt.toLowerCase().trim().replace(/\s+/g, ' ');
+    const agentKey = agents?.sort().join(',') ?? 'all';
+    const hash = createHash('md5').update(`${startupId}:${agentKey}:${normalizedPrompt}`).digest('hex').slice(0, 16);
+    return `agent:response:${hash}`;
+  }
 
   /**
    * Get usage key for current month
@@ -139,15 +156,31 @@ export class AgentsService {
     dto: RunAgentDto,
     onProgress?: (step: string) => void,
   ): Promise<AgentPhaseResult[]> {
+    // Check cache for similar prompts (skip if onProgress is provided - user wants realtime updates)
+    const cacheKey = this.getPromptCacheKey(dto.startupId, dto.prompt, dto.agents);
+    if (!onProgress) {
+      const cached = await this.cache.get<AgentPhaseResult[]>(cacheKey);
+      if (cached) {
+        this.logger.log(`Cache hit for prompt: ${cacheKey}`);
+        return cached;
+      }
+    }
+
     const input = await this.buildAgentInput(userId, dto);
     
     // Multi-agent mode: no agentType specified or agents array provided
+    let result: AgentPhaseResult[];
     if (!dto.agentType) {
       const agents = dto.agents?.filter((a): a is AgentType => ALL_AGENTS.includes(a as AgentType)) ?? ALL_AGENTS;
-      return this.runMultiAgent(agents, input, dto.prompt, onProgress);
+      result = await this.runMultiAgent(agents, input, dto.prompt, onProgress);
+    } else {
+      result = await this.orchestrator.runAgent(dto.agentType, input, onProgress);
     }
+
+    // Cache the result for future similar queries
+    await this.cache.set(cacheKey, result, { ttl: RESPONSE_CACHE_TTL });
     
-    return this.orchestrator.runAgent(dto.agentType, input, onProgress);
+    return result;
   }
 
   async queueTask(userId: string, dto: RunAgentDto): Promise<QueueTaskResult> {
@@ -386,31 +419,25 @@ R: ${response.content.slice(0, 500)}
     const bestCritiques = critiques.filter((c) => c.responseId === bestResponse.id);
     
     // Truncate responses for faster synthesis
-    const truncatedResponses = responses.map((r) => `${r.agent.toUpperCase()}: ${r.content.slice(0, 600)}`).join('\n\n');
+    const truncatedResponses = responses.map((r) => `${r.agent.toUpperCase()}: ${r.content.slice(0, 400)}`).join('\n\n');
     
-    const synthesisPrompt = `Synthesize expert advice for a founder.
+    const synthesisPrompt = `Synthesize expert advice.
 
-QUESTION: ${prompt}
+Q: ${prompt.slice(0, 200)}
 
-EXPERT RESPONSES:
+EXPERTS:
 ${truncatedResponses}
 
 SCORES: ${bestCritiques.map((c) => `${c.criticAgent}:${String(c.score)}/10`).join(', ')}
 
-Create actionable response:
-- Brief summary (2 sentences)
-- Key insights from each expert
-- Numbered action items
-- Immediate next steps
-
-Be specific and practical.`;
+Output: Brief summary, key insights, 3-5 action items. Be concise.`;
 
     try {
       onProgress?.('Running LLM council for final synthesis...');
       const result = await this.council.runCouncil(
         'Senior startup advisor. Be concise and actionable.',
         synthesisPrompt,
-        { minModels: 2, maxModels: 2, temperature: 0.4, maxTokens: 1500, onProgress },
+        { minModels: 2, maxModels: 2, temperature: 0.4, maxTokens: 800, onProgress },
       );
       
       onProgress?.('Final response ready');

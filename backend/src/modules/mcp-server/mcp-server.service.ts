@@ -483,7 +483,7 @@ Output improved synthesis. Bullet points. No preamble.`;
       const result = await this.council.runCouncil(
         'Synthesize expert responses concisely.',
         synthesisPrompt,
-        { minModels: 2, maxModels: 3, temperature: 0.3, maxTokens: 1000 },
+        { minModels: 2, maxModels: 2, temperature: 0.3, maxTokens: 600 },
       );
 
       return { bestResponse, averageScore, synthesizedContent: result.finalResponse };

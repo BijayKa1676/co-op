@@ -64,7 +64,7 @@ export class FinanceAgentService implements BaseAgent {
       minModels: this.minModels,
       maxModels: this.maxModels,
       temperature: 0.6,
-      maxTokens: 1200,
+      maxTokens: 600,
     });
 
     return {

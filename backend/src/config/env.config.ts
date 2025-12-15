@@ -33,7 +33,7 @@ export const envSchema = z.object({
 
   // LLM Council settings (minimum 2 required for cross-critique)
   LLM_COUNCIL_MIN_MODELS: z.string().default('2').transform(Number),
-  LLM_COUNCIL_MAX_MODELS: z.string().default('3').transform(Number),
+  LLM_COUNCIL_MAX_MODELS: z.string().default('2').transform(Number),
 
   // Notion Integration (optional - internal integration)
   NOTION_API_TOKEN: z.string().optional(),

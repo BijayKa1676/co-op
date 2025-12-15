@@ -58,7 +58,7 @@ export class LlmCouncilService implements OnModuleInit, OnModuleDestroy {
   }
 
   private healthCheckInterval: NodeJS.Timeout | null = null;
-  private readonly HEALTH_CHECK_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
+  private readonly HEALTH_CHECK_INTERVAL_MS = 10 * 60 * 1000; // 10 minutes
 
   async onModuleInit(): Promise<void> {
     this.logger.log('Running LLM model health checks on boot...');
@@ -228,7 +228,7 @@ export class LlmCouncilService implements OnModuleInit, OnModuleDestroy {
       councilModels,
       enhancedSystemPrompt,
       userPrompt,
-      { temperature: options?.temperature ?? 0.6, maxTokens: options?.maxTokens ?? 800 },
+      { temperature: options?.temperature ?? 0.6, maxTokens: options?.maxTokens ?? 600 },
       onProgress,
     );
 
@@ -293,20 +293,19 @@ export class LlmCouncilService implements OnModuleInit, OnModuleDestroy {
     };
   }
 
-  private selectCouncilModels(min: number, max: number): ModelConfig[] {
+  private selectCouncilModels(min: number, _max: number): ModelConfig[] {
     if (this.availableModels.length === 0) {
       throw new Error('No LLM models available. Configure at least one provider.');
     }
 
+    // Use ALL available healthy models - no limiting
     const available = this.shuffleArray(this.availableModels);
-    // Use what we have, even if less than min
-    const count = Math.min(available.length, max);
 
-    if (count < min) {
-      this.logger.warn(`Only ${String(count)} models available, requested minimum ${String(min)}`);
+    if (available.length < min) {
+      this.logger.warn(`Only ${String(available.length)} models available, requested minimum ${String(min)}`);
     }
 
-    return available.slice(0, count);
+    return available;
   }
 
   private async generateResponses(
@@ -355,33 +354,32 @@ export class LlmCouncilService implements OnModuleInit, OnModuleDestroy {
     onProgress?: (step: string) => void,
   ): Promise<CouncilCritique[]> {
     // Build all critique tasks for parallel execution
+    // Each model critiques ALL other responses (full cross-critique)
     const critiqueTasks: Promise<CouncilCritique | null>[] = [];
+    const totalCritiques = models.length * (responses.length - 1);
+    
+    onProgress?.(`Starting ${totalCritiques} cross-critiques (${models.length} models × ${responses.length - 1} responses each)...`);
 
     for (const model of models) {
       const provider = this.providers.get(model.provider);
       if (!provider) continue;
 
-      // Find responses not from this model
+      // Find ALL responses not from this model - full cross-critique
       const otherResponses = responses.filter(
         r => !(r.provider === model.provider && r.model === model.model),
       );
 
-      // Limit to 1 critique per model for speed
-      const responsesToCritique = otherResponses.slice(0, 1);
-
-      for (const response of responsesToCritique) {
-        onProgress?.(`${model.name} critiquing another model's response...`);
+      for (const response of otherResponses) {
         critiqueTasks.push(
           this.critiqueResponse(provider, model, response, systemPrompt, originalPrompt)
             .then(result => {
               if (result) {
-                onProgress?.(`${model.name} scored response: ${result.score}/10`);
+                onProgress?.(`${model.name} scored a response: ${result.score}/10`);
               }
               return result;
             })
             .catch(error => {
               this.logger.warn(`Model ${model.name} failed to critique`, error);
-              onProgress?.(`${model.name} critique failed - skipping`);
               return null;
             })
         );
@@ -420,7 +418,7 @@ Output: {"score":7,"feedback":"one sentence","strengths":["s1"],"weaknesses":["w
     const result = await provider.chat(messages, {
       model: criticModel.model,
       temperature: 0.2,
-      maxTokens: 256,
+      maxTokens: 150,
     });
 
     const parsed = this.parseCritiqueWithFallback(result.content, criticModel.name);
@@ -651,7 +649,7 @@ Output improved response only.`;
           { role: 'system', content: systemPrompt },
           { role: 'user', content: synthesisPrompt },
         ],
-        { model: synthModel.model, temperature: 0.3, maxTokens: 1500 },
+        { model: synthModel.model, temperature: 0.3, maxTokens: 1000 },
       );
 
       // Sanitize the final response to remove markdown and apply guardrails
