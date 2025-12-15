@@ -71,17 +71,14 @@ Co-Op is a multi-service AI advisory platform consisting of three main component
 │                     │  │                 │  │                             │
 │  ┌───────────────┐  │  │  ┌───────────┐  │  │  ┌─────────┐ ┌───────────┐  │
 │  │ Orchestrator  │  │  │  │   Groq    │  │  │  │ Postgres│ │   Redis   │  │
-│  └───────────────┘  │  │  │  (Llama)  │  │  │  │  (Neon) │ │ (Upstash) │  │
-│         │          │  │  └───────────┘  │  │  └─────────┘ └───────────┘  │
-│  ┌──────┴──────┐   │  │  ┌───────────┐  │  │                             │
-│  │    │    │   │   │  │  │  Google   │  │  │  ┌─────────┐ ┌───────────┐  │
-│  ▼    ▼    ▼   ▼   │  │  │ (Gemini)  │  │  │  │Supabase │ │  QStash   │  │
-│ Legal Fin Inv Comp │  │  └───────────┘  │  │  │(Auth+S3)│ │  (Queue)  │  │
-│                     │  │  ┌───────────┐  │  │  └─────────┘ └───────────┘  │
-└─────────────────────┘  │  │HuggingFace│  │  └─────────────────────────────┘
-          │              │  │ (Mistral) │  │
-          │              │  └───────────┘  │
-          │              └─────────────────┘
+│  └───────────────┘  │  │  └───────────┘  │  │  │  (Neon) │ │ (Upstash) │  │
+│         │          │  │  ┌───────────┐  │  │  └─────────┘ └───────────┘  │
+│  ┌──────┴──────┐   │  │  │  Google   │  │  │                             │
+│  │    │    │   │   │  │  └───────────┘  │  │  ┌─────────┐ ┌───────────┐  │
+│  ▼    ▼    ▼   ▼   │  │  ┌───────────┐  │  │  │Supabase │ │  QStash   │  │
+│ Legal Fin Inv Comp │  │  │HuggingFace│  │  │  │(Auth+S3)│ │  (Queue)  │  │
+│                     │  │  └───────────┘  │  │  └─────────┘ └───────────┘  │
+└─────────────────────┘  └─────────────────┘  └─────────────────────────────┘
           │
           ├─── RAG Query ───▶ ┌─────────────────────────────────────────────┐
           │                   │            RAG SERVICE                      │
@@ -100,7 +97,12 @@ Co-Op is a multi-service AI advisory platform consisting of three main component
           │                   │         FastAPI (Koyeb)                     │
           │                   └─────────────────────────────────────────────┘
           │
-          └─── Web Research ──▶ Google Gemini Search Grounding
+          │                   ┌─────────────────────────────────────────────┐
+          └─── Web Research ──▶│  Gemini Search Grounding (Primary)         │
+                              │         │                                   │
+                              │         ▼ (on failure)                      │
+                              │  ScrapingBee SERP API (Fallback)            │
+                              └─────────────────────────────────────────────┘
 ```
 
 
@@ -222,8 +224,8 @@ The LLM Council is the core innovation - a multi-model cross-critique system tha
 │                           PHASE 1: GENERATION                               │
 │                                                                             │
 │   ┌─────────┐    ┌─────────┐    ┌─────────┐    ┌─────────┐                 │
-│   │  Groq   │    │ Google  │    │  HF     │    │  ...    │                 │
-│   │ (Llama) │    │(Gemini) │    │(Mistral)│    │         │                 │
+│   │  Groq   │    │ Google  │    │HuggingFa│    │  ...    │                 │
+│   │         │    │         │    │   ce    │    │         │                 │
 │   └────┬────┘    └────┬────┘    └────┬────┘    └────┬────┘                 │
 │        │              │              │              │                       │
 │        ▼              ▼              ▼              ▼                       │
