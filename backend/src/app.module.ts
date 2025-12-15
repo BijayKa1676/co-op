@@ -13,6 +13,7 @@ import { LlmModule } from './common/llm/llm.module';
 import { MetricsModule } from './common/metrics/metrics.module';
 import { AuditModule } from './common/audit/audit.module';
 import { CacheModule } from './common/cache/cache.module';
+import { EncryptionModule } from './common/encryption/encryption.module';
 import { CircuitBreakerModule } from './common/circuit-breaker/circuit-breaker.module';
 import { RagModule } from './common/rag/rag.module';
 import { ResearchModule } from './common/research/research.module';
@@ -55,6 +56,7 @@ import { NotionModule } from './modules/notion/notion.module';
     MetricsModule,
     AuditModule,
     CacheModule,
+    EncryptionModule,
     CircuitBreakerModule,
     RagModule,
     ResearchModule,

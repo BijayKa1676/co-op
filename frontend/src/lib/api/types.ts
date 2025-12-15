@@ -317,6 +317,46 @@ export interface UsageStats {
   resetsAt: string;
 }
 
+// === API KEY USAGE ===
+export interface ApiKeyUsageStats {
+  keyId: string;
+  keyName: string;
+  keyPrefix: string;
+  totalRequests: number;
+  requestsToday: number;
+  requestsThisMonth: number;
+  lastUsedAt: string | null;
+}
+
+export interface ApiKeyUsageSummary {
+  totalKeys: number;
+  activeKeys: number;
+  totalRequestsToday: number;
+  totalRequestsThisMonth: number;
+  keyUsage: ApiKeyUsageStats[];
+}
+
+// === WEBHOOK USAGE ===
+export interface WebhookUsageStats {
+  webhookId: string;
+  webhookName: string;
+  totalDeliveries: number;
+  successfulDeliveries: number;
+  failedDeliveries: number;
+  deliveriesToday: number;
+  deliveriesThisMonth: number;
+  lastTriggeredAt: string | null;
+}
+
+export interface WebhookUsageSummary {
+  totalWebhooks: number;
+  activeWebhooks: number;
+  totalDeliveriesToday: number;
+  totalDeliveriesThisMonth: number;
+  successRate: number;
+  webhookUsage: WebhookUsageStats[];
+}
+
 // === ANALYTICS ===
 export interface DashboardStats {
   totalUsers: number;

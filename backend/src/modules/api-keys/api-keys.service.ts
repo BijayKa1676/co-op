@@ -1,6 +1,7 @@
-import { Injectable, NotFoundException, Logger } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { randomBytes, createHash } from 'crypto';
 import { RedisService } from '@/common/redis/redis.service';
+import { AuditService } from '@/common/audit/audit.service';
 import { CreateApiKeyDto, ApiKeyResponseDto, ApiKeyCreatedResponseDto } from './dto';
 
 interface StoredApiKey {
@@ -14,20 +15,50 @@ interface StoredApiKey {
   lastUsedAt: string;
 }
 
-interface StoredApiKeyWithRaw extends StoredApiKey {
-  rawKey: string; // Only stored in user's key list for revocation lookup
+export interface ApiKeyUsageStats {
+  keyId: string;
+  keyName: string;
+  keyPrefix: string;
+  totalRequests: number;
+  requestsToday: number;
+  requestsThisMonth: number;
+  lastUsedAt: Date | null;
+}
+
+export interface UserApiKeyUsageSummary {
+  totalKeys: number;
+  activeKeys: number;
+  totalRequestsToday: number;
+  totalRequestsThisMonth: number;
+  keyUsage: ApiKeyUsageStats[];
 }
 
 @Injectable()
 export class ApiKeysService {
   private readonly logger = new Logger(ApiKeysService.name);
   private readonly API_KEY_PREFIX = 'apikey:';
+  private readonly API_KEY_HASH_PREFIX = 'apikey:hash:';
   private readonly USER_KEYS_PREFIX = 'user:apikeys:';
+  private readonly API_KEY_USAGE_PREFIX = 'apikey:usage:';
   private readonly KEY_TTL = 365 * 24 * 60 * 60; // 1 year
 
-  constructor(private readonly redis: RedisService) {}
+  constructor(
+    private readonly redis: RedisService,
+    private readonly audit: AuditService,
+  ) {}
 
   async create(userId: string, dto: CreateApiKeyDto): Promise<ApiKeyCreatedResponseDto> {
+    // Validate name length
+    if (dto.name.length > 100) {
+      throw new BadRequestException('API key name must be 100 characters or less');
+    }
+
+    // Limit number of keys per user
+    const existingKeys = await this.findByUser(userId);
+    if (existingKeys.length >= 10) {
+      throw new BadRequestException('Maximum of 10 API keys per user');
+    }
+
     const id = randomBytes(8).toString('hex');
     const rawKey = `coop_${randomBytes(32).toString('hex')}`;
     const keyHash = this.hashKey(rawKey);
@@ -45,17 +76,37 @@ export class ApiKeysService {
     };
 
     // Store by raw key for lookup during authentication
-    await this.redis.set(`${this.API_KEY_PREFIX}${rawKey}`, {
-      id: storedKey.id,
-      name: storedKey.name,
-      userId: storedKey.userId,
-      scopes: storedKey.scopes,
-      createdAt: storedKey.createdAt,
-    }, this.KEY_TTL);
+    await this.redis.set(
+      `${this.API_KEY_PREFIX}${rawKey}`,
+      {
+        id: storedKey.id,
+        name: storedKey.name,
+        userId: storedKey.userId,
+        scopes: storedKey.scopes,
+        keyHash: storedKey.keyHash,
+        createdAt: storedKey.createdAt,
+      },
+      this.KEY_TTL,
+    );
 
-    // Store by ID for management (includes raw key for revocation)
-    const storedWithRaw: StoredApiKeyWithRaw = { ...storedKey, rawKey };
-    await this.redis.hset(`${this.USER_KEYS_PREFIX}${userId}`, id, storedWithRaw);
+    // Store hash -> raw key mapping for revocation (hash is safe to store)
+    await this.redis.set(`${this.API_KEY_HASH_PREFIX}${keyHash}`, rawKey, this.KEY_TTL);
+
+    // Store by ID for management (no raw key stored - only hash for revocation)
+    await this.redis.hset(`${this.USER_KEYS_PREFIX}${userId}`, id, storedKey);
+
+    // Audit log
+    await this.audit.log({
+      userId,
+      action: 'api_key.created',
+      resource: 'api_key',
+      resourceId: id,
+      oldValue: null,
+      newValue: { name: dto.name, scopes: dto.scopes, keyPrefix },
+      ipAddress: null,
+      userAgent: null,
+      metadata: {},
+    });
 
     return {
       id,
@@ -74,7 +125,7 @@ export class ApiKeysService {
       return [];
     }
 
-    return Object.values(keys).map(key => ({
+    return Object.values(keys).map((key) => ({
       id: key.id,
       name: key.name,
       keyPrefix: key.keyPrefix,
@@ -85,20 +136,35 @@ export class ApiKeysService {
   }
 
   async revoke(userId: string, keyId: string): Promise<void> {
-    const keys = await this.redis.hgetall<StoredApiKeyWithRaw>(`${this.USER_KEYS_PREFIX}${userId}`);
+    const keys = await this.redis.hgetall<StoredApiKey>(`${this.USER_KEYS_PREFIX}${userId}`);
     const keyData = keys?.[keyId];
 
     if (!keyData) {
       throw new NotFoundException('API key not found');
     }
 
-    // Remove from API key lookup (using stored raw key)
-    if (keyData.rawKey) {
-      await this.redis.del(`${this.API_KEY_PREFIX}${keyData.rawKey}`);
+    // Look up raw key from hash mapping for deletion
+    const rawKey = await this.redis.get<string>(`${this.API_KEY_HASH_PREFIX}${keyData.keyHash}`);
+    if (rawKey) {
+      await this.redis.del(`${this.API_KEY_PREFIX}${rawKey}`);
+      await this.redis.del(`${this.API_KEY_HASH_PREFIX}${keyData.keyHash}`);
     }
 
     // Remove from user's keys
     await this.redis.hdel(`${this.USER_KEYS_PREFIX}${userId}`, keyId);
+
+    // Audit log
+    await this.audit.log({
+      userId,
+      action: 'api_key.revoked',
+      resource: 'api_key',
+      resourceId: keyId,
+      oldValue: { name: keyData.name, keyPrefix: keyData.keyPrefix },
+      newValue: null,
+      ipAddress: null,
+      userAgent: null,
+      metadata: {},
+    });
 
     this.logger.log(`API key ${keyId} revoked for user ${userId}`);
   }
@@ -106,12 +172,125 @@ export class ApiKeysService {
   async updateLastUsed(rawKey: string): Promise<void> {
     const keyData = await this.redis.get<StoredApiKey>(`${this.API_KEY_PREFIX}${rawKey}`);
     if (keyData) {
-      await this.redis.hset(
-        `${this.USER_KEYS_PREFIX}${keyData.userId}`,
-        keyData.id,
-        { ...keyData, lastUsedAt: new Date().toISOString() },
-      );
+      // Update last used timestamp
+      await this.redis.hset(`${this.USER_KEYS_PREFIX}${keyData.userId}`, keyData.id, {
+        ...keyData,
+        lastUsedAt: new Date().toISOString(),
+      });
+      
+      // Refresh TTL on the key to extend its lifetime on active use
+      await this.redis.expire(`${this.API_KEY_PREFIX}${rawKey}`, this.KEY_TTL);
+
+      // Track usage stats
+      await this.incrementUsage(keyData.id);
     }
+  }
+
+  /**
+   * Increment usage counters for an API key
+   */
+  private async incrementUsage(keyId: string): Promise<void> {
+    const now = new Date();
+    const today = now.toISOString().split('T')[0]; // YYYY-MM-DD
+    const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`; // YYYY-MM
+
+    // Increment daily counter
+    const dailyKey = `${this.API_KEY_USAGE_PREFIX}${keyId}:daily:${today}`;
+    await this.redis.incr(dailyKey);
+    await this.redis.expire(dailyKey, 86400 * 7); // Keep for 7 days
+
+    // Increment monthly counter
+    const monthlyKey = `${this.API_KEY_USAGE_PREFIX}${keyId}:monthly:${month}`;
+    await this.redis.incr(monthlyKey);
+    await this.redis.expire(monthlyKey, 86400 * 35); // Keep for ~35 days
+
+    // Increment total counter
+    const totalKey = `${this.API_KEY_USAGE_PREFIX}${keyId}:total`;
+    await this.redis.incr(totalKey);
+  }
+
+  /**
+   * Get usage stats for a specific API key
+   */
+  async getKeyUsage(keyId: string, userId: string): Promise<ApiKeyUsageStats | null> {
+    const keys = await this.redis.hgetall<StoredApiKey>(`${this.USER_KEYS_PREFIX}${userId}`);
+    const keyData = keys?.[keyId];
+
+    if (!keyData) {
+      return null;
+    }
+
+    const now = new Date();
+    const today = now.toISOString().split('T')[0];
+    const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+
+    const [totalRequests, requestsToday, requestsThisMonth] = await Promise.all([
+      this.redis.get<number>(`${this.API_KEY_USAGE_PREFIX}${keyId}:total`),
+      this.redis.get<number>(`${this.API_KEY_USAGE_PREFIX}${keyId}:daily:${today}`),
+      this.redis.get<number>(`${this.API_KEY_USAGE_PREFIX}${keyId}:monthly:${month}`),
+    ]);
+
+    return {
+      keyId: keyData.id,
+      keyName: keyData.name,
+      keyPrefix: keyData.keyPrefix,
+      totalRequests: totalRequests ?? 0,
+      requestsToday: requestsToday ?? 0,
+      requestsThisMonth: requestsThisMonth ?? 0,
+      lastUsedAt: keyData.lastUsedAt ? new Date(keyData.lastUsedAt) : null,
+    };
+  }
+
+  /**
+   * Get usage summary for all API keys of a user
+   */
+  async getUserUsageSummary(userId: string): Promise<UserApiKeyUsageSummary> {
+    const keys = await this.findByUser(userId);
+    
+    const now = new Date();
+    const today = now.toISOString().split('T')[0];
+    const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+    const keyUsage: ApiKeyUsageStats[] = [];
+    let totalRequestsToday = 0;
+    let totalRequestsThisMonth = 0;
+    let activeKeys = 0;
+
+    for (const key of keys) {
+      const [totalRequests, requestsToday, requestsThisMonth] = await Promise.all([
+        this.redis.get<number>(`${this.API_KEY_USAGE_PREFIX}${key.id}:total`),
+        this.redis.get<number>(`${this.API_KEY_USAGE_PREFIX}${key.id}:daily:${today}`),
+        this.redis.get<number>(`${this.API_KEY_USAGE_PREFIX}${key.id}:monthly:${month}`),
+      ]);
+
+      const stats: ApiKeyUsageStats = {
+        keyId: key.id,
+        keyName: key.name,
+        keyPrefix: key.keyPrefix,
+        totalRequests: totalRequests ?? 0,
+        requestsToday: requestsToday ?? 0,
+        requestsThisMonth: requestsThisMonth ?? 0,
+        lastUsedAt: key.lastUsedAt,
+      };
+
+      keyUsage.push(stats);
+      totalRequestsToday += stats.requestsToday;
+      totalRequestsThisMonth += stats.requestsThisMonth;
+
+      // Consider key active if used in last 7 days
+      if (key.lastUsedAt && new Date(key.lastUsedAt) > sevenDaysAgo) {
+        activeKeys++;
+      }
+    }
+
+    return {
+      totalKeys: keys.length,
+      activeKeys,
+      totalRequestsToday,
+      totalRequestsThisMonth,
+      keyUsage,
+    };
   }
 
   private hashKey(key: string): string {

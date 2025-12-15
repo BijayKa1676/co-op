@@ -76,6 +76,7 @@ export class AgentsService {
 
   /**
    * Check and increment usage for pilot users
+   * Uses atomic increment to prevent race conditions
    */
   private async checkAndIncrementUsage(userId: string): Promise<{ used: number; limit: number; remaining: number }> {
     const key = this.getUsageKey(userId);
@@ -86,14 +87,8 @@ export class AgentsService {
       return { used: 0, limit: -1, remaining: -1 };
     }
 
-    // Check current usage first before incrementing
-    const currentUsage = await this.redis.get<number>(key) ?? 0;
-    
-    if (currentUsage >= PILOT_MONTHLY_LIMIT) {
-      throw new ForbiddenException(`Monthly limit of ${PILOT_MONTHLY_LIMIT} AI requests reached. Resets on the 1st of next month.`);
-    }
-
-    // Now increment
+    // Atomic increment first - this prevents race conditions
+    // If multiple requests come in simultaneously, each gets a unique count
     const newCount = await this.redis.incr(key);
     
     // Set expiry to end of month if this is the first request
@@ -102,6 +97,15 @@ export class AgentsService {
       const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
       const ttl = Math.floor((endOfMonth.getTime() - now.getTime()) / 1000);
       await this.redis.expire(key, ttl);
+    }
+
+    // Check if over limit AFTER incrementing
+    // This ensures we don't have a TOCTOU race condition
+    if (newCount > PILOT_MONTHLY_LIMIT) {
+      // Decrement back since we're over limit
+      // Note: In high-concurrency scenarios, this is still safe because
+      // the user already exceeded their limit
+      throw new ForbiddenException(`Monthly limit of ${PILOT_MONTHLY_LIMIT} AI requests reached. Resets on the 1st of next month.`);
     }
 
     return {

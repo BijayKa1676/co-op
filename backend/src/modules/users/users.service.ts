@@ -3,6 +3,7 @@ import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { eq, and, isNull } from 'drizzle-orm';
 import { DATABASE_CONNECTION } from '@/database/database.module';
 import { CacheService, CACHE_TTL, CACHE_PREFIX } from '@/common/cache/cache.service';
+import { AuditService } from '@/common/audit/audit.service';
 import * as schema from '@/database/schema';
 import { CreateUserDto, UpdateUserDto, UserResponseDto, StartupSummaryDto } from './dto';
 import { OnboardingDto } from './dto/onboarding.dto';
@@ -13,6 +14,7 @@ export class UsersService {
     @Inject(DATABASE_CONNECTION)
     private readonly db: NodePgDatabase<typeof schema>,
     private readonly cache: CacheService,
+    private readonly audit: AuditService,
   ) {}
 
   async create(dto: CreateUserDto): Promise<UserResponseDto> {
@@ -313,15 +315,35 @@ export class UsersService {
   }
 
   async delete(id: string): Promise<void> {
-    const results = await this.db
-      .update(schema.users)
-      .set({ deletedAt: new Date(), updatedAt: new Date() })
+    // Get user info before deletion for audit
+    const userResults = await this.db
+      .select()
+      .from(schema.users)
       .where(and(eq(schema.users.id, id), isNull(schema.users.deletedAt)))
-      .returning();
+      .limit(1);
 
-    if (results.length === 0) {
+    const user = userResults[0];
+    if (!user) {
       throw new NotFoundException('User not found');
     }
+
+    await this.db
+      .update(schema.users)
+      .set({ deletedAt: new Date(), updatedAt: new Date() })
+      .where(eq(schema.users.id, id));
+
+    // Audit log
+    await this.audit.log({
+      userId: null, // Admin action
+      action: 'user.deleted',
+      resource: 'user',
+      resourceId: id,
+      oldValue: { email: user.email, name: user.name },
+      newValue: null,
+      ipAddress: null,
+      userAgent: null,
+      metadata: {},
+    });
   }
 
   async getOnboardingStatus(userId: string): Promise<{ completed: boolean; hasStartup: boolean }> {

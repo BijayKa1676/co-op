@@ -255,6 +255,14 @@ class ApiClient {
     await this.delete(`/api-keys/${id}`);
   }
 
+  async getApiKeyUsageSummary(): Promise<import('./types').ApiKeyUsageSummary> {
+    return this.get<import('./types').ApiKeyUsageSummary>('/api-keys/usage');
+  }
+
+  async getApiKeyUsage(id: string): Promise<import('./types').ApiKeyUsageStats> {
+    return this.get<import('./types').ApiKeyUsageStats>(`/api-keys/${id}/usage`);
+  }
+
   // ============================================
   // WEBHOOKS ENDPOINTS
   // ============================================
@@ -281,6 +289,14 @@ class ApiClient {
 
   async regenerateWebhookSecret(id: string): Promise<{ secret: string }> {
     return this.post<{ secret: string }>(`/webhooks/${id}/regenerate-secret`);
+  }
+
+  async getWebhookUsageSummary(): Promise<import('./types').WebhookUsageSummary> {
+    return this.get<import('./types').WebhookUsageSummary>('/webhooks/usage');
+  }
+
+  async getWebhookUsage(id: string): Promise<import('./types').WebhookUsageStats> {
+    return this.get<import('./types').WebhookUsageStats>(`/webhooks/${id}/usage`);
   }
 
   // ============================================

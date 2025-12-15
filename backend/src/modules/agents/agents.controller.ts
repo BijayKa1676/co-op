@@ -22,8 +22,10 @@ import {
   TaskState,
 } from './dto/task-status.dto';
 import { AuthGuard } from '@/common/guards/auth.guard';
+import { UserThrottleGuard } from '@/common/guards/user-throttle.guard';
 import { CurrentUser, CurrentUserPayload } from '@/common/decorators/current-user.decorator';
 import { ApiResponseDto } from '@/common/dto/api-response.dto';
+import { RateLimit, RateLimitPresets } from '@/common/decorators/rate-limit.decorator';
 import { AgentPhaseResult } from './types/agent.types';
 
 interface QueueTaskResponse {
@@ -33,14 +35,17 @@ interface QueueTaskResponse {
 
 @ApiTags('Agents')
 @Controller('agents')
-@UseGuards(AuthGuard)
+@UseGuards(AuthGuard, UserThrottleGuard)
 @ApiBearerAuth()
+@RateLimit(RateLimitPresets.STANDARD) // Default: 100 req/min
 export class AgentsController {
   constructor(private readonly agentsService: AgentsService) {}
 
   @Post('run')
+  @RateLimit({ limit: 10, ttl: 60, keyPrefix: 'agents:run' }) // 10 sync runs per minute (expensive operation)
   @ApiOperation({ summary: 'Run an agent synchronously' })
   @ApiResponse({ status: 200, description: 'Agent execution results' })
+  @ApiResponse({ status: 429, description: 'Rate limit exceeded' })
   async run(
     @CurrentUser() user: CurrentUserPayload,
     @Body() dto: RunAgentDto,
@@ -50,8 +55,10 @@ export class AgentsController {
   }
 
   @Post('queue')
+  @RateLimit({ limit: 20, ttl: 60, keyPrefix: 'agents:queue' }) // 20 queued tasks per minute
   @ApiOperation({ summary: 'Queue an agent task for async processing' })
   @ApiResponse({ status: 201, description: 'Task queued' })
+  @ApiResponse({ status: 429, description: 'Rate limit exceeded' })
   async queue(
     @CurrentUser() user: CurrentUserPayload,
     @Body() dto: RunAgentDto,
@@ -61,6 +68,7 @@ export class AgentsController {
   }
 
   @Get('tasks/:taskId')
+  @RateLimit({ limit: 300, ttl: 60, keyPrefix: 'agents:task-status' }) // High limit for polling (300/min)
   @ApiOperation({ summary: 'Get task status' })
   @ApiResponse({ status: 200, description: 'Task status', type: TaskStatusDto })
   @ApiResponse({ status: 404, description: 'Task not found' })
@@ -75,9 +83,11 @@ export class AgentsController {
   }
 
   @Delete('tasks/:taskId')
+  @RateLimit({ limit: 30, ttl: 60, keyPrefix: 'agents:cancel' }) // 30 cancels per minute
   @ApiOperation({ summary: 'Cancel a queued task' })
   @ApiResponse({ status: 200, description: 'Task cancelled' })
   @ApiResponse({ status: 404, description: 'Task not found' })
+  @ApiResponse({ status: 429, description: 'Rate limit exceeded' })
   async cancelTask(@Param('taskId', ParseUUIDPipe) taskId: string): Promise<ApiResponseDto<null>> {
     const cancelled = await this.agentsService.cancelTask(taskId);
     if (!cancelled) {

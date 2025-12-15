@@ -90,7 +90,12 @@ export class SessionsService {
 
   async end(id: string, userId: string): Promise<void> {
     // Verify ownership first
-    await this.findById(id, userId);
+    const session = await this.findById(id, userId);
+
+    // Validate status transition - can only end active sessions
+    if (session.status !== 'active') {
+      throw new ForbiddenException(`Cannot end session with status '${session.status}'. Only active sessions can be ended.`);
+    }
 
     await this.db
       .update(schema.sessions)
@@ -175,7 +180,17 @@ export class SessionsService {
 
   async addMessage(sessionId: string, userId: string, dto: CreateMessageDto): Promise<MessageResponseDto> {
     // Verify ownership
-    await this.findById(sessionId, userId);
+    const session = await this.findById(sessionId, userId);
+
+    // Validate session is active
+    if (session.status !== 'active') {
+      throw new ForbiddenException(`Cannot add messages to session with status '${session.status}'`);
+    }
+
+    // Validate content length (prevent abuse)
+    if (dto.content.length > 50000) {
+      throw new ForbiddenException('Message content exceeds maximum length of 50000 characters');
+    }
 
     const [message] = await this.db
       .insert(schema.sessionMessages)

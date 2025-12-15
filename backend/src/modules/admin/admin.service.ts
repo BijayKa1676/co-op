@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, Logger, BadRequestException } from '@nes
 import { v4 as uuid } from 'uuid';
 import { SupabaseStorageService } from '@/common/supabase/supabase-storage.service';
 import { RagService } from '@/common/rag/rag.service';
+import { AuditService } from '@/common/audit/audit.service';
 import { UploadPdfDto } from './dto';
 import { ListEmbeddingsQueryDto, EmbeddingResponseDto } from './dto';
 import { PaginatedResult } from '@/common/dto/pagination.dto';
@@ -21,6 +22,7 @@ export class AdminService {
   constructor(
     private readonly storage: SupabaseStorageService,
     private readonly ragService: RagService,
+    private readonly audit: AuditService,
   ) {}
 
   /**
@@ -68,6 +70,19 @@ export class AdminService {
     } else {
       this.logger.warn('RAG service not available - file uploaded but not registered');
     }
+
+    // Audit log
+    await this.audit.log({
+      userId: null, // Admin action
+      action: 'embedding.uploaded',
+      resource: 'embedding',
+      resourceId: fileId,
+      oldValue: null,
+      newValue: { filename: sanitizedFilename, domain: dto.domain, sector: dto.sector },
+      ipAddress: null,
+      userAgent: null,
+      metadata: { storagePath: uploadResult.path },
+    });
 
     return {
       id: fileId,
@@ -209,6 +224,19 @@ export class AdminService {
     } catch (error) {
       this.logger.warn(`Failed to delete from storage: ${file.storagePath}`, error);
     }
+
+    // Audit log
+    await this.audit.log({
+      userId: null, // Admin action
+      action: 'embedding.deleted',
+      resource: 'embedding',
+      resourceId: id,
+      oldValue: { filename: file.filename, domain: file.domain, sector: file.sector },
+      newValue: null,
+      ipAddress: null,
+      userAgent: null,
+      metadata: { chunksDeleted: result.chunksDeleted },
+    });
 
     this.logger.log(`Document deleted: ${id} (${String(result.chunksDeleted)} chunks)`);
   }

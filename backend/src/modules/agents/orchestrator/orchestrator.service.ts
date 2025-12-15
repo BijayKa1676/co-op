@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
 import { v4 as uuid } from 'uuid';
 import {
   AgentType,
@@ -12,17 +12,54 @@ import { FinanceAgentService } from '../domains/finance/finance-agent.service';
 import { InvestorAgentService } from '../domains/investor/investor-agent.service';
 import { CompetitorAgentService } from '../domains/competitor/competitor-agent.service';
 
+// Task cleanup interval (1 hour)
+const TASK_CLEANUP_INTERVAL_MS = 60 * 60 * 1000;
+// Task max age (24 hours)
+const TASK_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+
 @Injectable()
-export class OrchestratorService {
+export class OrchestratorService implements OnModuleDestroy {
   private readonly logger = new Logger(OrchestratorService.name);
   private readonly tasks = new Map<string, OrchestratorTask>();
+  private cleanupInterval: NodeJS.Timeout | null = null;
 
   constructor(
     private readonly legalAgent: LegalAgentService,
     private readonly financeAgent: FinanceAgentService,
     private readonly investorAgent: InvestorAgentService,
     private readonly competitorAgent: CompetitorAgentService,
-  ) {}
+  ) {
+    // Start periodic cleanup of old tasks to prevent memory leaks
+    this.cleanupInterval = setInterval(() => {
+      this.cleanupOldTasks();
+    }, TASK_CLEANUP_INTERVAL_MS);
+  }
+
+  onModuleDestroy(): void {
+    if (this.cleanupInterval) {
+      clearInterval(this.cleanupInterval);
+      this.cleanupInterval = null;
+    }
+  }
+
+  /**
+   * Clean up tasks older than TASK_MAX_AGE_MS to prevent memory leaks
+   */
+  private cleanupOldTasks(): void {
+    const now = Date.now();
+    let cleaned = 0;
+    
+    for (const [taskId, task] of this.tasks) {
+      if (now - task.createdAt.getTime() > TASK_MAX_AGE_MS) {
+        this.tasks.delete(taskId);
+        cleaned++;
+      }
+    }
+    
+    if (cleaned > 0) {
+      this.logger.log(`Cleaned up ${String(cleaned)} old tasks`);
+    }
+  }
 
   private getAgent(type: AgentType): BaseAgent {
     const agents: Record<AgentType, BaseAgent> = {

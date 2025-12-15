@@ -46,6 +46,9 @@ export const envSchema = z.object({
   // API Keys
   MASTER_API_KEY: z.string().optional(),
 
+  // Encryption (for sensitive data at rest)
+  ENCRYPTION_KEY: z.string().optional(), // 32-byte hex key for AES-256
+
   // Rate limiting
   THROTTLE_TTL: z.string().default('60').transform(Number),
   THROTTLE_LIMIT: z.string().default('100').transform(Number),

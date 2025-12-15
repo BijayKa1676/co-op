@@ -3,19 +3,24 @@ import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@ne
 import { SessionsService } from './sessions.service';
 import { CreateSessionDto, SessionResponseDto, CreateMessageDto, MessageResponseDto } from './dto';
 import { AuthGuard } from '@/common/guards/auth.guard';
+import { UserThrottleGuard } from '@/common/guards/user-throttle.guard';
 import { CurrentUser, CurrentUserPayload } from '@/common/decorators/current-user.decorator';
 import { ApiResponseDto } from '@/common/dto/api-response.dto';
+import { RateLimit, RateLimitPresets } from '@/common/decorators/rate-limit.decorator';
 
 @ApiTags('Sessions')
 @Controller('sessions')
-@UseGuards(AuthGuard)
+@UseGuards(AuthGuard, UserThrottleGuard)
 @ApiBearerAuth()
+@RateLimit(RateLimitPresets.STANDARD) // Default: 100 req/min
 export class SessionsController {
   constructor(private readonly sessionsService: SessionsService) {}
 
   @Post()
+  @RateLimit({ limit: 10, ttl: 60, keyPrefix: 'sessions:create' }) // 10 session creates per minute
   @ApiOperation({ summary: 'Create a new session' })
   @ApiResponse({ status: 201, description: 'Session created' })
+  @ApiResponse({ status: 429, description: 'Rate limit exceeded' })
   async create(
     @CurrentUser() user: CurrentUserPayload,
     @Body() dto: CreateSessionDto,
@@ -25,6 +30,7 @@ export class SessionsController {
   }
 
   @Get()
+  @RateLimit(RateLimitPresets.READ) // 200 req/min for reads
   @ApiOperation({ summary: 'Get all sessions for current user' })
   @ApiResponse({ status: 200, description: 'Sessions retrieved' })
   async findAll(@CurrentUser() user: CurrentUserPayload): Promise<ApiResponseDto<SessionResponseDto[]>> {
@@ -33,6 +39,7 @@ export class SessionsController {
   }
 
   @Get(':id')
+  @RateLimit(RateLimitPresets.READ)
   @ApiOperation({ summary: 'Get session by ID' })
   @ApiResponse({ status: 200, description: 'Session found' })
   @ApiResponse({ status: 404, description: 'Session not found' })
@@ -45,8 +52,10 @@ export class SessionsController {
   }
 
   @Post(':id/end')
+  @RateLimit({ limit: 30, ttl: 60, keyPrefix: 'sessions:end' }) // 30 session ends per minute
   @ApiOperation({ summary: 'End a session' })
   @ApiResponse({ status: 200, description: 'Session ended' })
+  @ApiResponse({ status: 429, description: 'Rate limit exceeded' })
   async end(
     @CurrentUser() user: CurrentUserPayload,
     @Param('id', ParseUUIDPipe) id: string,
@@ -56,6 +65,7 @@ export class SessionsController {
   }
 
   @Post(':id/activity')
+  @RateLimit({ limit: 120, ttl: 60, keyPrefix: 'sessions:activity' }) // 2 per second for activity tracking
   @ApiOperation({ summary: 'Track session activity' })
   @ApiResponse({ status: 200, description: 'Activity tracked' })
   async trackActivity(
@@ -68,6 +78,7 @@ export class SessionsController {
   }
 
   @Get(':id/activity')
+  @RateLimit(RateLimitPresets.READ)
   @ApiOperation({ summary: 'Get session activity' })
   @ApiResponse({ status: 200, description: 'Activity retrieved' })
   async getActivity(
@@ -79,8 +90,10 @@ export class SessionsController {
   }
 
   @Post(':id/messages')
+  @RateLimit({ limit: 60, ttl: 60, keyPrefix: 'sessions:messages' }) // 60 messages per minute (1/sec)
   @ApiOperation({ summary: 'Add message to session' })
   @ApiResponse({ status: 201, description: 'Message added' })
+  @ApiResponse({ status: 429, description: 'Rate limit exceeded' })
   async addMessage(
     @CurrentUser() user: CurrentUserPayload,
     @Param('id', ParseUUIDPipe) id: string,
@@ -91,6 +104,7 @@ export class SessionsController {
   }
 
   @Get(':id/messages')
+  @RateLimit(RateLimitPresets.READ)
   @ApiOperation({ summary: 'Get session messages' })
   @ApiResponse({ status: 200, description: 'Messages retrieved' })
   @ApiQuery({ name: 'limit', required: false, type: Number })
@@ -105,6 +119,7 @@ export class SessionsController {
   }
 
   @Get(':id/history')
+  @RateLimit(RateLimitPresets.READ)
   @ApiOperation({ summary: 'Get full session history with messages' })
   @ApiResponse({ status: 200, description: 'Session history retrieved' })
   async getHistory(
