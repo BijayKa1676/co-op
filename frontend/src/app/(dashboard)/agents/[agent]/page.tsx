@@ -364,13 +364,17 @@ export default function AgentPage() {
           setResults(status.result.results);
           
           // Save assistant response to database
-          const final = status.result.results.find((r) => r.phase === 'final');
-          if (final) {
+          // Try to find 'final' phase, fallback to any result with content
+          const final = status.result.results.find((r) => r.phase === 'final')
+            ?? status.result.results.find((r) => r.output?.content);
+          if (final?.output?.content) {
             await api.addSessionMessage(currentSessionId, {
               role: 'assistant',
               content: final.output.content,
               agent: agentType,
             });
+          } else {
+            console.error('No final content to save in agent page:', JSON.stringify(status.result));
           }
           completed = true;
         } else if (status.status === 'failed') {
