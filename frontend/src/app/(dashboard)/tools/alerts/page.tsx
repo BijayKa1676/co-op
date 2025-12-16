@@ -468,15 +468,15 @@ export default function AlertsPage() {
                           </div>
                           
                           <div className="flex flex-wrap gap-1 mb-2">
-                            {alert.keywords.slice(0, 3).map((kw, i) => (
+                            {(alert.keywords || []).slice(0, 3).map((kw, i) => (
                               <Badge key={i} variant="secondary" className="text-xs">{kw}</Badge>
                             ))}
-                            {alert.competitors.slice(0, 2).map((c, i) => (
+                            {(alert.competitors || []).slice(0, 2).map((c, i) => (
                               <Badge key={i} variant="outline" className="text-xs">{c}</Badge>
                             ))}
-                            {(alert.keywords.length + alert.competitors.length) > 5 && (
+                            {((alert.keywords || []).length + (alert.competitors || []).length) > 5 && (
                               <Badge variant="secondary" className="text-xs">
-                                +{alert.keywords.length + alert.competitors.length - 5}
+                                +{(alert.keywords || []).length + (alert.competitors || []).length - 5}
                               </Badge>
                             )}
                           </div>
@@ -579,9 +579,9 @@ export default function AlertsPage() {
                                   </Badge>
                                 )}
                               </div>
-                              {result.matchedKeywords.length > 0 && (
+                              {(result.matchedKeywords || []).length > 0 && (
                                 <div className="flex flex-wrap gap-1 mt-2">
-                                  {result.matchedKeywords.map((kw, i) => (
+                                  {(result.matchedKeywords || []).map((kw, i) => (
                                     <Badge key={i} variant="outline" className="text-[10px]">{kw}</Badge>
                                   ))}
                                 </div>

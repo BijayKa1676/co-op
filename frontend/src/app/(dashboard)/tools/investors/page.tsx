@@ -312,22 +312,22 @@ export default function InvestorsPage() {
                       </div>
                       
                       <div className="flex flex-wrap gap-1">
-                        {investor.sectors.slice(0, 5).map((sector) => (
+                        {(investor.sectors || []).slice(0, 5).map((sector) => (
                           <Badge key={sector} variant="secondary" className="text-xs">
                             {sector}
                           </Badge>
                         ))}
-                        {investor.sectors.length > 5 && (
+                        {(investor.sectors || []).length > 5 && (
                           <Badge variant="secondary" className="text-xs">
-                            +{investor.sectors.length - 5}
+                            +{(investor.sectors || []).length - 5}
                           </Badge>
                         )}
                       </div>
                       
-                      {investor.portfolioCompanies.length > 0 && (
+                      {(investor.portfolioCompanies || []).length > 0 && (
                         <p className="text-xs text-muted-foreground mt-2">
-                          Portfolio: {investor.portfolioCompanies.slice(0, 3).join(', ')}
-                          {investor.portfolioCompanies.length > 3 && ` +${investor.portfolioCompanies.length - 3} more`}
+                          Portfolio: {(investor.portfolioCompanies || []).slice(0, 3).join(', ')}
+                          {(investor.portfolioCompanies || []).length > 3 && ` +${(investor.portfolioCompanies || []).length - 3} more`}
                         </p>
                       )}
                     </div>
