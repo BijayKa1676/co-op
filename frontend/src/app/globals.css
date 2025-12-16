@@ -384,8 +384,8 @@ html.menu-open body {
 
 /* Mobile input improvements */
 @media (max-width: 640px) {
-  /* Larger touch targets */
-  button, 
+  /* Larger touch targets - exclude switches which have their own sizing */
+  button:not([role="switch"]), 
   [role="button"],
   input[type="submit"],
   input[type="button"] {

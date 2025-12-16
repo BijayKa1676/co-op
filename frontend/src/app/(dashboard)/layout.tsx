@@ -358,12 +358,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       {/* Main content */}
       <main
         className={cn(
-          'flex-1 transition-all duration-300',
+          'flex-1 transition-all duration-300 overflow-x-hidden',
           'pt-14 md:pt-0',
           sidebarCollapsed ? 'md:ml-[72px]' : 'md:ml-[260px]'
         )}
       >
-        <div className="min-h-screen p-4 sm:p-6 md:p-8">
+        <div className="min-h-screen px-4 py-4 sm:px-6 sm:py-6 md:px-8 md:py-8">
           <ErrorBoundary>{children}</ErrorBoundary>
         </div>
       </main>

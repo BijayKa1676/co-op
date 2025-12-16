@@ -351,23 +351,47 @@ export default function AdminPage() {
   };
 
   const handleSaveInvestor = async () => {
-    if (!investorForm.name.trim() || !investorForm.location.trim()) {
-      toast.error('Name and location are required');
+    if (!investorForm.name.trim()) {
+      toast.error('Name is required');
+      return;
+    }
+    if (!investorForm.location.trim()) {
+      toast.error('Location is required');
       return;
     }
     if ((investorForm.sectors || []).length === 0) {
-      toast.error('Select at least one sector');
+      toast.error('At least one sector is required');
       return;
     }
+
+    // Clean up form data - convert empty strings to undefined for optional fields
+    const cleanedData: CreateInvestorRequest = {
+      name: investorForm.name.trim(),
+      location: investorForm.location.trim(),
+      stage: investorForm.stage,
+      sectors: investorForm.sectors || [],
+      description: investorForm.description?.trim() || undefined,
+      website: investorForm.website?.trim() || undefined,
+      checkSizeMin: investorForm.checkSizeMin || undefined,
+      checkSizeMax: investorForm.checkSizeMax || undefined,
+      regions: (investorForm.regions || []).length > 0 ? investorForm.regions : undefined,
+      contactEmail: investorForm.contactEmail?.trim() || undefined,
+      linkedinUrl: investorForm.linkedinUrl?.trim() || undefined,
+      twitterUrl: investorForm.twitterUrl?.trim() || undefined,
+      portfolioCompanies: (investorForm.portfolioCompanies || []).length > 0 ? investorForm.portfolioCompanies : undefined,
+      notableExits: (investorForm.notableExits || []).length > 0 ? investorForm.notableExits : undefined,
+      isActive: investorForm.isActive,
+      isFeatured: investorForm.isFeatured,
+    };
 
     setIsSavingInvestor(true);
     try {
       if (editingInvestorId) {
-        const updated = await api.updateInvestor(editingInvestorId, investorForm as UpdateInvestorRequest);
+        const updated = await api.updateInvestor(editingInvestorId, cleanedData as UpdateInvestorRequest);
         setInvestors((prev) => prev.map((i) => (i.id === editingInvestorId ? updated : i)));
         toast.success('Investor updated');
       } else {
-        const created = await api.createInvestor(investorForm);
+        const created = await api.createInvestor(cleanedData);
         setInvestors((prev) => [created, ...prev]);
         toast.success('Investor created');
       }
@@ -431,7 +455,7 @@ export default function AdminPage() {
   };
 
   return (
-    <div className="max-w-5xl mx-auto space-y-4 sm:space-y-6">
+    <div className="max-w-5xl mx-auto space-y-4 sm:space-y-6 overflow-hidden">
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
         <h1 className="font-serif text-xl sm:text-2xl md:text-3xl font-medium tracking-tight mb-1">Admin Dashboard</h1>
         <p className="text-xs sm:text-sm text-muted-foreground">Manage RAG, MCP servers, and investors</p>
@@ -820,11 +844,11 @@ export default function AdminPage() {
               <div className="space-y-3 py-3">
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1.5">
-                    <Label className="text-xs">Name *</Label>
+                    <Label className="text-xs">Name <span className="text-destructive">*</span></Label>
                     <Input placeholder="Sequoia Capital" value={investorForm.name} onChange={(e) => setInvestorForm((p) => ({ ...p, name: e.target.value }))} className="h-8 text-xs" />
                   </div>
                   <div className="space-y-1.5">
-                    <Label className="text-xs">Location *</Label>
+                    <Label className="text-xs">Location <span className="text-destructive">*</span></Label>
                     <Input placeholder="San Francisco, CA" value={investorForm.location} onChange={(e) => setInvestorForm((p) => ({ ...p, location: e.target.value }))} className="h-8 text-xs" />
                   </div>
                 </div>
@@ -852,7 +876,7 @@ export default function AdminPage() {
                   </div>
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-xs">Sectors *</Label>
+                  <Label className="text-xs">Sectors <span className="text-destructive">*</span></Label>
                   <Select value={sectorInput} onValueChange={(v) => { addToInvestorArray('sectors', v); setSectorInput(''); }}>
                     <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Select sector" /></SelectTrigger>
                     <SelectContent>
@@ -885,8 +909,18 @@ export default function AdminPage() {
                     <Input placeholder="https://..." value={investorForm.website} onChange={(e) => setInvestorForm((p) => ({ ...p, website: e.target.value }))} className="h-8 text-xs" />
                   </div>
                   <div className="space-y-1.5">
+                    <Label className="text-xs">Contact Email</Label>
+                    <Input type="email" placeholder="contact@example.com" value={investorForm.contactEmail} onChange={(e) => setInvestorForm((p) => ({ ...p, contactEmail: e.target.value }))} className="h-8 text-xs" />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1.5">
                     <Label className="text-xs">LinkedIn</Label>
                     <Input placeholder="https://linkedin.com/..." value={investorForm.linkedinUrl} onChange={(e) => setInvestorForm((p) => ({ ...p, linkedinUrl: e.target.value }))} className="h-8 text-xs" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Twitter</Label>
+                    <Input placeholder="https://twitter.com/..." value={investorForm.twitterUrl} onChange={(e) => setInvestorForm((p) => ({ ...p, twitterUrl: e.target.value }))} className="h-8 text-xs" />
                   </div>
                 </div>
                 <div className="space-y-1.5">

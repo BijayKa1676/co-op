@@ -54,19 +54,40 @@ export default function WebhooksPage() {
   };
 
   const handleSave = async () => {
-    if (!formData.name.trim() || !formData.url.trim()) {
-      toast.error('Please fill in all required fields');
+    if (!formData.name.trim()) {
+      toast.error('Please enter a webhook name');
       return;
     }
+    if (!formData.url.trim()) {
+      toast.error('Please enter a webhook URL');
+      return;
+    }
+    // Basic URL validation
+    try {
+      new URL(formData.url.trim());
+    } catch {
+      toast.error('Please enter a valid URL (e.g., https://example.com/webhook)');
+      return;
+    }
+    if (formData.events.length === 0) {
+      toast.error('Please select at least one event');
+      return;
+    }
+
+    const cleanedData = {
+      name: formData.name.trim(),
+      url: formData.url.trim(),
+      events: formData.events,
+    };
 
     setIsSaving(true);
     try {
       if (editingWebhook) {
-        const updated = await api.updateWebhook(editingWebhook.id, formData);
+        const updated = await api.updateWebhook(editingWebhook.id, cleanedData);
         setWebhooks((prev) => prev.map((w) => (w.id === updated.id ? updated : w)));
         toast.success('Webhook updated');
       } else {
-        const created = await api.createWebhook(formData);
+        const created = await api.createWebhook(cleanedData);
         setWebhooks((prev) => [created, ...prev]);
         toast.success('Webhook created');
       }
