@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, timestamp, boolean, jsonb, pgEnum, integer } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, text, timestamp, boolean, pgEnum, integer } from 'drizzle-orm/pg-core';
 
 export const investorStageEnum = pgEnum('investor_stage', ['pre-seed', 'seed', 'series-a', 'series-b', 'series-c', 'growth']);
 
@@ -13,11 +13,13 @@ export const investors = pgTable('investors', {
   
   // Investment details
   stage: investorStageEnum('stage').notNull(),
+  sectors: text('sectors').notNull(), // comma-separated: "saas,fintech,ai"
   checkSizeMin: integer('check_size_min'), // in thousands USD
   checkSizeMax: integer('check_size_max'), // in thousands USD
   
   // Location
   location: text('location').notNull(),
+  regions: text('regions'), // comma-separated: "us,eu,apac"
   
   // Contact
   contactEmail: text('contact_email'),
@@ -28,40 +30,8 @@ export const investors = pgTable('investors', {
   isActive: boolean('is_active').notNull().default(true),
   isFeatured: boolean('is_featured').notNull().default(false),
   
-  // Metadata
-  metadata: jsonb('metadata').$type<Record<string, unknown>>().default({}),
-  
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
-});
-
-// Junction tables for normalized data
-export const investorSectors = pgTable('investor_sectors', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  investorId: uuid('investor_id').notNull().references(() => investors.id, { onDelete: 'cascade' }),
-  sector: text('sector').notNull(),
-  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-});
-
-export const investorRegions = pgTable('investor_regions', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  investorId: uuid('investor_id').notNull().references(() => investors.id, { onDelete: 'cascade' }),
-  region: text('region').notNull(),
-  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-});
-
-export const investorPortfolioCompanies = pgTable('investor_portfolio_companies', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  investorId: uuid('investor_id').notNull().references(() => investors.id, { onDelete: 'cascade' }),
-  companyName: text('company_name').notNull(),
-  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-});
-
-export const investorNotableExits = pgTable('investor_notable_exits', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  investorId: uuid('investor_id').notNull().references(() => investors.id, { onDelete: 'cascade' }),
-  companyName: text('company_name').notNull(),
-  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
 export type Investor = typeof investors.$inferSelect;

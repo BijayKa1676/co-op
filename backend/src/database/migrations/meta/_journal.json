@@ -71,6 +71,13 @@
       "when": 1765896880268,
       "tag": "0009_cloudy_caretaker",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1765903164827,
+      "tag": "0010_early_leper_queen",
+      "breakpoints": true
     }
   ]
 }

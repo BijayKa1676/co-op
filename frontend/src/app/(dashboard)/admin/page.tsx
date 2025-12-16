@@ -18,7 +18,6 @@ import {
   Buildings,
   Star,
   PencilSimple,
-  X,
 } from '@phosphor-icons/react';
 import { api } from '@/lib/api/client';
 import { useRequireAdmin } from '@/lib/hooks';
@@ -75,10 +74,9 @@ const JURISDICTION_LABELS: Record<string, string> = {
 };
 
 const emptyInvestorForm: CreateInvestorRequest = {
-  name: '', description: '', website: '', stage: 'seed', sectors: [],
-  checkSizeMin: undefined, checkSizeMax: undefined, location: '', regions: [],
-  contactEmail: '', linkedinUrl: '', twitterUrl: '', portfolioCompanies: [],
-  notableExits: [], isActive: true, isFeatured: false,
+  name: '', description: '', website: '', stage: 'seed', sectors: '',
+  checkSizeMin: undefined, checkSizeMax: undefined, location: '', regions: '',
+  contactEmail: '', linkedinUrl: '', twitterUrl: '', isActive: true, isFeatured: false,
 };
 
 export default function AdminPage() {
@@ -117,10 +115,6 @@ export default function AdminPage() {
   const [editingInvestorId, setEditingInvestorId] = useState<string | null>(null);
   const [isSavingInvestor, setIsSavingInvestor] = useState(false);
   const [investorForm, setInvestorForm] = useState<CreateInvestorRequest>(emptyInvestorForm);
-  const [sectorInput, setSectorInput] = useState('');
-  const [regionInput, setRegionInput] = useState('');
-  const [portfolioInput, setPortfolioInput] = useState('');
-  const [exitInput, setExitInput] = useState('');
 
   const dataLoadedRef = useRef(false);
 
@@ -153,16 +147,9 @@ export default function AdminPage() {
   const loadInvestors = useCallback(async () => {
     try {
       const data = await api.getAllInvestorsAdmin();
-      // Ensure arrays are always arrays
-      const safeData = (data || []).map((inv) => ({
-        ...inv,
-        sectors: Array.isArray(inv.sectors) ? inv.sectors : [],
-        regions: Array.isArray(inv.regions) ? inv.regions : [],
-        portfolioCompanies: Array.isArray(inv.portfolioCompanies) ? inv.portfolioCompanies : [],
-        notableExits: Array.isArray(inv.notableExits) ? inv.notableExits : [],
-      }));
-      setInvestors(safeData);
-    } catch {
+      setInvestors(data || []);
+    } catch (error) {
+      console.error('Failed to load investors:', error);
       toast.error('Failed to load investors');
     }
     setIsLoadingInvestors(false);
@@ -318,7 +305,7 @@ export default function AdminPage() {
   const filteredInvestors = investors.filter((inv) =>
     inv.name.toLowerCase().includes(investorSearch.toLowerCase()) ||
     inv.location.toLowerCase().includes(investorSearch.toLowerCase()) ||
-    (inv.sectors || []).some((s) => s.toLowerCase().includes(investorSearch.toLowerCase()))
+    (inv.sectors || '').toLowerCase().includes(investorSearch.toLowerCase())
   );
 
   const openCreateInvestor = () => {
@@ -334,16 +321,14 @@ export default function AdminPage() {
       description: investor.description || '',
       website: investor.website || '',
       stage: investor.stage,
-      sectors: investor.sectors || [],
+      sectors: investor.sectors || '',
       checkSizeMin: investor.checkSizeMin || undefined,
       checkSizeMax: investor.checkSizeMax || undefined,
       location: investor.location,
-      regions: investor.regions || [],
+      regions: investor.regions || '',
       contactEmail: investor.contactEmail || '',
       linkedinUrl: investor.linkedinUrl || '',
       twitterUrl: investor.twitterUrl || '',
-      portfolioCompanies: investor.portfolioCompanies || [],
-      notableExits: investor.notableExits || [],
       isActive: investor.isActive,
       isFeatured: investor.isFeatured,
     });
@@ -359,7 +344,7 @@ export default function AdminPage() {
       toast.error('Location is required');
       return;
     }
-    if ((investorForm.sectors || []).length === 0) {
+    if (!investorForm.sectors.trim()) {
       toast.error('At least one sector is required');
       return;
     }
@@ -369,17 +354,15 @@ export default function AdminPage() {
       name: investorForm.name.trim(),
       location: investorForm.location.trim(),
       stage: investorForm.stage,
-      sectors: investorForm.sectors || [],
+      sectors: investorForm.sectors.trim(),
       description: investorForm.description?.trim() || undefined,
       website: investorForm.website?.trim() || undefined,
       checkSizeMin: investorForm.checkSizeMin || undefined,
       checkSizeMax: investorForm.checkSizeMax || undefined,
-      regions: (investorForm.regions || []).length > 0 ? investorForm.regions : undefined,
+      regions: investorForm.regions?.trim() || undefined,
       contactEmail: investorForm.contactEmail?.trim() || undefined,
       linkedinUrl: investorForm.linkedinUrl?.trim() || undefined,
       twitterUrl: investorForm.twitterUrl?.trim() || undefined,
-      portfolioCompanies: (investorForm.portfolioCompanies || []).length > 0 ? investorForm.portfolioCompanies : undefined,
-      notableExits: (investorForm.notableExits || []).length > 0 ? investorForm.notableExits : undefined,
       isActive: investorForm.isActive,
       isFeatured: investorForm.isFeatured,
     };
@@ -423,18 +406,6 @@ export default function AdminPage() {
     } catch {
       toast.error('Failed to update');
     }
-  };
-
-  const addToInvestorArray = (field: 'sectors' | 'regions' | 'portfolioCompanies' | 'notableExits', value: string) => {
-    if (!value.trim()) return;
-    const current = investorForm[field] || [];
-    if (!current.includes(value.trim())) {
-      setInvestorForm((prev) => ({ ...prev, [field]: [...current, value.trim()] }));
-    }
-  };
-
-  const removeFromInvestorArray = (field: 'sectors' | 'regions' | 'portfolioCompanies' | 'notableExits', value: string) => {
-    setInvestorForm((prev) => ({ ...prev, [field]: (prev[field] || []).filter((v) => v !== value) }));
   };
 
   if (authLoading) {
@@ -810,10 +781,10 @@ export default function AdminPage() {
                           <span>{formatRelativeTime(investor.createdAt)}</span>
                         </div>
                         <div className="flex flex-wrap gap-1">
-                          {(investor.sectors || []).slice(0, 4).map((s) => (
-                            <Badge key={s} variant="secondary" className="text-[9px] sm:text-[10px]">{s}</Badge>
+                          {(investor.sectors || '').split(',').filter(Boolean).slice(0, 4).map((s) => (
+                            <Badge key={s} variant="secondary" className="text-[9px] sm:text-[10px]">{s.trim()}</Badge>
                           ))}
-                          {(investor.sectors || []).length > 4 && <Badge variant="secondary" className="text-[9px]">+{(investor.sectors || []).length - 4}</Badge>}
+                          {(investor.sectors || '').split(',').filter(Boolean).length > 4 && <Badge variant="secondary" className="text-[9px]">+{(investor.sectors || '').split(',').filter(Boolean).length - 4}</Badge>}
                         </div>
                       </div>
                       <div className="flex items-center gap-0.5 shrink-0">
@@ -877,31 +848,13 @@ export default function AdminPage() {
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-xs">Sectors <span className="text-destructive">*</span></Label>
-                  <Select value={sectorInput} onValueChange={(v) => { addToInvestorArray('sectors', v); setSectorInput(''); }}>
-                    <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Select sector" /></SelectTrigger>
-                    <SelectContent>
-                      {INVESTOR_SECTORS.filter((s) => !(investorForm.sectors || []).includes(s)).map((s) => <SelectItem key={s} value={s} className="text-xs">{s}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                  <div className="flex flex-wrap gap-1">
-                    {(investorForm.sectors || []).map((s) => (
-                      <Badge key={s} variant="secondary" className="text-[10px]">{s}<button onClick={() => removeFromInvestorArray('sectors', s)} className="ml-1 hover:text-destructive"><X weight="bold" className="w-2.5 h-2.5" /></button></Badge>
-                    ))}
-                  </div>
+                  <Input placeholder="saas,fintech,ai (comma-separated)" value={investorForm.sectors} onChange={(e) => setInvestorForm((p) => ({ ...p, sectors: e.target.value }))} className="h-8 text-xs" />
+                  <p className="text-[10px] text-muted-foreground">Options: {INVESTOR_SECTORS.join(', ')}</p>
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-xs">Regions</Label>
-                  <Select value={regionInput} onValueChange={(v) => { addToInvestorArray('regions', v); setRegionInput(''); }}>
-                    <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Select region" /></SelectTrigger>
-                    <SelectContent>
-                      {INVESTOR_REGIONS.filter((r) => !(investorForm.regions || []).includes(r)).map((r) => <SelectItem key={r} value={r} className="text-xs">{r.toUpperCase()}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                  <div className="flex flex-wrap gap-1">
-                    {(investorForm.regions || []).map((r) => (
-                      <Badge key={r} variant="outline" className="text-[10px]">{r.toUpperCase()}<button onClick={() => removeFromInvestorArray('regions', r)} className="ml-1 hover:text-destructive"><X weight="bold" className="w-2.5 h-2.5" /></button></Badge>
-                    ))}
-                  </div>
+                  <Input placeholder="us,eu,apac (comma-separated)" value={investorForm.regions || ''} onChange={(e) => setInvestorForm((p) => ({ ...p, regions: e.target.value }))} className="h-8 text-xs" />
+                  <p className="text-[10px] text-muted-foreground">Options: {INVESTOR_REGIONS.join(', ')}</p>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <div className="space-y-1.5">
@@ -923,30 +876,7 @@ export default function AdminPage() {
                     <Input placeholder="https://twitter.com/..." value={investorForm.twitterUrl} onChange={(e) => setInvestorForm((p) => ({ ...p, twitterUrl: e.target.value }))} className="h-8 text-xs" />
                   </div>
                 </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs">Portfolio Companies</Label>
-                  <div className="flex gap-2">
-                    <Input placeholder="Add company..." value={portfolioInput} onChange={(e) => setPortfolioInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addToInvestorArray('portfolioCompanies', portfolioInput); setPortfolioInput(''); } }} className="h-8 text-xs" />
-                    <Button type="button" variant="outline" size="sm" onClick={() => { addToInvestorArray('portfolioCompanies', portfolioInput); setPortfolioInput(''); }} className="h-8 text-xs">Add</Button>
-                  </div>
-                  <div className="flex flex-wrap gap-1">
-                    {(investorForm.portfolioCompanies || []).map((c) => (
-                      <Badge key={c} variant="secondary" className="text-[10px]">{c}<button onClick={() => removeFromInvestorArray('portfolioCompanies', c)} className="ml-1 hover:text-destructive"><X weight="bold" className="w-2.5 h-2.5" /></button></Badge>
-                    ))}
-                  </div>
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs">Notable Exits</Label>
-                  <div className="flex gap-2">
-                    <Input placeholder="Add exit..." value={exitInput} onChange={(e) => setExitInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addToInvestorArray('notableExits', exitInput); setExitInput(''); } }} className="h-8 text-xs" />
-                    <Button type="button" variant="outline" size="sm" onClick={() => { addToInvestorArray('notableExits', exitInput); setExitInput(''); }} className="h-8 text-xs">Add</Button>
-                  </div>
-                  <div className="flex flex-wrap gap-1">
-                    {(investorForm.notableExits || []).map((ex) => (
-                      <Badge key={ex} variant="outline" className="text-[10px]">{ex}<button onClick={() => removeFromInvestorArray('notableExits', ex)} className="ml-1 hover:text-destructive"><X weight="bold" className="w-2.5 h-2.5" /></button></Badge>
-                    ))}
-                  </div>
-                </div>
+
                 <div className="flex items-center gap-6 pt-2">
                   <label className="flex items-center gap-2 cursor-pointer">
                     <Switch checked={investorForm.isActive} onCheckedChange={(v) => setInvestorForm((p) => ({ ...p, isActive: v }))} />

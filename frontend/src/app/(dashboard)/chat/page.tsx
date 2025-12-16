@@ -1074,13 +1074,40 @@ export default function ChatPage() {
                             {/* Sources */}
                             {message.sources && message.sources.length > 0 && (
                               <div className="p-3 rounded-lg bg-muted/30 border border-border/40">
-                                <p className="text-xs font-medium text-muted-foreground mb-2">Sources</p>
-                                <div className="flex flex-wrap gap-1">
-                                  {message.sources.map((source, i) => (
-                                    <Badge key={i} variant="outline" className="text-xs">
-                                      {source}
-                                    </Badge>
-                                  ))}
+                                <p className="text-xs font-medium text-muted-foreground mb-2">Sources ({message.sources.length})</p>
+                                <div className="space-y-1.5">
+                                  {message.sources.map((source, i) => {
+                                    // Extract domain from URL for display
+                                    let displayText = source;
+                                    try {
+                                      const url = new URL(source);
+                                      displayText = url.hostname.replace('www.', '');
+                                    } catch {
+                                      // Not a valid URL, truncate if too long
+                                      displayText = source.length > 50 ? source.slice(0, 47) + '...' : source;
+                                    }
+                                    const isUrl = source.startsWith('http');
+                                    return (
+                                      <div key={i} className="flex items-center gap-2 text-xs">
+                                        <span className="text-muted-foreground shrink-0">{i + 1}.</span>
+                                        {isUrl ? (
+                                          <a
+                                            href={source}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="text-primary hover:underline truncate"
+                                            title={source}
+                                          >
+                                            {displayText}
+                                          </a>
+                                        ) : (
+                                          <span className="text-muted-foreground truncate" title={source}>
+                                            {displayText}
+                                          </span>
+                                        )}
+                                      </div>
+                                    );
+                                  })}
                                 </div>
                               </div>
                             )}

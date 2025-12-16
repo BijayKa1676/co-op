@@ -1,14 +1,16 @@
 {
-  "name": "Co-Op - AI Advisory Board",
+  "name": "Co-Op - AI Advisory Board for Startups",
   "short_name": "Co-Op",
-  "description": "Your AI-powered advisory board for startups. Expert guidance on legal, finance, investor relations, and competitive analysis.",
+  "description": "Your AI-powered advisory board. Get expert guidance on legal compliance, financial planning, investor relations, and competitive analysis - all powered by specialized AI agents.",
   "start_url": "/dashboard",
   "display": "standalone",
-  "background_color": "#0a0a0a",
-  "theme_color": "#0a0a0a",
+  "background_color": "#09090b",
+  "theme_color": "#09090b",
   "orientation": "any",
   "scope": "/",
   "id": "/",
+  "lang": "en",
+  "dir": "ltr",
   "icons": [
     {
       "src": "/icon-192.png",
@@ -23,7 +25,7 @@
       "purpose": "any maskable"
     }
   ],
-  "categories": ["business", "productivity", "finance"],
+  "categories": ["business", "productivity", "finance", "utilities"],
   "screenshots": [],
   "prefer_related_applications": false,
   "shortcuts": [
@@ -35,10 +37,24 @@
       "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
     },
     {
+      "name": "Dashboard",
+      "short_name": "Home",
+      "description": "View your startup dashboard",
+      "url": "/dashboard",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    },
+    {
       "name": "Sessions",
-      "short_name": "Sessions",
+      "short_name": "History",
       "description": "View your conversation history",
       "url": "/sessions",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Investor Database",
+      "short_name": "Investors",
+      "description": "Browse investor database",
+      "url": "/tools/investors",
       "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
     }
   ],
@@ -48,5 +64,16 @@
     "params": {
       "text": "prompt"
     }
-  }
+  },
+  "display_override": ["standalone", "minimal-ui"],
+  "edge_side_panel": {
+    "preferred_width": 400
+  },
+  "handle_links": "preferred",
+  "launch_handler": {
+    "client_mode": "navigate-existing"
+  },
+  "related_applications": [],
+  "iarc_rating_id": "",
+  "protocol_handlers": []
 }

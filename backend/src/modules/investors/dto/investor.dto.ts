@@ -1,4 +1,4 @@
-import { IsString, IsArray, IsBoolean, IsOptional, IsEnum, IsInt, Min, IsUrl, IsEmail } from 'class-validator';
+import { IsString, IsBoolean, IsOptional, IsEnum, IsInt, Min, IsUrl, IsEmail } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export type InvestorStage = 'pre-seed' | 'seed' | 'series-a' | 'series-b' | 'series-c' | 'growth';
@@ -22,10 +22,9 @@ export class CreateInvestorDto {
   @IsEnum(['pre-seed', 'seed', 'series-a', 'series-b', 'series-c', 'growth'])
   stage: InvestorStage;
 
-  @ApiProperty({ example: ['saas', 'fintech', 'ai'] })
-  @IsArray()
-  @IsString({ each: true })
-  sectors: string[];
+  @ApiProperty({ example: 'saas,fintech,ai', description: 'Comma-separated sectors' })
+  @IsString()
+  sectors: string;
 
   @ApiPropertyOptional({ example: 1000, description: 'Minimum check size in thousands USD' })
   @IsOptional()
@@ -43,11 +42,10 @@ export class CreateInvestorDto {
   @IsString()
   location: string;
 
-  @ApiPropertyOptional({ example: ['us', 'eu', 'apac'] })
+  @ApiPropertyOptional({ example: 'us,eu,apac', description: 'Comma-separated regions' })
   @IsOptional()
-  @IsArray()
-  @IsString({ each: true })
-  regions?: string[];
+  @IsString()
+  regions?: string;
 
   @ApiPropertyOptional({ example: 'contact@sequoiacap.com' })
   @IsOptional()
@@ -63,18 +61,6 @@ export class CreateInvestorDto {
   @IsOptional()
   @IsUrl()
   twitterUrl?: string;
-
-  @ApiPropertyOptional({ example: ['Stripe', 'Airbnb', 'DoorDash'] })
-  @IsOptional()
-  @IsArray()
-  @IsString({ each: true })
-  portfolioCompanies?: string[];
-
-  @ApiPropertyOptional({ example: ['WhatsApp', 'Instagram'] })
-  @IsOptional()
-  @IsArray()
-  @IsString({ each: true })
-  notableExits?: string[];
 
   @ApiPropertyOptional({ default: true })
   @IsOptional()
@@ -110,9 +96,8 @@ export class UpdateInvestorDto {
 
   @ApiPropertyOptional()
   @IsOptional()
-  @IsArray()
-  @IsString({ each: true })
-  sectors?: string[];
+  @IsString()
+  sectors?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -133,9 +118,8 @@ export class UpdateInvestorDto {
 
   @ApiPropertyOptional()
   @IsOptional()
-  @IsArray()
-  @IsString({ each: true })
-  regions?: string[];
+  @IsString()
+  regions?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -151,18 +135,6 @@ export class UpdateInvestorDto {
   @IsOptional()
   @IsUrl()
   twitterUrl?: string;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsArray()
-  @IsString({ each: true })
-  portfolioCompanies?: string[];
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsArray()
-  @IsString({ each: true })
-  notableExits?: string[];
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -194,8 +166,8 @@ export class InvestorResponseDto {
   @ApiProperty()
   stage: InvestorStage;
 
-  @ApiProperty()
-  sectors: string[];
+  @ApiProperty({ description: 'Comma-separated sectors' })
+  sectors: string;
 
   @ApiProperty()
   checkSizeMin: number | null;
@@ -206,8 +178,8 @@ export class InvestorResponseDto {
   @ApiProperty()
   location: string;
 
-  @ApiProperty()
-  regions: string[];
+  @ApiProperty({ description: 'Comma-separated regions' })
+  regions: string | null;
 
   @ApiProperty()
   contactEmail: string | null;
@@ -217,12 +189,6 @@ export class InvestorResponseDto {
 
   @ApiProperty()
   twitterUrl: string | null;
-
-  @ApiProperty()
-  portfolioCompanies: string[];
-
-  @ApiProperty()
-  notableExits: string[];
 
   @ApiProperty()
   isActive: boolean;

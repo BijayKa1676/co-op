@@ -596,16 +596,14 @@ export interface Investor {
   website: string | null;
   logoUrl: string | null;
   stage: InvestorStage;
-  sectors: string[];
+  sectors: string; // comma-separated
   checkSizeMin: number | null;
   checkSizeMax: number | null;
   location: string;
-  regions: string[];
+  regions: string | null; // comma-separated
   contactEmail: string | null;
   linkedinUrl: string | null;
   twitterUrl: string | null;
-  portfolioCompanies: string[];
-  notableExits: string[];
   isActive: boolean;
   isFeatured: boolean;
   createdAt: string;
@@ -617,16 +615,14 @@ export interface CreateInvestorRequest {
   description?: string;
   website?: string;
   stage: InvestorStage;
-  sectors: string[];
+  sectors: string; // comma-separated
   checkSizeMin?: number;
   checkSizeMax?: number;
   location: string;
-  regions?: string[];
+  regions?: string; // comma-separated
   contactEmail?: string;
   linkedinUrl?: string;
   twitterUrl?: string;
-  portfolioCompanies?: string[];
-  notableExits?: string[];
   isActive?: boolean;
   isFeatured?: boolean;
 }
@@ -636,16 +632,14 @@ export interface UpdateInvestorRequest {
   description?: string;
   website?: string;
   stage?: InvestorStage;
-  sectors?: string[];
+  sectors?: string;
   checkSizeMin?: number;
   checkSizeMax?: number;
   location?: string;
-  regions?: string[];
+  regions?: string;
   contactEmail?: string;
   linkedinUrl?: string;
   twitterUrl?: string;
-  portfolioCompanies?: string[];
-  notableExits?: string[];
   isActive?: boolean;
   isFeatured?: boolean;
 }

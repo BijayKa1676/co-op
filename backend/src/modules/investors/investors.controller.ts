@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Patch, Delete, Body, Param, Query, UseGuards, ParseUUIDPipe } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards, ParseUUIDPipe } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiParam } from '@nestjs/swagger';
 import { AuthGuard } from '@/common/guards/auth.guard';
 import { AdminGuard } from '@/common/guards/admin.guard';
@@ -16,7 +16,6 @@ import {
 export class InvestorsController {
   constructor(private readonly investorsService: InvestorsService) {}
 
-  // Public endpoints (read-only)
   @Get()
   @RateLimit(RateLimitPresets.READ)
   @ApiOperation({ summary: 'Get all active investors with optional filters' })
@@ -31,7 +30,6 @@ export class InvestorsController {
     return this.investorsService.getStats();
   }
 
-  // Admin endpoints - must come before :id route
   @Get('admin/all')
   @ApiBearerAuth()
   @UseGuards(AuthGuard, AdminGuard)
@@ -58,35 +56,13 @@ export class InvestorsController {
     return this.investorsService.create(dto);
   }
 
-  @Post('bulk')
-  @ApiBearerAuth()
-  @UseGuards(AuthGuard, AdminGuard)
-  @RateLimit(RateLimitPresets.CREATE)
-  @ApiOperation({ summary: 'Bulk create investors (admin only)' })
-  async bulkCreate(@Body() dtos: CreateInvestorDto[]): Promise<{ created: number }> {
-    return this.investorsService.bulkCreate(dtos);
-  }
-
-  @Put(':id')
+  @Patch(':id')
   @ApiBearerAuth()
   @UseGuards(AuthGuard, AdminGuard)
   @RateLimit(RateLimitPresets.STANDARD)
   @ApiOperation({ summary: 'Update an investor (admin only)' })
   @ApiParam({ name: 'id', type: 'string' })
   async update(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body() dto: UpdateInvestorDto,
-  ): Promise<InvestorResponseDto> {
-    return this.investorsService.update(id, dto);
-  }
-
-  @Patch(':id')
-  @ApiBearerAuth()
-  @UseGuards(AuthGuard, AdminGuard)
-  @RateLimit(RateLimitPresets.STANDARD)
-  @ApiOperation({ summary: 'Partially update an investor (admin only)' })
-  @ApiParam({ name: 'id', type: 'string' })
-  async partialUpdate(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateInvestorDto,
   ): Promise<InvestorResponseDto> {

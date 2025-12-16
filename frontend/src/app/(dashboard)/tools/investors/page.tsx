@@ -111,15 +111,7 @@ export default function InvestorsPage() {
         api.getInvestors(query as Parameters<typeof api.getInvestors>[0]),
         api.getInvestorStats(),
       ]);
-      // Ensure arrays are always arrays (defensive against null/undefined from API)
-      const safeInvestors = (investorsData || []).map((inv) => ({
-        ...inv,
-        sectors: Array.isArray(inv.sectors) ? inv.sectors : [],
-        regions: Array.isArray(inv.regions) ? inv.regions : [],
-        portfolioCompanies: Array.isArray(inv.portfolioCompanies) ? inv.portfolioCompanies : [],
-        notableExits: Array.isArray(inv.notableExits) ? inv.notableExits : [],
-      }));
-      setInvestors(safeInvestors);
+      setInvestors(investorsData || []);
       // Ensure stats arrays are safe
       setStats(statsData ? {
         ...statsData,
@@ -325,26 +317,19 @@ export default function InvestorsPage() {
                         <span>Check: {formatCheckSize(investor.checkSizeMin, investor.checkSizeMax)}</span>
                       </div>
                       
-                      {Array.isArray(investor.sectors) && investor.sectors.length > 0 && (
+                      {investor.sectors && (
                         <div className="flex flex-wrap gap-1">
-                          {investor.sectors.slice(0, 4).map((sector) => (
+                          {investor.sectors.split(',').filter(Boolean).slice(0, 4).map((sector) => (
                             <Badge key={sector} variant="secondary" className="text-[10px] sm:text-xs">
-                              {sector}
+                              {sector.trim()}
                             </Badge>
                           ))}
-                          {investor.sectors.length > 4 && (
+                          {investor.sectors.split(',').filter(Boolean).length > 4 && (
                             <Badge variant="secondary" className="text-[10px] sm:text-xs">
-                              +{investor.sectors.length - 4}
+                              +{investor.sectors.split(',').filter(Boolean).length - 4}
                             </Badge>
                           )}
                         </div>
-                      )}
-                      
-                      {Array.isArray(investor.portfolioCompanies) && investor.portfolioCompanies.length > 0 && (
-                        <p className="text-[10px] sm:text-xs text-muted-foreground mt-2 line-clamp-1">
-                          Portfolio: {investor.portfolioCompanies.slice(0, 3).join(', ')}
-                          {investor.portfolioCompanies.length > 3 && ` +${investor.portfolioCompanies.length - 3}`}
-                        </p>
                       )}
                     </div>
                     
