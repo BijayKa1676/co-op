@@ -16,7 +16,7 @@ import { StreamingModule } from '@/common/streaming/streaming.module';
 import { StartupsModule } from '@/modules/startups/startups.module';
 import { UsersModule } from '@/modules/users/users.module';
 import { WebhooksModule } from '@/modules/webhooks/webhooks.module';
-import { DocumentsModule } from '@/modules/documents/documents.module';
+import { SecureDocumentsModule } from '@/modules/secure-documents/secure-documents.module';
 
 import { LegalAgentService } from './domains/legal/legal-agent.service';
 import { FinanceAgentService } from './domains/finance/finance-agent.service';
@@ -33,7 +33,7 @@ import { CompetitorAgentService } from './domains/competitor/competitor-agent.se
     QStashModule,
     StreamingModule,
     StartupsModule,
-    DocumentsModule,
+    SecureDocumentsModule,
     forwardRef(() => UsersModule),
     forwardRef(() => WebhooksModule),
   ],

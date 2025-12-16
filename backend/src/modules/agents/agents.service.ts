@@ -5,7 +5,7 @@ import { OrchestratorService } from './orchestrator/orchestrator.service';
 import { AgentsQueueService } from './queue/agents.queue.service';
 import { StartupsService } from '@/modules/startups/startups.service';
 import { UsersService } from '@/modules/users/users.service';
-import { DocumentsService } from '@/modules/documents/documents.service';
+import { SecureDocumentsService } from '@/modules/secure-documents/secure-documents.service';
 import { LlmCouncilService } from '@/common/llm/llm-council.service';
 import { RedisService } from '@/common/redis/redis.service';
 import { CacheService } from '@/common/cache/cache.service';
@@ -50,7 +50,7 @@ export class AgentsService {
     private readonly queueService: AgentsQueueService,
     private readonly startupsService: StartupsService,
     private readonly usersService: UsersService,
-    private readonly documentsService: DocumentsService,
+    private readonly secureDocumentsService: SecureDocumentsService,
     private readonly council: LlmCouncilService,
     private readonly redis: RedisService,
     private readonly cache: CacheService,
@@ -474,17 +474,23 @@ Output: Brief summary, key insights, 3-5 action items. Be concise.`;
       throw new BadRequestException('Startup not found');
     }
 
-    // Fetch document content for each document ID
+    // Fetch document content from secure documents (encrypted, database-only storage)
     const documentContents: string[] = [];
     if (dto.documents && dto.documents.length > 0) {
       for (const docId of dto.documents) {
         try {
-          const content = await this.documentsService.extractTextContent(docId, userId);
-          if (content) {
-            documentContents.push(content);
+          // Get all decrypted chunks for this document
+          const chunks = await this.secureDocumentsService.getDecryptedChunks(docId, userId);
+          if (chunks.length > 0) {
+            // Combine all chunks into a single document content
+            const content = chunks
+              .sort((a, b) => a.chunkIndex - b.chunkIndex)
+              .map(c => c.content)
+              .join('\n');
+            documentContents.push(`[Document: ${chunks[0].filename}]\n${content}`);
           }
         } catch (error) {
-          this.logger.warn(`Failed to extract content from document ${docId}`, error);
+          this.logger.warn(`Failed to extract content from secure document ${docId}`, error);
           // Continue with other documents
         }
       }

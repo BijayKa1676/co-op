@@ -1,6 +1,6 @@
 import { Injectable, Inject, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
-import { eq, and, desc, lt, isNull, or } from 'drizzle-orm';
+import { eq, and, desc, lt } from 'drizzle-orm';
 import { v4 as uuid } from 'uuid';
 import { ConfigService } from '@nestjs/config';
 import { DATABASE_CONNECTION } from '@/database/database.module';

@@ -201,6 +201,13 @@ export default function ChatPage() {
     e.preventDefault();
     if (!input.trim() || !user?.startup || isLoading) return;
 
+    // Check if any documents are still processing
+    const processingDocs = uploadedDocs.filter(d => d.status === 'processing');
+    if (processingDocs.length > 0) {
+      toast.error('Please wait for documents to finish processing');
+      return;
+    }
+
     const userMessageId = generateId();
     const assistantMessageId = generateId();
     const prompt = input.trim();
@@ -670,7 +677,7 @@ export default function ChatPage() {
     try {
       const doc = await api.uploadSecureDocument(file, currentSession?.id);
       setUploadedDocs(prev => [...prev, doc]);
-      toast.success(`${file.name} uploaded and processing`);
+      toast.success(`${file.name} uploaded and ready`);
     } catch (error) {
       console.error('Failed to upload document:', error);
       const errorMessage = error instanceof Error ? error.message : 'Failed to upload document';
@@ -714,6 +721,9 @@ export default function ChatPage() {
     };
     loadDocs();
   }, [currentSession]);
+
+  // Note: Document processing is synchronous - when upload returns, status is already 'ready'
+  // No polling needed. If async processing is added later, use Supabase Realtime instead.
 
   // Cleanup SSE and abort controller on unmount
   useEffect(() => {
