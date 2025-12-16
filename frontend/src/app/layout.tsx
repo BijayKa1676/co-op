@@ -90,6 +90,20 @@ export const viewport: Viewport = {
 
 import { ThemeProvider } from '@/components/theme-provider';
 
+// Script to prevent flash of wrong theme - runs before React hydration
+const themeScript = `
+  (function() {
+    try {
+      var stored = localStorage.getItem('co-op-ui');
+      var theme = stored ? JSON.parse(stored).state?.theme : 'system';
+      var isDark = theme === 'dark' || (theme === 'system' && (window.matchMedia('(prefers-color-scheme: dark)').matches ?? true));
+      if (isDark) document.documentElement.classList.add('dark');
+    } catch (e) {
+      document.documentElement.classList.add('dark');
+    }
+  })();
+`;
+
 export default function RootLayout({
   children,
 }: {
@@ -97,6 +111,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className={`${inter.variable} ${playfair.variable}`} suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+      </head>
       <body className="font-sans antialiased">
         <ThemeProvider>
           {children}

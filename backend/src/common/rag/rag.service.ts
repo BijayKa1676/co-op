@@ -1,8 +1,7 @@
-import { Injectable, Logger, Inject, forwardRef, Optional } from '@nestjs/common';
+import { Injectable, Logger, Inject, forwardRef } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { CircuitBreakerService } from '@/common/circuit-breaker/circuit-breaker.service';
 import { RagCacheService } from './rag-cache.service';
-import { ClaraRagService } from './clara-rag.service';
 import {
   RagDomain,
   RagSector,
@@ -32,9 +31,6 @@ export class RagService {
     private readonly circuitBreaker: CircuitBreakerService,
     @Inject(forwardRef(() => RagCacheService))
     private readonly cacheService: RagCacheService,
-    @Optional()
-    @Inject(forwardRef(() => ClaraRagService))
-    private readonly claraService?: ClaraRagService,
   ) {
     this.ragBaseUrl = this.configService.get<string>('RAG_SERVICE_URL', '');
     this.ragApiKey = this.configService.get<string>('RAG_API_KEY', '');
@@ -274,8 +270,7 @@ export class RagService {
    * Get relevant context for an agent prompt with jurisdiction filtering.
    * Returns formatted context from RAG - the LLM Council will use this to generate answers.
    * 
-   * If CLaRA is available, context is processed through semantic compression
-   * for better relevance and reduced token usage.
+   * CLaRA processing is handled by the Python RAG service when useClara=true.
    * 
    * @param query - The user's question
    * @param domain - legal or finance
@@ -297,6 +292,15 @@ export class RagService {
     // Map country to region
     const region: RagRegion | undefined = country ? getRegionFromCountry(country) : undefined;
 
+    // If CLaRA is requested, use the dedicated endpoint
+    if (useClara) {
+      const claraResult = await this.queryWithClara(query, domain, sector, limit, region, jurisdictions);
+      if (claraResult) {
+        return claraResult;
+      }
+      // Fall through to regular query if CLaRA fails
+    }
+
     const result = await this.query({
       query,
       domain,
@@ -310,33 +314,7 @@ export class RagService {
       return '';
     }
 
-    // Use CLaRA for intelligent context processing if available
-    if (useClara && this.claraService?.isReady()) {
-      const sources = result.sources.map(s => ({
-        fileId: s.fileId,
-        filename: s.filename,
-        score: s.score,
-        domain: s.domain,
-        sector: s.sector,
-      }));
-
-      const councilContext = await this.claraService.prepareCouncilContext(
-        result.context,
-        query,
-        domain,
-        sources,
-      );
-
-      this.logger.debug(
-        `CLaRA processed context: compressed=${councilContext.compressed}, ` +
-        `ratio=${councilContext.compressionRatio?.toFixed(2) ?? 'N/A'}, ` +
-        `time=${councilContext.processingTimeMs}ms`,
-      );
-
-      return councilContext.context;
-    }
-
-    // Fallback: Build source list with jurisdiction info (no CLaRA)
+    // Build source list with jurisdiction info
     const sourceList = result.sources
       .map((s, i) => {
         const regionInfo = s.region ? ` [${s.region.toUpperCase()}]` : '';
@@ -352,10 +330,90 @@ export class RagService {
   }
 
   /**
-   * Check if CLaRA RAG specialist is available
+   * Query RAG with CLaRA semantic compression via Python service.
+   * Returns compressed, query-aware context.
    */
-  isClaraAvailable(): boolean {
-    return this.claraService?.isReady() ?? false;
+  private async queryWithClara(
+    query: string,
+    domain: RagDomain,
+    sector: RagSector,
+    limit: number,
+    region?: RagRegion,
+    jurisdictions?: RagJurisdiction[],
+  ): Promise<string | null> {
+    if (!this.isConfigured) {
+      return null;
+    }
+
+    try {
+      const response = await fetch(`${this.ragBaseUrl}/rag/clara/query`, {
+        method: 'POST',
+        headers: this.getHeaders(),
+        body: JSON.stringify({
+          query,
+          domain,
+          sector,
+          limit,
+          region: region ?? null,
+          jurisdictions: jurisdictions ?? null,
+        }),
+        signal: AbortSignal.timeout(90000), // CLaRA needs more time
+      });
+
+      if (!response.ok) {
+        this.logger.warn(`CLaRA query failed: ${response.statusText}`);
+        return null;
+      }
+
+      const data = (await response.json()) as {
+        context: string;
+        compressed: boolean;
+        compression_ratio?: number;
+        processing_time_ms: number;
+        chunks_found: number;
+        error?: string;
+      };
+
+      if (data.error) {
+        this.logger.warn(`CLaRA error: ${data.error}`);
+        return null;
+      }
+
+      this.logger.debug(
+        `CLaRA processed context: compressed=${String(data.compressed)}, ` +
+        `ratio=${data.compression_ratio?.toFixed(2) ?? 'N/A'}, ` +
+        `time=${String(data.processing_time_ms)}ms`,
+      );
+
+      return data.context;
+    } catch (error) {
+      this.logger.warn('CLaRA query failed, falling back to standard RAG', error);
+      return null;
+    }
+  }
+
+  /**
+   * Check if CLaRA RAG specialist is available via Python service
+   */
+  async isClaraAvailable(): Promise<boolean> {
+    if (!this.isConfigured) {
+      return false;
+    }
+
+    try {
+      const response = await fetch(`${this.ragBaseUrl}/rag/clara/health`, {
+        method: 'GET',
+        headers: this.getHeaders(),
+        signal: AbortSignal.timeout(5000),
+      });
+      
+      if (!response.ok) return false;
+      
+      const data = (await response.json()) as { available: boolean };
+      return data.available;
+    } catch {
+      return false;
+    }
   }
 
   /**

@@ -1,11 +1,10 @@
-import { Injectable, Inject, Logger, Optional } from '@nestjs/common';
+import { Injectable, Inject, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { sql } from 'drizzle-orm';
 import { DATABASE_CONNECTION } from '@/database/database.module';
 import { RedisService } from '@/common/redis/redis.service';
 import { RagService } from '@/common/rag/rag.service';
-import { ClaraRagService } from '@/common/rag/clara-rag.service';
 import { HealthCheckDto, ServiceStatus } from './dto/health-check.dto';
 import * as schema from '@/database/schema';
 
@@ -25,8 +24,6 @@ export class HealthService {
     private readonly redis: RedisService,
     private readonly configService: ConfigService,
     private readonly ragService: RagService,
-    @Optional()
-    private readonly claraService?: ClaraRagService,
   ) {}
 
   async check(): Promise<HealthCheckDto> {
@@ -53,15 +50,10 @@ export class HealthService {
     services.llm = llmCheck.status;
     details.llm = llmCheck;
 
-    // Check RAG service
+    // Check RAG service (includes CLaRA via Python service)
     const ragCheck = await this.checkRagService();
     services.rag = ragCheck.status;
     details.rag = ragCheck;
-
-    // Check CLaRA RAG Specialist
-    const claraCheck = this.checkClaraService();
-    services.clara = claraCheck.status;
-    details.clara = claraCheck;
 
     const allHealthy = Object.values(services).every(s => s === ServiceStatus.HEALTHY);
     const anyHealthy = Object.values(services).some(s => s === ServiceStatus.HEALTHY);
@@ -172,37 +164,4 @@ export class HealthService {
     }
   }
 
-  /**
-   * Check CLaRA RAG Specialist availability
-   * CLaRA is optional - degraded status if not available
-   */
-  private checkClaraService(): ServiceCheckResult {
-    const start = Date.now();
-    
-    if (!this.claraService) {
-      return { 
-        status: ServiceStatus.DEGRADED, 
-        latencyMs: 0, 
-        error: 'CLaRA service not injected' 
-      };
-    }
-
-    if (!this.claraService.isReady()) {
-      const hfKey = this.configService.get<string>('HUGGINGFACE_API_KEY');
-      const error = hfKey 
-        ? 'CLaRA model not available on HuggingFace' 
-        : 'HUGGINGFACE_API_KEY not configured';
-      return { 
-        status: ServiceStatus.DEGRADED, 
-        latencyMs: Date.now() - start, 
-        error 
-      };
-    }
-
-    return { 
-      status: ServiceStatus.HEALTHY, 
-      latencyMs: Date.now() - start, 
-      error: '' 
-    };
-  }
 }

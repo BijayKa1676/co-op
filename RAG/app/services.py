@@ -1,10 +1,11 @@
 """
-RAG Service - Vector Search with Jurisdiction Filtering
-========================================================
+RAG Service - Vector Search with Jurisdiction Filtering + CLaRA
+================================================================
 This service handles:
 1. Document vectorization (PDF → chunks → embeddings → Upstash)
 2. Semantic search with geographic/jurisdiction filtering
 3. Context retrieval (return relevant chunks to backend)
+4. CLaRA semantic compression for query-aware context extraction
 
 LLM answer generation is handled by the backend's LLM Council.
 This keeps the RAG service focused and removes duplicate LLM dependencies.
@@ -12,13 +13,14 @@ This keeps the RAG service focused and removes duplicate LLM dependencies.
 
 import os
 import logging
+import time
 import google.generativeai as genai
 from supabase import create_client, Client
 from upstash_vector import Index
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from pypdf import PdfReader
 from io import BytesIO
-from typing import Optional, List
+from typing import Optional, List, Tuple
 from app.database import db
 from app.schemas import Domain, Sector, Region, Jurisdiction, DocumentType, VectorStatus
 
@@ -541,3 +543,248 @@ async def delete_file_completely(file_id: str) -> dict:
         "message": "File deleted",
         "chunks_deleted": chunk_count
     }
+
+
+# ===========================================
+# CLaRA Service - Semantic Document Compression
+# ===========================================
+# Apple CLaRA-7B-Instruct for intelligent context processing
+# Requires: transformers, torch, accelerate
+# Model: apple/CLaRa-7B-Instruct
+
+_clara_model = None
+_clara_device = None
+_clara_error = None
+
+
+def _init_clara() -> Tuple[bool, Optional[str]]:
+    """
+    Initialize CLaRA model for semantic compression.
+    Returns (success, error_message).
+    
+    CLaRA is NOT a chat model - it uses AutoModel + generate_from_text().
+    """
+    global _clara_model, _clara_device, _clara_error
+    
+    # Check if CUDA is available
+    try:
+        import torch
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        _clara_device = device
+        
+        if device == "cpu":
+            logger.warning("CLaRA: CUDA not available, running on CPU (slow)")
+    except ImportError:
+        _clara_error = "PyTorch not installed"
+        logger.warning(f"CLaRA initialization skipped: {_clara_error}")
+        return False, _clara_error
+    
+    # Check environment variable to enable/disable CLaRA
+    if os.getenv("CLARA_ENABLED", "false").lower() != "true":
+        _clara_error = "CLaRA disabled via CLARA_ENABLED env var"
+        logger.info(_clara_error)
+        return False, _clara_error
+    
+    try:
+        from transformers import AutoModel
+        
+        model_name = os.getenv("CLARA_MODEL", "apple/CLaRa-7B-Instruct")
+        logger.info(f"Loading CLaRA model: {model_name} on {device}")
+        
+        # CLaRA uses AutoModel, NOT AutoModelForCausalLM
+        _clara_model = AutoModel.from_pretrained(
+            model_name,
+            trust_remote_code=True,
+            torch_dtype=torch.float16 if device == "cuda" else torch.float32,
+        ).to(device)
+        
+        logger.info(f"CLaRA model loaded successfully on {device}")
+        return True, None
+        
+    except Exception as e:
+        _clara_error = str(e)
+        logger.error(f"CLaRA initialization failed: {_clara_error}")
+        return False, _clara_error
+
+
+def clara_is_ready() -> bool:
+    """Check if CLaRA model is loaded and ready."""
+    return _clara_model is not None
+
+
+def clara_health() -> dict:
+    """Get CLaRA health status."""
+    return {
+        "available": _clara_model is not None,
+        "model": os.getenv("CLARA_MODEL", "apple/CLaRa-7B-Instruct") if _clara_model else None,
+        "device": _clara_device,
+        "error": _clara_error,
+    }
+
+
+async def clara_compress_context(
+    documents: List[str],
+    query: str,
+    max_new_tokens: int = 512,
+) -> Tuple[str, float]:
+    """
+    Use CLaRA to compress documents into query-relevant context.
+    
+    Args:
+        documents: List of document chunks
+        query: User's question
+        max_new_tokens: Max tokens for generated output
+        
+    Returns:
+        Tuple of (compressed_context, compression_ratio)
+    """
+    if not _clara_model:
+        raise ValueError("CLaRA model not loaded")
+    
+    try:
+        # CLaRA expects documents as list of lists (batched)
+        # Each inner list is a set of documents for one query
+        doc_batch = [documents]
+        questions = [query]
+        
+        # Generate compressed context using CLaRA's generate_from_text
+        output = _clara_model.generate_from_text(
+            questions=questions,
+            documents=doc_batch,
+            max_new_tokens=max_new_tokens,
+        )
+        
+        # Calculate compression ratio
+        original_length = sum(len(d) for d in documents)
+        compressed_length = len(output) if isinstance(output, str) else len(str(output))
+        ratio = original_length / compressed_length if compressed_length > 0 else 1.0
+        
+        return output if isinstance(output, str) else str(output), ratio
+        
+    except Exception as e:
+        logger.error(f"CLaRA compression failed: {e}")
+        raise ValueError(f"CLaRA compression failed: {str(e)}")
+
+
+async def query_rag_with_clara(
+    query: str,
+    domain: Domain,
+    sector: Sector,
+    limit: int = 5,
+    region: Optional[Region] = None,
+    jurisdictions: Optional[List[Jurisdiction]] = None,
+    document_type: Optional[DocumentType] = None,
+) -> dict:
+    """
+    Query RAG with CLaRA semantic compression.
+    
+    1. Retrieves relevant chunks via standard RAG
+    2. Compresses chunks using CLaRA for query-aware context
+    3. Returns compressed context with metadata
+    """
+    start_time = time.time()
+    
+    # First, get standard RAG results
+    rag_result = await query_rag(
+        query=query,
+        domain=domain,
+        sector=sector,
+        limit=limit,
+        region=region,
+        jurisdictions=jurisdictions,
+        document_type=document_type,
+    )
+    
+    if rag_result.get("error") or rag_result.get("chunks_found", 0) == 0:
+        return {
+            "context": rag_result.get("context", ""),
+            "compressed": False,
+            "compression_ratio": None,
+            "processing_time_ms": int((time.time() - start_time) * 1000),
+            "chunks_found": rag_result.get("chunks_found", 0),
+            "sources": rag_result.get("sources", []),
+            "error": rag_result.get("error"),
+        }
+    
+    # If CLaRA is not available, return standard results
+    if not clara_is_ready():
+        processing_time = int((time.time() - start_time) * 1000)
+        return {
+            "context": rag_result.get("context", ""),
+            "compressed": False,
+            "compression_ratio": None,
+            "processing_time_ms": processing_time,
+            "chunks_found": rag_result.get("chunks_found", 0),
+            "sources": rag_result.get("sources", []),
+            "error": "CLaRA not available",
+        }
+    
+    # Extract document chunks from context
+    # Context format: [Source: ...]\nchunk_text\n\n---\n\n[Source: ...]...
+    context = rag_result.get("context", "")
+    chunks = []
+    for part in context.split("\n\n---\n\n"):
+        # Remove source header
+        lines = part.strip().split("\n", 1)
+        if len(lines) > 1:
+            chunks.append(lines[1])
+        elif lines:
+            chunks.append(lines[0])
+    
+    if not chunks:
+        chunks = [context]
+    
+    try:
+        # Compress with CLaRA
+        compressed_context, compression_ratio = await clara_compress_context(
+            documents=chunks,
+            query=query,
+            max_new_tokens=512,
+        )
+        
+        processing_time = int((time.time() - start_time) * 1000)
+        
+        # Build formatted context with sources
+        sources = rag_result.get("sources", [])
+        source_list = "\n".join([
+            f"[{i+1}] {s.get('filename', 'Unknown')} - {s.get('region', 'global')} ({', '.join(s.get('jurisdictions', ['general']))})"
+            for i, s in enumerate(sources)
+        ])
+        
+        region_label = f" | Region: {region.value.upper()}" if region else ""
+        juris_label = f" | Jurisdictions: {', '.join(j.value for j in jurisdictions)}" if jurisdictions else ""
+        
+        formatted_context = (
+            f"\n\n--- CLaRA Compressed Context ({domain.value}/{sector.value}{region_label}{juris_label}) ---\n"
+            f"{compressed_context}\n\n"
+            f"Sources:\n{source_list}\n"
+            f"--- End Context (compressed {compression_ratio:.1f}x) ---\n"
+        )
+        
+        return {
+            "context": formatted_context,
+            "compressed": True,
+            "compression_ratio": compression_ratio,
+            "processing_time_ms": processing_time,
+            "chunks_found": rag_result.get("chunks_found", 0),
+            "sources": sources,
+            "error": None,
+        }
+        
+    except Exception as e:
+        logger.error(f"CLaRA processing failed, returning standard context: {e}")
+        processing_time = int((time.time() - start_time) * 1000)
+        
+        return {
+            "context": rag_result.get("context", ""),
+            "compressed": False,
+            "compression_ratio": None,
+            "processing_time_ms": processing_time,
+            "chunks_found": rag_result.get("chunks_found", 0),
+            "sources": rag_result.get("sources", []),
+            "error": f"CLaRA failed: {str(e)}",
+        }
+
+
+# Initialize CLaRA on module load (if enabled)
+_init_clara()

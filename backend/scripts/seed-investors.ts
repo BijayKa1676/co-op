@@ -6,7 +6,13 @@
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
 import { config } from 'dotenv';
-import { investors } from '../src/database/schema/investors.schema';
+import {
+  investors,
+  investorSectors,
+  investorRegions,
+  investorPortfolioCompanies,
+  investorNotableExits,
+} from '../src/database/schema/investors.schema';
 
 config();
 
@@ -316,37 +322,68 @@ const investorData: InvestorSeed[] = [
 
 async function seed() {
   console.log('🌱 Seeding investors database...');
-  
+
   try {
-    // Insert all investors
+    // Insert all investors with junction table data
     for (const inv of investorData) {
-      await db.insert(investors).values({
-        name: inv.name,
-        description: inv.description,
-        website: inv.website,
-        stage: inv.stage,
-        sectors: inv.sectors,
-        checkSizeMin: inv.checkSizeMin,
-        checkSizeMax: inv.checkSizeMax,
-        location: inv.location,
-        regions: inv.regions,
-        linkedinUrl: inv.linkedinUrl,
-        twitterUrl: inv.twitterUrl,
-        portfolioCompanies: inv.portfolioCompanies,
-        notableExits: inv.notableExits,
-        isActive: true,
-        isFeatured: inv.isFeatured,
-      });
+      // Insert base investor
+      const [inserted] = await db
+        .insert(investors)
+        .values({
+          name: inv.name,
+          description: inv.description,
+          website: inv.website,
+          stage: inv.stage,
+          checkSizeMin: inv.checkSizeMin,
+          checkSizeMax: inv.checkSizeMax,
+          location: inv.location,
+          linkedinUrl: inv.linkedinUrl,
+          twitterUrl: inv.twitterUrl,
+          isActive: true,
+          isFeatured: inv.isFeatured,
+        })
+        .returning();
+
+      const investorId = inserted.id;
+
+      // Insert sectors
+      if (inv.sectors && inv.sectors.length > 0) {
+        await db
+          .insert(investorSectors)
+          .values(inv.sectors.map((sector) => ({ investorId, sector })));
+      }
+
+      // Insert regions
+      if (inv.regions && inv.regions.length > 0) {
+        await db
+          .insert(investorRegions)
+          .values(inv.regions.map((region) => ({ investorId, region })));
+      }
+
+      // Insert portfolio companies
+      if (inv.portfolioCompanies && inv.portfolioCompanies.length > 0) {
+        await db
+          .insert(investorPortfolioCompanies)
+          .values(inv.portfolioCompanies.map((companyName) => ({ investorId, companyName })));
+      }
+
+      // Insert notable exits
+      if (inv.notableExits && inv.notableExits.length > 0) {
+        await db
+          .insert(investorNotableExits)
+          .values(inv.notableExits.map((companyName) => ({ investorId, companyName })));
+      }
+
       console.log(`  ✓ Added ${inv.name}`);
     }
-    
+
     console.log(`\n✅ Successfully seeded ${investorData.length} investors`);
   } catch (error) {
     console.error('❌ Seed failed:', error);
     await pool.end();
     process.exit(1);
   }
-  
+
   await pool.end();
   process.exit(0);
 }

@@ -1,15 +1,27 @@
-import { Injectable, Inject, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  Inject,
+  NotFoundException,
+  ForbiddenException,
+  BadRequestException,
+} from '@nestjs/common';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { eq, and, desc, inArray } from 'drizzle-orm';
 import { DATABASE_CONNECTION } from '@/database/database.module';
 import * as schema from '@/database/schema';
-import { alerts, alertResults } from '@/database/schema/alerts.schema';
-import { CreateAlertDto, UpdateAlertDto, AlertResponseDto, AlertResultResponseDto } from './dto/alert.dto';
-
-// Helper to safely get array from potentially null value
-function safeArray<T>(value: T[] | null | undefined): T[] {
-  return Array.isArray(value) ? value : [];
-}
+import {
+  alerts,
+  alertResults,
+  alertKeywords,
+  alertCompetitors,
+  alertResultMatchedKeywords,
+} from '@/database/schema/alerts.schema';
+import {
+  CreateAlertDto,
+  UpdateAlertDto,
+  AlertResponseDto,
+  AlertResultResponseDto,
+} from './dto/alert.dto';
 
 // Pilot limit: 3 alerts per user
 const PILOT_ALERT_LIMIT = 3;
@@ -21,19 +33,21 @@ export class AlertsService {
     private readonly db: NodePgDatabase<typeof schema>,
   ) {}
 
-  async create(userId: string, startupId: string | null, dto: CreateAlertDto): Promise<AlertResponseDto> {
+  async create(
+    userId: string,
+    startupId: string | null,
+    dto: CreateAlertDto,
+  ): Promise<AlertResponseDto> {
     // Check pilot limit
-    const existingAlerts = await this.db
-      .select()
-      .from(alerts)
-      .where(eq(alerts.userId, userId));
+    const existingAlerts = await this.db.select().from(alerts).where(eq(alerts.userId, userId));
 
     if (existingAlerts.length >= PILOT_ALERT_LIMIT) {
       throw new BadRequestException(
-        `Pilot users are limited to ${PILOT_ALERT_LIMIT} alerts. Delete an existing alert to create a new one.`
+        `Pilot users are limited to ${PILOT_ALERT_LIMIT} alerts. Delete an existing alert to create a new one.`,
       );
     }
 
+    // Insert alert
     const [alert] = await this.db
       .insert(alerts)
       .values({
@@ -41,14 +55,26 @@ export class AlertsService {
         startupId,
         name: dto.name,
         type: dto.type || 'competitor',
-        keywords: dto.keywords,
-        competitors: dto.competitors || [],
         frequency: dto.frequency || 'daily',
         emailNotify: dto.emailNotify ?? true,
       })
       .returning();
 
-    return this.toResponseDto(alert);
+    // Insert keywords
+    if (dto.keywords && dto.keywords.length > 0) {
+      await this.db
+        .insert(alertKeywords)
+        .values(dto.keywords.map((keyword) => ({ alertId: alert.id, keyword })));
+    }
+
+    // Insert competitors
+    if (dto.competitors && dto.competitors.length > 0) {
+      await this.db
+        .insert(alertCompetitors)
+        .values(dto.competitors.map((competitor) => ({ alertId: alert.id, competitor })));
+    }
+
+    return this.buildAlertResponseDto(alert);
   }
 
   async findAllByUser(userId: string): Promise<AlertResponseDto[]> {
@@ -58,7 +84,7 @@ export class AlertsService {
       .where(eq(alerts.userId, userId))
       .orderBy(desc(alerts.createdAt));
 
-    return userAlerts.map((a) => this.toResponseDto(a));
+    return Promise.all(userAlerts.map((a) => this.buildAlertResponseDto(a)));
   }
 
   async findOne(userId: string, alertId: string): Promise<AlertResponseDto> {
@@ -71,7 +97,7 @@ export class AlertsService {
       throw new NotFoundException('Alert not found');
     }
 
-    return this.toResponseDto(alert);
+    return this.buildAlertResponseDto(alert);
   }
 
   async update(userId: string, alertId: string, dto: UpdateAlertDto): Promise<AlertResponseDto> {
@@ -84,16 +110,36 @@ export class AlertsService {
       throw new NotFoundException('Alert not found');
     }
 
-    const [updated] = await this.db
-      .update(alerts)
-      .set({
-        ...dto,
-        updatedAt: new Date(),
-      })
-      .where(eq(alerts.id, alertId))
-      .returning();
+    // Update base alert data
+    const updateData: Record<string, unknown> = { updatedAt: new Date() };
+    if (dto.name !== undefined) updateData.name = dto.name;
+    if (dto.frequency !== undefined) updateData.frequency = dto.frequency;
+    if (dto.isActive !== undefined) updateData.isActive = dto.isActive;
+    if (dto.emailNotify !== undefined) updateData.emailNotify = dto.emailNotify;
 
-    return this.toResponseDto(updated);
+    await this.db.update(alerts).set(updateData).where(eq(alerts.id, alertId));
+
+    // Update keywords if provided
+    if (dto.keywords !== undefined) {
+      await this.db.delete(alertKeywords).where(eq(alertKeywords.alertId, alertId));
+      if (dto.keywords.length > 0) {
+        await this.db
+          .insert(alertKeywords)
+          .values(dto.keywords.map((keyword) => ({ alertId, keyword })));
+      }
+    }
+
+    // Update competitors if provided
+    if (dto.competitors !== undefined) {
+      await this.db.delete(alertCompetitors).where(eq(alertCompetitors.alertId, alertId));
+      if (dto.competitors.length > 0) {
+        await this.db
+          .insert(alertCompetitors)
+          .values(dto.competitors.map((competitor) => ({ alertId, competitor })));
+      }
+    }
+
+    return this.findOne(userId, alertId);
   }
 
   async delete(userId: string, alertId: string): Promise<void> {
@@ -106,6 +152,7 @@ export class AlertsService {
       throw new NotFoundException('Alert not found');
     }
 
+    // Junction tables cascade delete automatically
     await this.db.delete(alerts).where(eq(alerts.id, alertId));
   }
 
@@ -127,7 +174,7 @@ export class AlertsService {
       .orderBy(desc(alertResults.createdAt))
       .limit(limit);
 
-    return results.map((r) => this.toResultResponseDto(r));
+    return Promise.all(results.map((r) => this.buildResultResponseDto(r)));
   }
 
   async markResultRead(userId: string, resultId: string): Promise<void> {
@@ -150,10 +197,7 @@ export class AlertsService {
       throw new ForbiddenException('Not authorized to access this result');
     }
 
-    await this.db
-      .update(alertResults)
-      .set({ isRead: true })
-      .where(eq(alertResults.id, resultId));
+    await this.db.update(alertResults).set({ isRead: true }).where(eq(alertResults.id, resultId));
   }
 
   async getUnreadCount(userId: string): Promise<number> {
@@ -164,27 +208,37 @@ export class AlertsService {
 
     if (userAlerts.length === 0) return 0;
 
-    const alertIds = userAlerts.map((a: { id: string }) => a.id);
-    
-    // Use a single query with inArray instead of N+1 queries
+    const alertIds = userAlerts.map((a) => a.id);
+
     const unreadResults = await this.db
       .select()
       .from(alertResults)
-      .where(and(
-        inArray(alertResults.alertId, alertIds),
-        eq(alertResults.isRead, false)
-      ));
+      .where(and(inArray(alertResults.alertId, alertIds), eq(alertResults.isRead, false)));
 
     return unreadResults.length;
   }
 
-  private toResponseDto(alert: typeof alerts.$inferSelect): AlertResponseDto {
+  private async buildAlertResponseDto(
+    alert: typeof alerts.$inferSelect,
+  ): Promise<AlertResponseDto> {
+    // Fetch keywords and competitors from junction tables
+    const [keywords, competitors] = await Promise.all([
+      this.db
+        .select({ keyword: alertKeywords.keyword })
+        .from(alertKeywords)
+        .where(eq(alertKeywords.alertId, alert.id)),
+      this.db
+        .select({ competitor: alertCompetitors.competitor })
+        .from(alertCompetitors)
+        .where(eq(alertCompetitors.alertId, alert.id)),
+    ]);
+
     return {
       id: alert.id,
       name: alert.name,
       type: alert.type as AlertResponseDto['type'],
-      keywords: safeArray(alert.keywords),
-      competitors: safeArray(alert.competitors),
+      keywords: keywords.map((k) => k.keyword),
+      competitors: competitors.map((c) => c.competitor),
       frequency: alert.frequency as AlertResponseDto['frequency'],
       isActive: alert.isActive,
       emailNotify: alert.emailNotify,
@@ -195,7 +249,15 @@ export class AlertsService {
     };
   }
 
-  private toResultResponseDto(result: typeof alertResults.$inferSelect): AlertResultResponseDto {
+  private async buildResultResponseDto(
+    result: typeof alertResults.$inferSelect,
+  ): Promise<AlertResultResponseDto> {
+    // Fetch matched keywords from junction table
+    const matchedKeywords = await this.db
+      .select({ keyword: alertResultMatchedKeywords.keyword })
+      .from(alertResultMatchedKeywords)
+      .where(eq(alertResultMatchedKeywords.alertResultId, result.id));
+
     return {
       id: result.id,
       alertId: result.alertId,
@@ -204,7 +266,7 @@ export class AlertsService {
       source: result.source,
       sourceUrl: result.sourceUrl,
       relevanceScore: result.relevanceScore ? parseFloat(result.relevanceScore) : null,
-      matchedKeywords: safeArray(result.matchedKeywords),
+      matchedKeywords: matchedKeywords.map((k) => k.keyword),
       matchedCompetitor: result.matchedCompetitor,
       isRead: result.isRead,
       createdAt: result.createdAt.toISOString(),

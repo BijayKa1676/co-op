@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import {
   ArrowRight,
   Scales,
@@ -31,20 +31,6 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { LandingBackground } from '@/components/ui/background';
-
-// Multilingual "Op" translations
-const opTranslations = [
-  { text: 'Op', label: 'English' },
-  { text: 'ഓപ്', label: 'Malayalam' },
-  { text: 'ऑप', label: 'Hindi' },
-  { text: 'ஆப்', label: 'Tamil' },
-  { text: 'ఆప్', label: 'Telugu' },
-  { text: 'অপ', label: 'Bengali' },
-  { text: 'أوب', label: 'Arabic' },
-  { text: '合作', label: 'Chinese' },
-  { text: 'オプ', label: 'Japanese' },
-  { text: '옵', label: 'Korean' },
-];
 
 const agents = [
   { icon: Scales, title: 'Legal', description: 'Corporate structure, contracts, compliance, IP protection' },
@@ -129,7 +115,6 @@ const roadmapItems = [
 ];
 
 export default function HomePage() {
-  const [currentOpIndex, setCurrentOpIndex] = useState(0);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const { theme, setTheme } = useUIStore();
 
@@ -151,13 +136,6 @@ export default function HomePage() {
       setTheme('dark');
     }
   };
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setCurrentOpIndex((prev) => (prev + 1) % opTranslations.length);
-    }, 2000);
-    return () => clearInterval(interval);
-  }, []);
 
   return (
     <div className="min-h-screen bg-background relative">
@@ -214,36 +192,9 @@ export default function HomePage() {
               AI-Powered Advisory Platform
             </div>
 
-            {/* Animated Co-Op Logo */}
             <h1 className="font-serif text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-medium tracking-tight mb-8 leading-[1.2]">
-              <span className="inline-flex items-center justify-center">
-                <span>Co-</span>
-                <span className="relative inline-flex w-[80px] sm:w-[100px] md:w-[120px] lg:w-[140px] h-[1.2em] overflow-hidden ml-1">
-                  <AnimatePresence mode="wait">
-                    <motion.span
-                      key={currentOpIndex}
-                      initial={{ y: '100%', opacity: 0 }}
-                      animate={{ y: 0, opacity: 1 }}
-                      exit={{ y: '-100%', opacity: 0 }}
-                      transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-                      className="absolute inset-0 flex items-center justify-center"
-                    >
-                      {opTranslations[currentOpIndex].text}
-                    </motion.span>
-                  </AnimatePresence>
-                </span>
-              </span>
+              Co-Op
             </h1>
-            
-            {/* Language indicator */}
-            <motion.p 
-              key={currentOpIndex}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="text-xs text-muted-foreground/60 mb-6 h-4"
-            >
-              {opTranslations[currentOpIndex].label}
-            </motion.p>
 
             <p className="text-2xl md:text-3xl text-muted-foreground font-serif mb-4">
               Cross the gaps. Build the future.

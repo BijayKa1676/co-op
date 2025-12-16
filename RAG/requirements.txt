@@ -1,32 +1,22 @@
-# ===========================================
-# Co-Op RAG Service Dependencies
-# ===========================================
-# This service handles vector search only.
-# LLM answer generation is handled by the backend.
-# ===========================================
-
-# Web Framework
+# Core
 fastapi>=0.110.0
 uvicorn[standard]>=0.29.0
 python-multipart>=0.0.9
-
-# Database
-asyncpg>=0.29.0
-
-# Embeddings (Google AI - text-embedding-004)
-google-generativeai>=0.4.0
-
-# Vector Store (Upstash)
-upstash-vector>=0.4.0
-
-# PDF Processing
-pypdf>=4.0.1
-langchain-text-splitters>=0.0.1
-
-# Storage (Supabase)
-supabase>=2.3.0
-
-# Utilities
-python-dotenv>=1.0.1
 pydantic>=2.7.0
 pydantic-settings>=2.2.0
+python-dotenv>=1.0.1
+
+# Database & Storage
+asyncpg>=0.29.0
+supabase>=2.3.0
+upstash-vector>=0.4.0
+
+# AI & ML
+google-generativeai>=0.4.0
+torch>=2.0.0
+transformers>=4.40.0
+accelerate>=0.30.0
+
+# Document Processing
+pypdf>=4.0.1
+langchain-text-splitters>=0.0.1

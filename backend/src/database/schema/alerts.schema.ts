@@ -13,10 +13,6 @@ export const alerts = pgTable('alerts', {
   name: text('name').notNull(),
   type: alertTypeEnum('type').notNull().default('competitor'),
   
-  // What to monitor
-  keywords: text('keywords').array().notNull().default([]),
-  competitors: text('competitors').array().notNull().default([]),
-  
   // Alert settings
   frequency: alertFrequencyEnum('frequency').notNull().default('daily'),
   isActive: boolean('is_active').notNull().default(true),
@@ -48,13 +44,34 @@ export const alertResults = pgTable('alert_results', {
   relevanceScore: text('relevance_score'),
   
   // What triggered this result
-  matchedKeywords: text('matched_keywords').array().default([]),
   matchedCompetitor: text('matched_competitor'),
   
   isRead: boolean('is_read').notNull().default(false),
   
   metadata: jsonb('metadata').$type<Record<string, unknown>>().default({}),
   
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+// Junction tables for normalized data
+export const alertKeywords = pgTable('alert_keywords', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  alertId: uuid('alert_id').notNull().references(() => alerts.id, { onDelete: 'cascade' }),
+  keyword: text('keyword').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const alertCompetitors = pgTable('alert_competitors', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  alertId: uuid('alert_id').notNull().references(() => alerts.id, { onDelete: 'cascade' }),
+  competitor: text('competitor').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const alertResultMatchedKeywords = pgTable('alert_result_matched_keywords', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  alertResultId: uuid('alert_result_id').notNull().references(() => alertResults.id, { onDelete: 'cascade' }),
+  keyword: text('keyword').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
 

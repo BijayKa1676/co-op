@@ -14,13 +14,18 @@ from app.services import (
     query_rag, 
     cleanup_expired_vectors, 
     delete_file_completely,
-    vectorize_file
+    vectorize_file,
+    # CLaRA functions
+    clara_health,
+    query_rag_with_clara,
 )
 from app.schemas import (
     Domain, Sector, Region, Jurisdiction, DocumentType,
     RegisterFileRequest, QueryRequest, QueryResponse,
     FileResponse, RegisterResponse, VectorizeResponse,
-    CleanupResponse, HealthResponse
+    CleanupResponse, HealthResponse,
+    # CLaRA schemas
+    ClaraQueryRequest, ClaraQueryResponse, ClaraHealthResponse,
 )
 
 # API Key configuration
@@ -252,6 +257,43 @@ async def cleanup_vectors(days: int = 30, _: bool = Depends(verify_api_key)):
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# ===========================================
+# CLaRA Endpoints - Semantic Compression
+# ===========================================
+
+@app.get("/rag/clara/health", response_model=ClaraHealthResponse)
+async def clara_health_check():
+    """Check if CLaRA model is available and ready."""
+    return clara_health()
+
+
+@app.post("/rag/clara/query", response_model=ClaraQueryResponse)
+async def clara_query(request: ClaraQueryRequest, _: bool = Depends(verify_api_key)):
+    """
+    Query RAG with CLaRA semantic compression.
+    
+    CLaRA (apple/CLaRa-7B-Instruct) provides:
+    - Query-aware document compression
+    - Semantic extraction of relevant information
+    - Reduced token usage for LLM context
+    
+    Falls back to standard RAG if CLaRA is unavailable.
+    """
+    try:
+        result = await query_rag_with_clara(
+            query=request.query,
+            domain=request.domain,
+            sector=request.sector,
+            limit=request.limit,
+            region=request.region,
+            jurisdictions=request.jurisdictions,
+            document_type=request.document_type,
+        )
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"CLaRA query failed: {str(e)}")
 
 
 if __name__ == "__main__":

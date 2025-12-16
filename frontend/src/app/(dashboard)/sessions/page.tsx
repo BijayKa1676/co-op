@@ -153,7 +153,7 @@ export default function SessionsPage() {
             return (
               <motion.div key={group} initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-2">
                 <h2 className="text-sm font-medium text-muted-foreground px-1">{group}</h2>
-                <div className="space-y-2">
+                <div className="space-y-3">
                   {groupSessions.map((session, index) => (
                     <motion.div key={session.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.03 }}>
                       <Card className={cn(

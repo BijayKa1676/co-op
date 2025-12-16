@@ -193,3 +193,35 @@ class HealthResponse(BaseModel):
     regions: List[str]
     jurisdictions: List[str]
     document_types: List[str]
+
+
+# === CLaRA Models ===
+
+class ClaraQueryRequest(BaseModel):
+    """Request for CLaRA-enhanced RAG query"""
+    query: str = Field(..., description="User question")
+    domain: Domain = Field(..., description="Domain to search")
+    sector: Sector = Field(..., description="Sector to filter by")
+    limit: Optional[int] = Field(default=5, ge=1, le=20)
+    region: Optional[Region] = Field(default=None)
+    jurisdictions: Optional[List[Jurisdiction]] = Field(default=None)
+    document_type: Optional[DocumentType] = Field(default=None)
+
+
+class ClaraQueryResponse(BaseModel):
+    """Response from CLaRA-enhanced query"""
+    context: str = Field(description="Compressed, query-aware context")
+    compressed: bool = Field(description="Whether CLaRA compression was applied")
+    compression_ratio: Optional[float] = Field(default=None, description="Compression ratio achieved")
+    processing_time_ms: int = Field(description="Processing time in milliseconds")
+    chunks_found: int = Field(description="Number of chunks processed")
+    sources: List[SourceResponse] = Field(default=[])
+    error: Optional[str] = Field(default=None)
+
+
+class ClaraHealthResponse(BaseModel):
+    """CLaRA health check response"""
+    available: bool
+    model: Optional[str] = None
+    device: Optional[str] = None
+    error: Optional[str] = None
