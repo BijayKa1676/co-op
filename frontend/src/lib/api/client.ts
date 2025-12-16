@@ -111,8 +111,9 @@ class ApiClient {
           throw lastError;
         }
         
-        const json: ApiResponse<T> = await res.json();
-        return json.data;
+        const json = await res.json();
+        // Handle both wrapped { data: T } and raw T responses
+        return json.data !== undefined ? json.data : json;
       } catch (error) {
         // Handle network errors (fetch throws on network failure)
         if (error instanceof ApiError) {
