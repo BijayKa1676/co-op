@@ -3,13 +3,18 @@ import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { eq, and, or, ilike, desc, asc, sql } from 'drizzle-orm';
 import { DATABASE_CONNECTION } from '@/database/database.module';
 import * as schema from '@/database/schema';
-import { investors, Investor } from '@/database/schema/investors.schema';
+import { investors } from '@/database/schema/investors.schema';
 import {
   CreateInvestorDto,
   UpdateInvestorDto,
   InvestorResponseDto,
   InvestorQueryDto,
 } from './dto/investor.dto';
+
+// Helper to safely get array from potentially null value
+function safeArray<T>(value: T[] | null | undefined): T[] {
+  return Array.isArray(value) ? value : [];
+}
 
 @Injectable()
 export class InvestorsService {
@@ -79,7 +84,7 @@ export class InvestorsService {
       .where(and(...conditions))
       .orderBy(desc(investors.isFeatured), asc(investors.name));
 
-    return results.map((i: Investor) => this.toResponseDto(i));
+    return results.map((i) => this.toResponseDto(i));
   }
 
   async findAllAdmin(): Promise<InvestorResponseDto[]> {
@@ -88,7 +93,7 @@ export class InvestorsService {
       .from(investors)
       .orderBy(desc(investors.createdAt));
 
-    return results.map((i: Investor) => this.toResponseDto(i));
+    return results.map((i) => this.toResponseDto(i));
   }
 
   async findOne(id: string): Promise<InvestorResponseDto> {
@@ -175,8 +180,7 @@ export class InvestorsService {
 
     for (const inv of all) {
       byStage.set(inv.stage, (byStage.get(inv.stage) ?? 0) + 1);
-      const sectors = inv.sectors ?? [];
-      for (const sector of sectors) {
+      for (const sector of safeArray(inv.sectors)) {
         bySector.set(sector, (bySector.get(sector) ?? 0) + 1);
       }
     }
@@ -191,7 +195,7 @@ export class InvestorsService {
     };
   }
 
-  private toResponseDto(investor: Investor): InvestorResponseDto {
+  private toResponseDto(investor: typeof investors.$inferSelect): InvestorResponseDto {
     return {
       id: investor.id,
       name: investor.name,
@@ -199,16 +203,16 @@ export class InvestorsService {
       website: investor.website,
       logoUrl: investor.logoUrl,
       stage: investor.stage as InvestorResponseDto['stage'],
-      sectors: investor.sectors ?? [],
+      sectors: safeArray(investor.sectors),
       checkSizeMin: investor.checkSizeMin,
       checkSizeMax: investor.checkSizeMax,
       location: investor.location,
-      regions: investor.regions ?? [],
+      regions: safeArray(investor.regions),
       contactEmail: investor.contactEmail,
       linkedinUrl: investor.linkedinUrl,
       twitterUrl: investor.twitterUrl,
-      portfolioCompanies: investor.portfolioCompanies ?? [],
-      notableExits: investor.notableExits ?? [],
+      portfolioCompanies: safeArray(investor.portfolioCompanies),
+      notableExits: safeArray(investor.notableExits),
       isActive: investor.isActive,
       isFeatured: investor.isFeatured,
       createdAt: investor.createdAt.toISOString(),

@@ -3,8 +3,13 @@ import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { eq, and, desc, inArray } from 'drizzle-orm';
 import { DATABASE_CONNECTION } from '@/database/database.module';
 import * as schema from '@/database/schema';
-import { alerts, alertResults, Alert, AlertResult } from '@/database/schema/alerts.schema';
+import { alerts, alertResults } from '@/database/schema/alerts.schema';
 import { CreateAlertDto, UpdateAlertDto, AlertResponseDto, AlertResultResponseDto } from './dto/alert.dto';
+
+// Helper to safely get array from potentially null value
+function safeArray<T>(value: T[] | null | undefined): T[] {
+  return Array.isArray(value) ? value : [];
+}
 
 // Pilot limit: 3 alerts per user
 const PILOT_ALERT_LIMIT = 3;
@@ -53,7 +58,7 @@ export class AlertsService {
       .where(eq(alerts.userId, userId))
       .orderBy(desc(alerts.createdAt));
 
-    return userAlerts.map((a: Alert) => this.toResponseDto(a));
+    return userAlerts.map((a) => this.toResponseDto(a));
   }
 
   async findOne(userId: string, alertId: string): Promise<AlertResponseDto> {
@@ -122,7 +127,7 @@ export class AlertsService {
       .orderBy(desc(alertResults.createdAt))
       .limit(limit);
 
-    return results.map((r: AlertResult) => this.toResultResponseDto(r));
+    return results.map((r) => this.toResultResponseDto(r));
   }
 
   async markResultRead(userId: string, resultId: string): Promise<void> {
@@ -173,13 +178,13 @@ export class AlertsService {
     return unreadResults.length;
   }
 
-  private toResponseDto(alert: Alert): AlertResponseDto {
+  private toResponseDto(alert: typeof alerts.$inferSelect): AlertResponseDto {
     return {
       id: alert.id,
       name: alert.name,
       type: alert.type as AlertResponseDto['type'],
-      keywords: alert.keywords ?? [],
-      competitors: alert.competitors ?? [],
+      keywords: safeArray(alert.keywords),
+      competitors: safeArray(alert.competitors),
       frequency: alert.frequency as AlertResponseDto['frequency'],
       isActive: alert.isActive,
       emailNotify: alert.emailNotify,
@@ -190,7 +195,7 @@ export class AlertsService {
     };
   }
 
-  private toResultResponseDto(result: AlertResult): AlertResultResponseDto {
+  private toResultResponseDto(result: typeof alertResults.$inferSelect): AlertResultResponseDto {
     return {
       id: result.id,
       alertId: result.alertId,
@@ -199,7 +204,7 @@ export class AlertsService {
       source: result.source,
       sourceUrl: result.sourceUrl,
       relevanceScore: result.relevanceScore ? parseFloat(result.relevanceScore) : null,
-      matchedKeywords: result.matchedKeywords ?? [],
+      matchedKeywords: safeArray(result.matchedKeywords),
       matchedCompetitor: result.matchedCompetitor,
       isRead: result.isRead,
       createdAt: result.createdAt.toISOString(),
