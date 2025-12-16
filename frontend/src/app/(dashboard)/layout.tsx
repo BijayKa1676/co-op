@@ -197,9 +197,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       {/* Mobile Header */}
       <header className="fixed top-0 left-0 right-0 z-50 h-14 border-b border-border/40 bg-background/95 backdrop-blur-sm flex md:hidden items-center justify-between px-4">
-        <Link href="/dashboard" className="font-serif text-lg font-semibold tracking-tight">
-          Co-Op
-        </Link>
         <Button
           variant="ghost"
           size="icon"
@@ -208,6 +205,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         >
           <List weight="bold" className="w-5 h-5" />
         </Button>
+        <Link href="/dashboard" className="font-serif text-lg font-semibold tracking-tight">
+          Co-Op
+        </Link>
       </header>
 
       {/* Mobile Menu Overlay */}
@@ -224,17 +224,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               onClick={() => setMobileMenuOpen(false)}
             />
             
-            {/* Slide-out Menu */}
+            {/* Slide-out Menu - from left like desktop */}
             <motion.aside
-              initial={{ x: '100%' }}
+              initial={{ x: '-100%' }}
               animate={{ x: 0 }}
-              exit={{ x: '100%' }}
+              exit={{ x: '-100%' }}
               transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-              className="fixed top-0 right-0 bottom-0 z-50 w-72 bg-background border-l border-border/40 flex flex-col md:hidden"
+              className="fixed top-0 left-0 bottom-0 z-50 w-72 bg-background border-r border-border/40 flex flex-col md:hidden"
             >
               {/* Mobile Menu Header */}
               <div className="h-14 flex items-center justify-between px-4 border-b border-border/40">
-                <span className="font-serif text-lg font-semibold">Menu</span>
                 <Button
                   variant="ghost"
                   size="icon"
@@ -243,6 +242,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 >
                   <X weight="bold" className="w-5 h-5" />
                 </Button>
+                <span className="font-serif text-lg font-semibold">Co-Op</span>
               </div>
 
               {/* Mobile Navigation */}

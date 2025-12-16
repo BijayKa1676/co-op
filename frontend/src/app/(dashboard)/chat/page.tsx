@@ -1142,16 +1142,7 @@ export default function ChatPage() {
         )}
         
         <form onSubmit={handleSubmit}>
-          <div className="relative">
-            <Textarea
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder={getPlaceholder()}
-              className="min-h-[48px] sm:min-h-[56px] max-h-[120px] sm:max-h-[150px] pl-10 pr-12 sm:pr-14 resize-none text-sm"
-              disabled={isLoading}
-            />
-            
+          <div className="relative flex items-end gap-2">
             {/* File upload button */}
             <input
               ref={fileInputRef}
@@ -1166,26 +1157,37 @@ export default function ChatPage() {
               size="icon"
               onClick={handleFileSelect}
               disabled={isLoading || isUploading}
-              className="absolute left-1 bottom-2 h-8 w-8 text-muted-foreground hover:text-foreground"
+              className="h-10 w-10 shrink-0 text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-full"
               title="Attach document"
             >
               {isUploading ? (
-                <CircleNotch weight="bold" className="w-4 h-4 animate-spin" />
+                <CircleNotch weight="bold" className="w-5 h-5 animate-spin" />
               ) : (
-                <Paperclip weight="regular" className="w-4 h-4" />
+                <Paperclip weight="regular" className="w-5 h-5" />
               )}
             </Button>
+            
+            <div className="flex-1 relative">
+              <Textarea
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder={getPlaceholder()}
+                className="min-h-[44px] sm:min-h-[48px] max-h-[120px] sm:max-h-[150px] pr-12 resize-none text-sm py-3"
+                disabled={isLoading}
+              />
+            </div>
             
             <Button
               type="submit"
               size="icon"
-              className="absolute right-2 bottom-2 h-8 w-8 sm:h-9 sm:w-9"
+              className="h-10 w-10 shrink-0 rounded-full"
               disabled={!input.trim() || isLoading}
             >
               {isLoading ? (
-                <CircleNotch weight="bold" className="w-4 h-4 animate-spin" />
+                <CircleNotch weight="bold" className="w-5 h-5 animate-spin" />
               ) : (
-                <PaperPlaneTilt weight="fill" className="w-4 h-4" />
+                <PaperPlaneTilt weight="fill" className="w-5 h-5" />
               )}
             </Button>
           </div>
