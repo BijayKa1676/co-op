@@ -1,6 +1,8 @@
-import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
-import { eq, and, desc } from 'drizzle-orm';
-import { DatabaseService } from '@/database/database.module';
+import { Injectable, Inject, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
+import { NodePgDatabase } from 'drizzle-orm/node-postgres';
+import { eq, and, desc, inArray } from 'drizzle-orm';
+import { DATABASE_CONNECTION } from '@/database/database.module';
+import * as schema from '@/database/schema';
 import { alerts, alertResults, Alert, AlertResult } from '@/database/schema/alerts.schema';
 import { CreateAlertDto, UpdateAlertDto, AlertResponseDto, AlertResultResponseDto } from './dto/alert.dto';
 
@@ -9,11 +11,14 @@ const PILOT_ALERT_LIMIT = 3;
 
 @Injectable()
 export class AlertsService {
-  constructor(private readonly db: DatabaseService) {}
+  constructor(
+    @Inject(DATABASE_CONNECTION)
+    private readonly db: NodePgDatabase<typeof schema>,
+  ) {}
 
   async create(userId: string, startupId: string | null, dto: CreateAlertDto): Promise<AlertResponseDto> {
     // Check pilot limit
-    const existingAlerts = await this.db.drizzle
+    const existingAlerts = await this.db
       .select()
       .from(alerts)
       .where(eq(alerts.userId, userId));
@@ -24,7 +29,7 @@ export class AlertsService {
       );
     }
 
-    const [alert] = await this.db.drizzle
+    const [alert] = await this.db
       .insert(alerts)
       .values({
         userId,
@@ -42,17 +47,17 @@ export class AlertsService {
   }
 
   async findAllByUser(userId: string): Promise<AlertResponseDto[]> {
-    const userAlerts = await this.db.drizzle
+    const userAlerts = await this.db
       .select()
       .from(alerts)
       .where(eq(alerts.userId, userId))
       .orderBy(desc(alerts.createdAt));
 
-    return userAlerts.map((a) => this.toResponseDto(a));
+    return userAlerts.map((a: Alert) => this.toResponseDto(a));
   }
 
   async findOne(userId: string, alertId: string): Promise<AlertResponseDto> {
-    const [alert] = await this.db.drizzle
+    const [alert] = await this.db
       .select()
       .from(alerts)
       .where(and(eq(alerts.id, alertId), eq(alerts.userId, userId)));
@@ -65,7 +70,7 @@ export class AlertsService {
   }
 
   async update(userId: string, alertId: string, dto: UpdateAlertDto): Promise<AlertResponseDto> {
-    const [existing] = await this.db.drizzle
+    const [existing] = await this.db
       .select()
       .from(alerts)
       .where(and(eq(alerts.id, alertId), eq(alerts.userId, userId)));
@@ -74,7 +79,7 @@ export class AlertsService {
       throw new NotFoundException('Alert not found');
     }
 
-    const [updated] = await this.db.drizzle
+    const [updated] = await this.db
       .update(alerts)
       .set({
         ...dto,
@@ -87,7 +92,7 @@ export class AlertsService {
   }
 
   async delete(userId: string, alertId: string): Promise<void> {
-    const [existing] = await this.db.drizzle
+    const [existing] = await this.db
       .select()
       .from(alerts)
       .where(and(eq(alerts.id, alertId), eq(alerts.userId, userId)));
@@ -96,12 +101,12 @@ export class AlertsService {
       throw new NotFoundException('Alert not found');
     }
 
-    await this.db.drizzle.delete(alerts).where(eq(alerts.id, alertId));
+    await this.db.delete(alerts).where(eq(alerts.id, alertId));
   }
 
   async getResults(userId: string, alertId: string, limit = 20): Promise<AlertResultResponseDto[]> {
     // Verify ownership
-    const [alert] = await this.db.drizzle
+    const [alert] = await this.db
       .select()
       .from(alerts)
       .where(and(eq(alerts.id, alertId), eq(alerts.userId, userId)));
@@ -110,19 +115,19 @@ export class AlertsService {
       throw new NotFoundException('Alert not found');
     }
 
-    const results = await this.db.drizzle
+    const results = await this.db
       .select()
       .from(alertResults)
       .where(eq(alertResults.alertId, alertId))
       .orderBy(desc(alertResults.createdAt))
       .limit(limit);
 
-    return results.map((r) => this.toResultResponseDto(r));
+    return results.map((r: AlertResult) => this.toResultResponseDto(r));
   }
 
   async markResultRead(userId: string, resultId: string): Promise<void> {
     // Get result and verify ownership through alert
-    const [result] = await this.db.drizzle
+    const [result] = await this.db
       .select()
       .from(alertResults)
       .where(eq(alertResults.id, resultId));
@@ -131,7 +136,7 @@ export class AlertsService {
       throw new NotFoundException('Alert result not found');
     }
 
-    const [alert] = await this.db.drizzle
+    const [alert] = await this.db
       .select()
       .from(alerts)
       .where(and(eq(alerts.id, result.alertId), eq(alerts.userId, userId)));
@@ -140,32 +145,32 @@ export class AlertsService {
       throw new ForbiddenException('Not authorized to access this result');
     }
 
-    await this.db.drizzle
+    await this.db
       .update(alertResults)
       .set({ isRead: true })
       .where(eq(alertResults.id, resultId));
   }
 
   async getUnreadCount(userId: string): Promise<number> {
-    const userAlerts = await this.db.drizzle
+    const userAlerts = await this.db
       .select({ id: alerts.id })
       .from(alerts)
       .where(eq(alerts.userId, userId));
 
     if (userAlerts.length === 0) return 0;
 
-    const alertIds = userAlerts.map((a) => a.id);
+    const alertIds = userAlerts.map((a: { id: string }) => a.id);
     
-    let count = 0;
-    for (const alertId of alertIds) {
-      const results = await this.db.drizzle
-        .select()
-        .from(alertResults)
-        .where(and(eq(alertResults.alertId, alertId), eq(alertResults.isRead, false)));
-      count += results.length;
-    }
+    // Use a single query with inArray instead of N+1 queries
+    const unreadResults = await this.db
+      .select()
+      .from(alertResults)
+      .where(and(
+        inArray(alertResults.alertId, alertIds),
+        eq(alertResults.isRead, false)
+      ));
 
-    return count;
+    return unreadResults.length;
   }
 
   private toResponseDto(alert: Alert): AlertResponseDto {

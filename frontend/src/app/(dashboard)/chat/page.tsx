@@ -88,6 +88,7 @@ export default function ChatPage() {
   const sessionInitRef = useRef(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const streamCleanupRef = useRef<(() => void) | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   // Initialize session - only load existing session, don't create new one
   // Session is created on first message send
@@ -242,6 +243,16 @@ export default function ChatPage() {
     setThinkingSteps([]);
     setShowThinking(false);
 
+    // Cleanup any existing stream before starting a new one
+    if (streamCleanupRef.current) {
+      streamCleanupRef.current();
+      streamCleanupRef.current = null;
+    }
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    abortControllerRef.current = new AbortController();
+
     try {
       // Build request with document IDs
       const documentIds = uploadedDocs.map(d => d.id);
@@ -327,6 +338,11 @@ export default function ChatPage() {
           }
           
           case 'done': {
+            // Check if request was aborted
+            if (abortControllerRef.current?.signal.aborted) {
+              return;
+            }
+            
             const { result } = event.data;
             if (result && typeof result === 'object') {
               const taskResult = result as { results?: Array<{ phase: string; output: { content: string; confidence: number; sources: string[] } }> };
@@ -361,6 +377,11 @@ export default function ChatPage() {
           }
           
           case 'error': {
+            // Check if request was aborted
+            if (abortControllerRef.current?.signal.aborted) {
+              return;
+            }
+            
             const { error } = event.data;
             let displayMessage = error || 'Sorry, I encountered an error. Please try again.';
             
@@ -657,11 +678,16 @@ export default function ChatPage() {
     loadDocs();
   }, [currentSession?.id]);
 
-  // Cleanup SSE on unmount
+  // Cleanup SSE and abort controller on unmount
   useEffect(() => {
     return () => {
       if (streamCleanupRef.current) {
         streamCleanupRef.current();
+        streamCleanupRef.current = null;
+      }
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+        abortControllerRef.current = null;
       }
     };
   }, []);

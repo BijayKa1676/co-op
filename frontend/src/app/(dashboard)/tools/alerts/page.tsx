@@ -397,8 +397,32 @@ export default function AlertsPage() {
         <div className="space-y-3">
           <h2 className="text-sm font-medium text-muted-foreground">Your Alerts</h2>
           {isLoading ? (
-            <div className="flex items-center justify-center py-12">
-              <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+            <div className="space-y-3">
+              {[1, 2, 3].map((i) => (
+                <Card key={i} className="border-border/40">
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1 space-y-3">
+                        <div className="flex items-center gap-2">
+                          <div className="h-5 w-32 bg-muted rounded animate-pulse" />
+                          <div className="h-5 w-16 bg-muted rounded animate-pulse" />
+                          <div className="h-5 w-14 bg-muted rounded animate-pulse" />
+                        </div>
+                        <div className="flex gap-1">
+                          {[1, 2, 3].map((j) => (
+                            <div key={j} className="h-5 w-16 bg-muted rounded animate-pulse" />
+                          ))}
+                        </div>
+                        <div className="h-4 w-40 bg-muted rounded animate-pulse" />
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="h-6 w-10 bg-muted rounded-full animate-pulse" />
+                        <div className="h-8 w-8 bg-muted rounded animate-pulse" />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
             </div>
           ) : alerts.length === 0 ? (
             <Card className="border-border/40">

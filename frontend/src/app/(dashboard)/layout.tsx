@@ -33,6 +33,7 @@ import { useUIStore } from '@/lib/store';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { PremiumBackground } from '@/components/ui/background';
+import { ErrorBoundary } from '@/components/error-boundary';
 
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: House },
@@ -350,7 +351,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           sidebarCollapsed ? 'md:ml-[72px]' : 'md:ml-[260px]'
         )}
       >
-        <div className="min-h-screen p-4 sm:p-6 md:p-8">{children}</div>
+        <div className="min-h-screen p-4 sm:p-6 md:p-8">
+          <ErrorBoundary>{children}</ErrorBoundary>
+        </div>
       </main>
     </div>
   );

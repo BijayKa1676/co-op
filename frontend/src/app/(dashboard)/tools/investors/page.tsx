@@ -231,8 +231,29 @@ export default function InvestorsPage() {
 
       {/* Results */}
       {isLoading ? (
-        <div className="flex items-center justify-center py-12">
-          <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+        <div className="space-y-3">
+          {[1, 2, 3, 4].map((i) => (
+            <Card key={i} className="border-border/40">
+              <CardContent className="p-4">
+                <div className="flex flex-col sm:flex-row sm:items-start gap-4">
+                  <div className="flex-1 space-y-3">
+                    <div className="flex items-center gap-2">
+                      <div className="h-5 w-32 bg-muted rounded animate-pulse" />
+                      <div className="h-5 w-16 bg-muted rounded animate-pulse" />
+                    </div>
+                    <div className="h-4 w-full bg-muted rounded animate-pulse" />
+                    <div className="h-4 w-2/3 bg-muted rounded animate-pulse" />
+                    <div className="flex gap-1">
+                      {[1, 2, 3].map((j) => (
+                        <div key={j} className="h-5 w-14 bg-muted rounded animate-pulse" />
+                      ))}
+                    </div>
+                  </div>
+                  <div className="h-9 w-24 bg-muted rounded animate-pulse" />
+                </div>
+              </CardContent>
+            </Card>
+          ))}
         </div>
       ) : investors.length === 0 ? (
         <Card className="border-border/40">
