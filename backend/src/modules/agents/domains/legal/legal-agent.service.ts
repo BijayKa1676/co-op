@@ -4,7 +4,6 @@ import { LlmCouncilService } from '@/common/llm/llm-council.service';
 import { RagService } from '@/common/rag/rag.service';
 import { RagSector, RagJurisdiction } from '@/common/rag/rag.types';
 import { sanitizeResponse } from '@/common/llm/utils/response-sanitizer';
-import { sanitizePII, restorePII, SanitizationMap } from '@/common/llm/utils/pii-sanitizer';
 import { BaseAgent, AgentInput, AgentOutput } from '../../types/agent.types';
 
 const LEGAL_SYSTEM_PROMPT = `You are an expert startup legal advisor specializing in: corporate structure, intellectual property, employment law, regulatory compliance, fundraising agreements, and terms of service/privacy policies.
@@ -97,18 +96,12 @@ export class LegalAgentService implements BaseAgent {
     const sector = (input.context.metadata.sector as RagSector) || 'saas';
     const country = (input.context.metadata.country as string) || undefined;
 
-    // Extract company/founder names for PII sanitization
-    const companyName = typeof input.context.metadata.companyName === 'string' 
-      ? input.context.metadata.companyName : undefined;
-    const founderName = typeof input.context.metadata.founderName === 'string'
-      ? input.context.metadata.founderName : undefined;
-
     // Detect relevant jurisdictions from the query
     const detectedJurisdictions = this.detectJurisdictions(input.prompt);
 
-    // Fetch RAG context for legal domain with jurisdiction filtering
+    // Only fetch RAG if no user documents provided (user docs take priority)
     let ragContext = '';
-    if (this.ragService.isAvailable()) {
+    if (input.documents.length === 0 && this.ragService.isAvailable()) {
       ragContext = await this.ragService.getContext(
         input.prompt,
         'legal',
@@ -122,11 +115,10 @@ export class LegalAgentService implements BaseAgent {
       }
     }
 
-    // Build and sanitize the user prompt to prevent LLM training on company data
-    const rawPrompt = this.buildUserPrompt(input, ragContext, country);
-    const { text: sanitizedPrompt, mappings } = sanitizePII(rawPrompt, companyName, founderName);
+    // Build the user prompt
+    const userPrompt = this.buildUserPrompt(input, ragContext, country);
 
-    const result = await this.council.runCouncil(LEGAL_SYSTEM_PROMPT, sanitizedPrompt, {
+    const result = await this.council.runCouncil(LEGAL_SYSTEM_PROMPT, userPrompt, {
       minModels: this.minModels,
       maxModels: this.maxModels,
       temperature: 0.6,
@@ -144,13 +136,13 @@ export class LegalAgentService implements BaseAgent {
         country,
         detectedJurisdictions,
         ragEnabled: Boolean(ragContext),
+        hasUserDocuments: input.documents.length > 0,
         modelsUsed: result.metadata.modelsUsed,
         totalTokens: result.metadata.totalTokens,
         processingTimeMs: result.metadata.processingTimeMs,
         consensusScore: result.consensus.averageScore,
         responsesCount: result.responses.length,
         critiquesCount: result.critiques.length,
-        piiMappings: mappings, // Store for restoration in runFinal
       },
     };
   }
@@ -172,16 +164,7 @@ export class LegalAgentService implements BaseAgent {
   }
 
   runFinal(_input: AgentInput, draft: AgentOutput, _critique: AgentOutput): Promise<AgentOutput> {
-    let cleanContent = sanitizeResponse(draft.content);
-    
-    // Restore original company/founder names in the response
-    const mappings = draft.metadata?.piiMappings as SanitizationMap[] | undefined;
-    if (mappings && mappings.length > 0) {
-      cleanContent = restorePII(cleanContent, mappings);
-    }
-
-    // Remove piiMappings from final metadata (internal use only)
-    const { piiMappings: _, ...restMetadata } = draft.metadata || {};
+    const cleanContent = sanitizeResponse(draft.content);
     
     return Promise.resolve({
       content: cleanContent,
@@ -190,7 +173,7 @@ export class LegalAgentService implements BaseAgent {
       metadata: {
         phase: 'final',
         agent: 'legal',
-        ...restMetadata,
+        ...draft.metadata,
       },
     });
   }
@@ -212,16 +195,19 @@ export class LegalAgentService implements BaseAgent {
   }
 
   private buildUserPrompt(input: AgentInput, ragContext: string, country?: string): string {
-    let prompt = input.prompt;
+    const parts: string[] = [];
 
-    // Add RAG context if available
-    if (ragContext) {
-      prompt += ragContext;
+    // PRIORITY 1: User-uploaded documents (highest priority)
+    if (input.documents.length > 0) {
+      parts.push(`PRIMARY CONTEXT - User Documents (analyze these first):\n${input.documents.join('\n---\n')}`);
     }
 
-    // Add any additional documents
-    if (input.documents.length > 0) {
-      prompt += `\n\nAdditional documents:\n${input.documents.join('\n---\n')}`;
+    // PRIORITY 2: User's query
+    parts.push(`\nUser Question:\n${input.prompt}`);
+
+    // PRIORITY 3: RAG context (supplementary knowledge)
+    if (ragContext) {
+      parts.push(`\nReference Knowledge:${ragContext}`);
     }
 
     // Add startup context with country for jurisdiction awareness
@@ -237,9 +223,9 @@ export class LegalAgentService implements BaseAgent {
         context += `\n\nIMPORTANT: This startup is based in ${country}. Please prioritize ${country}-specific laws and regulations in your response.`;
       }
       
-      prompt += context;
+      parts.push(context);
     }
 
-    return prompt;
+    return parts.join('\n');
   }
 }

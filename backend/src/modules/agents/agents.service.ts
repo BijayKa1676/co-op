@@ -189,6 +189,22 @@ export class AgentsService {
     return result;
   }
 
+  /**
+   * Run multi-agent with pre-built input (for webhook handler where input is already built)
+   * This avoids re-running buildAgentInput which would fail since documents are already content, not IDs.
+   */
+  async runMultiAgentWithInput(
+    input: AgentInput,
+    agents: string[],
+    onProgress?: (step: string) => void,
+  ): Promise<AgentPhaseResult[]> {
+    const validAgents = agents.filter((a): a is AgentType => ALL_AGENTS.includes(a as AgentType));
+    if (validAgents.length === 0) {
+      throw new BadRequestException('No valid agents specified');
+    }
+    return this.runMultiAgent(validAgents, input, input.prompt, onProgress);
+  }
+
   async queueTask(userId: string, dto: RunAgentDto): Promise<QueueTaskResult> {
     // Check usage limits for pilot users
     await this.checkAndIncrementUsage(userId);
@@ -465,6 +481,7 @@ Output: Brief summary, key insights, 3-5 action items. Be concise.`;
 
   /**
    * Build agent input from DTO - shared between run() and queueTask()
+   * Uses semantic search to find only the most relevant document chunks.
    */
   private async buildAgentInput(userId: string, dto: RunAgentDto): Promise<AgentInput> {
     await this.verifyStartupOwnership(userId, dto.startupId);
@@ -474,24 +491,83 @@ Output: Brief summary, key insights, 3-5 action items. Be concise.`;
       throw new BadRequestException('Startup not found');
     }
 
-    // Fetch document content from secure documents (encrypted, database-only storage)
+    // Fetch document content using semantic search for relevance
     const documentContents: string[] = [];
     if (dto.documents && dto.documents.length > 0) {
-      for (const docId of dto.documents) {
-        try {
-          // Get all decrypted chunks for this document
-          const chunks = await this.secureDocumentsService.getDecryptedChunks(docId, userId);
-          if (chunks.length > 0) {
-            // Combine all chunks into a single document content
-            const content = chunks
-              .sort((a, b) => a.chunkIndex - b.chunkIndex)
-              .map(c => c.content)
-              .join('\n');
-            documentContents.push(`[Document: ${chunks[0].filename}]\n${content}`);
+      try {
+        // Use semantic search to find relevant chunks across all provided documents
+        const searchResults = await this.secureDocumentsService.searchUserDocuments(
+          userId,
+          dto.prompt,
+          dto.documents,
+          10, // Top 10 most relevant chunks
+          0.4, // Lower threshold to ensure we get results
+        );
+
+        if (searchResults.length > 0) {
+          // Group results by document for organized retrieval
+          const chunksByDoc = new Map<string, number[]>();
+          for (const result of searchResults) {
+            const chunks = chunksByDoc.get(result.documentId) ?? [];
+            chunks.push(result.chunkIndex);
+            chunksByDoc.set(result.documentId, chunks);
           }
-        } catch (error) {
-          this.logger.warn(`Failed to extract content from secure document ${docId}`, error);
-          // Continue with other documents
+
+          // Decrypt only the relevant chunks for each document
+          for (const [docId, chunkIndices] of chunksByDoc) {
+            try {
+              const chunks = await this.secureDocumentsService.getDecryptedChunks(
+                docId,
+                userId,
+                chunkIndices,
+              );
+              if (chunks.length > 0) {
+                const content = chunks
+                  .sort((a, b) => a.chunkIndex - b.chunkIndex)
+                  .map(c => c.content)
+                  .join('\n');
+                documentContents.push(`[Document: ${chunks[0].filename}]\n${content}`);
+              }
+            } catch (error) {
+              this.logger.warn(`Failed to get chunks for document ${docId}`, error);
+            }
+          }
+
+          this.logger.log(`Semantic search: ${searchResults.length} relevant chunks from ${chunksByDoc.size} documents`);
+        } else {
+          // Fallback: no semantic results, get all chunks (legacy behavior)
+          this.logger.log('No semantic search results, falling back to all chunks');
+          for (const docId of dto.documents) {
+            try {
+              const chunks = await this.secureDocumentsService.getDecryptedChunks(docId, userId);
+              if (chunks.length > 0) {
+                const content = chunks
+                  .sort((a, b) => a.chunkIndex - b.chunkIndex)
+                  .map(c => c.content)
+                  .join('\n');
+                documentContents.push(`[Document: ${chunks[0].filename}]\n${content}`);
+              }
+            } catch (error) {
+              this.logger.warn(`Failed to extract content from secure document ${docId}`, error);
+            }
+          }
+        }
+      } catch (error) {
+        // If semantic search fails entirely, fall back to getting all chunks
+        this.logger.warn('Semantic search failed, falling back to all chunks', error);
+        for (const docId of dto.documents) {
+          try {
+            const chunks = await this.secureDocumentsService.getDecryptedChunks(docId, userId);
+            if (chunks.length > 0) {
+              const content = chunks
+                .sort((a, b) => a.chunkIndex - b.chunkIndex)
+                .map(c => c.content)
+                .join('\n');
+              documentContents.push(`[Document: ${chunks[0].filename}]\n${content}`);
+            }
+          } catch (err) {
+            this.logger.warn(`Failed to extract content from secure document ${docId}`, err);
+          }
         }
       }
     }
@@ -534,7 +610,7 @@ Output: Brief summary, key insights, 3-5 action items. Be concise.`;
         },
       },
       prompt: dto.prompt,
-      documents: documentContents, // Now contains actual content, not IDs
+      documents: documentContents, // Contains only relevant chunks from semantic search
     };
   }
 

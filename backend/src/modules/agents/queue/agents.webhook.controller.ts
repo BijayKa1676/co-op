@@ -142,14 +142,9 @@ export class AgentsWebhookController {
           councilSteps: [],
         });
         
-        // Call runWithoutUsageCheck to avoid double-counting (queueTask already incremented)
-        results = await this.agentsService.runWithoutUsageCheck(body.userId, {
-          agents,
-          prompt: input.prompt,
-          sessionId: input.context.sessionId,
-          startupId: input.context.startupId,
-          documents: input.documents,
-        }, onProgress);
+        // Use runMultiAgentWithInput since input.documents already contains content (not IDs)
+        // The buildAgentInput was already called in queueTask before publishing to QStash
+        results = await this.agentsService.runMultiAgentWithInput(input, agents, onProgress);
         
       } else if (agentType) {
         // Single agent mode

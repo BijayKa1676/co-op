@@ -708,19 +708,26 @@ export default function ChatPage() {
     return FileText;
   };
 
-  // Load session documents
+  // Load session documents when continuing an existing session
+  // Don't overwrite local docs if we just created a new session (docs uploaded before session creation)
   useEffect(() => {
     const loadDocs = async () => {
       if (!currentSession) return;
+      // Only load from server if we don't have local docs (continuing existing session)
+      // If we have local docs, they were uploaded before session was created
+      if (uploadedDocs.length > 0) return;
       try {
         const docs = await api.getSecureDocuments(currentSession.id);
-        setUploadedDocs(docs);
+        if (docs.length > 0) {
+          setUploadedDocs(docs);
+        }
       } catch (error) {
         console.error('Failed to load documents:', error);
       }
     };
     loadDocs();
-  }, [currentSession]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentSession?.id]);
 
   // Note: Document processing is synchronous - when upload returns, status is already 'ready'
   // No polling needed. If async processing is added later, use Supabase Realtime instead.

@@ -85,6 +85,13 @@
       "when": 1765906843143,
       "tag": "0011_tricky_rhino",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1765984970690,
+      "tag": "0012_smooth_reptil",
+      "breakpoints": true
     }
   ]
 }

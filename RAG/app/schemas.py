@@ -193,3 +193,55 @@ class CompressionHealthResponse(BaseModel):
     model: Optional[str] = None
     device: Optional[str] = None
     error: Optional[str] = None
+
+
+# ============================================
+# User Document Schemas (Secure Documents)
+# ============================================
+
+class UserDocEmbedRequest(BaseModel):
+    """Request to embed a user document chunk."""
+    document_id: str
+    chunk_index: int
+    user_id: str
+    content: str  # Plaintext chunk content (decrypted for embedding)
+    filename: str
+
+
+class UserDocEmbedResponse(BaseModel):
+    """Response from embedding a user document chunk."""
+    success: bool
+    vector_id: str
+    message: str
+
+
+class UserDocSearchRequest(BaseModel):
+    """Request to search user documents."""
+    query: str
+    user_id: str
+    document_ids: Optional[List[str]] = None  # Filter to specific docs
+    limit: int = Field(default=5, ge=1, le=20)
+    min_score: float = Field(default=0.5, ge=0.0, le=1.0)
+
+
+class UserDocSearchResult(BaseModel):
+    """Single search result from user documents."""
+    document_id: str
+    chunk_index: int
+    score: float
+    filename: str
+
+
+class UserDocSearchResponse(BaseModel):
+    """Response from searching user documents."""
+    results: List[UserDocSearchResult]
+    query_embedding_time_ms: int
+    search_time_ms: int
+    error: Optional[str] = None
+
+
+class UserDocDeleteResponse(BaseModel):
+    """Response from deleting user document vectors."""
+    success: bool
+    vectors_deleted: int
+    message: str

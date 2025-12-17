@@ -28,9 +28,9 @@ export class RunAgentDto {
   @IsUUID()
   startupId: string;
 
-  @ApiProperty({ type: [String], description: 'Document paths for context' })
+  @ApiProperty({ type: [String], description: 'Document IDs for context', required: false })
   @IsArray()
   @IsString({ each: true })
-  @MaxLength(500, { each: true })
-  documents: string[];
+  @IsOptional()
+  documents?: string[];
 }

@@ -625,3 +625,280 @@ async def query_rag_compressed(
 
 
 init_compression_provider()
+
+
+# ============================================
+# User Document Functions (Secure Documents)
+# ============================================
+
+async def embed_user_document_chunk(
+    document_id: str,
+    chunk_index: int,
+    user_id: str,
+    content: str,
+    filename: str
+) -> dict:
+    """
+    Embed a user document chunk and store in Upstash Vector.
+    
+    Args:
+        document_id: UUID of the document
+        chunk_index: Index of the chunk within the document
+        user_id: UUID of the user who owns the document
+        content: Plaintext content of the chunk
+        filename: Original filename for metadata
+    
+    Returns:
+        dict with success, vector_id, message
+    """
+    import time
+    start_time = time.time()
+    
+    if not vector_index:
+        return {
+            "success": False,
+            "vector_id": "",
+            "message": "Vector index not configured"
+        }
+    
+    if not content or not content.strip():
+        return {
+            "success": False,
+            "vector_id": "",
+            "message": "Content cannot be empty"
+        }
+    
+    try:
+        # Generate embedding
+        embedding = await get_embedding(content)
+        
+        # Create vector ID: user_{document_id}_{chunk_index}
+        vector_id = f"user_{document_id}_{chunk_index}"
+        
+        # Upsert to Upstash with user metadata
+        vector_index.upsert(vectors=[{
+            "id": vector_id,
+            "vector": embedding,
+            "metadata": {
+                "user_id": user_id,
+                "document_id": document_id,
+                "chunk_index": chunk_index,
+                "filename": filename,
+                "type": "user_document"  # Distinguish from admin RAG docs
+            },
+            "data": content[:500]  # Store truncated content for debugging
+        }])
+        
+        elapsed_ms = int((time.time() - start_time) * 1000)
+        logger.info(f"Embedded user doc chunk: {vector_id} ({elapsed_ms}ms)")
+        
+        return {
+            "success": True,
+            "vector_id": vector_id,
+            "message": f"Embedded chunk {chunk_index} of document {document_id}"
+        }
+        
+    except Exception as e:
+        logger.error(f"Failed to embed user doc chunk: {e}")
+        return {
+            "success": False,
+            "vector_id": "",
+            "message": f"Embedding failed: {str(e)}"
+        }
+
+
+async def search_user_documents(
+    query: str,
+    user_id: str,
+    document_ids: Optional[List[str]] = None,
+    limit: int = 5,
+    min_score: float = 0.5
+) -> dict:
+    """
+    Search user documents using semantic similarity.
+    
+    Args:
+        query: Search query text
+        user_id: UUID of the user (for isolation)
+        document_ids: Optional list of document IDs to filter
+        limit: Maximum number of results
+        min_score: Minimum similarity score threshold
+    
+    Returns:
+        dict with results, timing info, and optional error
+    """
+    import time
+    
+    if not vector_index:
+        return {
+            "results": [],
+            "query_embedding_time_ms": 0,
+            "search_time_ms": 0,
+            "error": "Vector index not configured"
+        }
+    
+    # Generate query embedding
+    embed_start = time.time()
+    try:
+        query_embedding = await get_query_embedding(query)
+    except Exception as e:
+        return {
+            "results": [],
+            "query_embedding_time_ms": 0,
+            "search_time_ms": 0,
+            "error": f"Failed to embed query: {str(e)}"
+        }
+    embed_time_ms = int((time.time() - embed_start) * 1000)
+    
+    # Build filter for user isolation
+    # Filter by user_id AND type=user_document
+    vector_filter = f"user_id = '{user_id}' AND type = 'user_document'"
+    
+    # If specific documents requested, add document filter
+    if document_ids and len(document_ids) > 0:
+        doc_filter = " OR ".join([f"document_id = '{doc_id}'" for doc_id in document_ids])
+        vector_filter = f"({vector_filter}) AND ({doc_filter})"
+    
+    # Search Upstash
+    search_start = time.time()
+    try:
+        results = vector_index.query(
+            vector=query_embedding,
+            top_k=limit * 2,  # Fetch extra to filter by score
+            include_metadata=True,
+            include_data=False,
+            filter=vector_filter
+        )
+    except Exception as e:
+        logger.error(f"User doc search failed: {e}")
+        return {
+            "results": [],
+            "query_embedding_time_ms": embed_time_ms,
+            "search_time_ms": 0,
+            "error": f"Search failed: {str(e)}"
+        }
+    search_time_ms = int((time.time() - search_start) * 1000)
+    
+    # Filter by minimum score and format results
+    filtered_results = []
+    for r in results:
+        if r.score >= min_score:
+            filtered_results.append({
+                "document_id": r.metadata.get("document_id", ""),
+                "chunk_index": r.metadata.get("chunk_index", 0),
+                "score": round(r.score, 4),
+                "filename": r.metadata.get("filename", "Unknown")
+            })
+        if len(filtered_results) >= limit:
+            break
+    
+    logger.info(f"User doc search: {len(filtered_results)} results for user {user_id[:8]}...")
+    
+    return {
+        "results": filtered_results,
+        "query_embedding_time_ms": embed_time_ms,
+        "search_time_ms": search_time_ms,
+        "error": None
+    }
+
+
+async def delete_user_document_vectors(document_id: str, chunk_count: int = 100) -> dict:
+    """
+    Delete all vectors for a specific user document.
+    
+    Args:
+        document_id: UUID of the document
+        chunk_count: Maximum number of chunks to delete (default 100)
+    
+    Returns:
+        dict with success, vectors_deleted, message
+    """
+    if not vector_index:
+        return {
+            "success": False,
+            "vectors_deleted": 0,
+            "message": "Vector index not configured"
+        }
+    
+    # Generate vector IDs to delete
+    vector_ids = [f"user_{document_id}_{i}" for i in range(chunk_count)]
+    
+    try:
+        # Delete vectors (Upstash ignores non-existent IDs)
+        vector_index.delete(ids=vector_ids)
+        logger.info(f"Deleted vectors for user document: {document_id}")
+        
+        return {
+            "success": True,
+            "vectors_deleted": chunk_count,  # Approximate
+            "message": f"Deleted vectors for document {document_id}"
+        }
+    except Exception as e:
+        logger.error(f"Failed to delete user doc vectors: {e}")
+        return {
+            "success": False,
+            "vectors_deleted": 0,
+            "message": f"Delete failed: {str(e)}"
+        }
+
+
+async def delete_user_vectors(user_id: str) -> dict:
+    """
+    Delete ALL vectors for a user (purge operation).
+    
+    Note: This uses a filter-based approach since we can't enumerate all user vectors.
+    Upstash Vector doesn't support delete-by-filter, so we query first then delete.
+    
+    Args:
+        user_id: UUID of the user
+    
+    Returns:
+        dict with success, vectors_deleted, message
+    """
+    if not vector_index:
+        return {
+            "success": False,
+            "vectors_deleted": 0,
+            "message": "Vector index not configured"
+        }
+    
+    try:
+        # Query to find all user's vectors (up to 1000)
+        # We need a dummy query vector - use a zero vector or query for common text
+        dummy_embedding = await get_embedding("document")
+        
+        results = vector_index.query(
+            vector=dummy_embedding,
+            top_k=1000,
+            include_metadata=True,
+            include_data=False,
+            filter=f"user_id = '{user_id}' AND type = 'user_document'"
+        )
+        
+        if not results:
+            return {
+                "success": True,
+                "vectors_deleted": 0,
+                "message": "No vectors found for user"
+            }
+        
+        # Extract vector IDs
+        vector_ids = [r.id for r in results]
+        
+        # Delete all found vectors
+        vector_index.delete(ids=vector_ids)
+        
+        logger.info(f"Purged {len(vector_ids)} vectors for user: {user_id[:8]}...")
+        
+        return {
+            "success": True,
+            "vectors_deleted": len(vector_ids),
+            "message": f"Purged {len(vector_ids)} vectors for user"
+        }
+    except Exception as e:
+        logger.error(f"Failed to purge user vectors: {e}")
+        return {
+            "success": False,
+            "vectors_deleted": 0,
+            "message": f"Purge failed: {str(e)}"
+        }

@@ -3,7 +3,6 @@ import { ConfigService } from '@nestjs/config';
 import { LlmCouncilService } from '@/common/llm/llm-council.service';
 import { ResearchService } from '@/common/research/research.service';
 import { sanitizeResponse } from '@/common/llm/utils/response-sanitizer';
-import { sanitizePII, restorePII, SanitizationMap } from '@/common/llm/utils/pii-sanitizer';
 import { BaseAgent, AgentInput, AgentOutput } from '../../types/agent.types';
 
 const COMPETITOR_SYSTEM_PROMPT = `You are an expert competitive intelligence analyst specializing in: market landscape analysis, competitive positioning, defensible moats, go-to-market strategy, pricing analysis, and feature comparison.
@@ -46,30 +45,21 @@ export class CompetitorAgentService implements BaseAgent {
   async runDraft(input: AgentInput): Promise<AgentOutput> {
     this.logger.debug('Running competitor agent with LLM Council + Web Research');
 
-    // Extract company/founder names for PII sanitization
-    const companyName = typeof input.context.metadata.companyName === 'string' 
-      ? input.context.metadata.companyName : undefined;
-    const founderName = typeof input.context.metadata.founderName === 'string'
-      ? input.context.metadata.founderName : undefined;
+    // Only fetch web research if no user documents provided
+    let webContext = '';
+    if (input.documents.length === 0) {
+      webContext = await this.getWebResearchContext(input);
+    }
 
-    // Gather context from multiple sources in parallel
-    const [ragContext, webContext] = await Promise.all([
-      this.getRagContext(input),
-      this.getWebResearchContext(input),
-    ]);
+    const userPrompt = this.buildUserPrompt(input, webContext);
 
-    // Build and sanitize the user prompt to prevent LLM training on company data
-    const rawPrompt = this.buildUserPrompt(input, ragContext, webContext);
-    const { text: sanitizedPrompt, mappings } = sanitizePII(rawPrompt, companyName, founderName);
-
-    const result = await this.council.runCouncil(COMPETITOR_SYSTEM_PROMPT, sanitizedPrompt, {
+    const result = await this.council.runCouncil(COMPETITOR_SYSTEM_PROMPT, userPrompt, {
       minModels: this.minModels,
       maxModels: this.maxModels,
       temperature: 0.6,
       maxTokens: 600,
     });
 
-    // Extract sources from research
     const sources = this.extractSources(webContext);
 
     return {
@@ -85,74 +75,43 @@ export class CompetitorAgentService implements BaseAgent {
         consensusScore: result.consensus.averageScore,
         responsesCount: result.responses.length,
         critiquesCount: result.critiques.length,
-        ragContextUsed: ragContext.length > 0,
+        hasUserDocuments: input.documents.length > 0,
         webResearchUsed: webContext.length > 0,
-        piiMappings: mappings, // Store for restoration in runFinal
       },
     };
   }
 
   runCritique(_input: AgentInput, draft: AgentOutput): Promise<AgentOutput> {
     const critiquesCount = typeof draft.metadata?.critiquesCount === 'number'
-      ? draft.metadata.critiquesCount
-      : 0;
+      ? draft.metadata.critiquesCount : 0;
 
     return Promise.resolve({
       content: `Council critique completed with ${String(critiquesCount)} cross-critiques`,
       confidence: draft.confidence,
       sources: draft.sources,
-      metadata: {
-        phase: 'critique',
-        agent: 'competitor',
-        ...draft.metadata,
-      },
+      metadata: { phase: 'critique', agent: 'competitor', ...draft.metadata },
     });
   }
 
   runFinal(_input: AgentInput, draft: AgentOutput, _critique: AgentOutput): Promise<AgentOutput> {
-    // Sanitize final output to ensure clean text for UI
-    let cleanContent = sanitizeResponse(draft.content);
-    
-    // Restore original company/founder names in the response
-    const mappings = draft.metadata?.piiMappings as SanitizationMap[] | undefined;
-    if (mappings && mappings.length > 0) {
-      cleanContent = restorePII(cleanContent, mappings);
-    }
-
-    // Remove piiMappings from final metadata (internal use only)
-    const { piiMappings: _, ...restMetadata } = draft.metadata || {};
-    
+    const cleanContent = sanitizeResponse(draft.content);
     return Promise.resolve({
       content: cleanContent,
       confidence: draft.confidence,
       sources: draft.sources,
-      metadata: {
-        phase: 'final',
-        agent: 'competitor',
-        ...restMetadata,
-      },
+      metadata: { phase: 'final', agent: 'competitor', ...draft.metadata },
     });
-  }
-
-  private getRagContext(_input: AgentInput): Promise<string> {
-    // Competitor agent is web-research based, not RAG-based
-    // RAG is only for legal and finance agents
-    return Promise.resolve('');
   }
 
   private async getWebResearchContext(input: AgentInput): Promise<string> {
     try {
-      // Extract company name and industry from metadata or prompt
       const companyName = this.extractFromMetadata(input, 'companyName', 'startup');
       const industry = this.extractFromMetadata(input, 'industry', 'technology');
       const description = this.extractFromMetadata(input, 'description', input.prompt);
 
       const context = await this.researchService.gatherCompetitorContext(
-        companyName,
-        industry,
-        description,
+        companyName, industry, description,
       );
-
       return this.researchService.formatContextForPrompt(context);
     } catch (error) {
       this.logger.warn('Failed to get web research context', error);
@@ -162,42 +121,36 @@ export class CompetitorAgentService implements BaseAgent {
 
   private extractFromMetadata(input: AgentInput, key: string, fallback: string): string {
     const value = input.context.metadata[key];
-    if (typeof value === 'string' && value.length > 0) {
-      return value;
-    }
-    return fallback;
+    return typeof value === 'string' && value.length > 0 ? value : fallback;
   }
 
   private extractSources(webContext: string): string[] {
-    // Extract URLs from the web context
     const urlRegex = /https?:\/\/[^\s)]+/g;
     const matches = webContext.match(urlRegex);
     return matches ? [...new Set(matches)] : [];
   }
 
-  private buildUserPrompt(input: AgentInput, ragContext: string, webContext: string): string {
-    let prompt = input.prompt;
+  private buildUserPrompt(input: AgentInput, webContext: string): string {
+    const parts: string[] = [];
 
-    // Add document context from RAG
-    if (ragContext) {
-      prompt += ragContext;
-    }
-
-    // Add web research context
-    if (webContext) {
-      prompt += webContext;
-    }
-
-    // Add any provided documents
+    // PRIORITY 1: User-uploaded documents (highest priority)
     if (input.documents.length > 0) {
-      prompt += `\n\nAdditional documents:\n${input.documents.join('\n---\n')}`;
+      parts.push(`PRIMARY CONTEXT - User Documents (analyze these first):\n${input.documents.join('\n---\n')}`);
     }
 
-    // Add metadata context
+    // PRIORITY 2: User's query
+    parts.push(`\nUser Question:\n${input.prompt}`);
+
+    // PRIORITY 3: Web research context (only if no user documents)
+    if (webContext) {
+      parts.push(`\nMarket Research:${webContext}`);
+    }
+
+    // Startup context
     if (Object.keys(input.context.metadata).length > 0) {
-      prompt += `\n\nStartup Context: ${JSON.stringify(input.context.metadata)}`;
+      parts.push(`\n\nStartup Context: ${JSON.stringify(input.context.metadata)}`);
     }
 
-    return prompt;
+    return parts.join('\n');
   }
 }

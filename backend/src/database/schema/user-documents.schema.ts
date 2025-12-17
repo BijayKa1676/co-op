@@ -66,8 +66,12 @@ export const userDocumentChunks = pgTable(
     encryptedContent: text('encrypted_content').notNull(),
     
     // Embedding vector (NOT encrypted - embeddings don't reveal original content)
-    // Stored as JSON array of floats
+    // Stored as JSON array of floats (legacy - now using Upstash Vector)
     embedding: text('embedding'),
+    
+    // Upstash Vector ID for semantic search
+    // Format: user_{document_id}_{chunk_index}
+    vectorId: text('vector_id'),
     
     // Metadata for search (non-sensitive)
     tokenCount: integer('token_count'),

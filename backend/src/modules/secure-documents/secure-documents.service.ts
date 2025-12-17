@@ -5,6 +5,7 @@ import { v4 as uuid } from 'uuid';
 import { ConfigService } from '@nestjs/config';
 import { DATABASE_CONNECTION } from '@/database/database.module';
 import { EncryptionService } from '@/common/encryption/encryption.service';
+import { UserDocsRagService } from '@/common/rag/user-docs-rag.service';
 import * as schema from '@/database/schema';
 import { userDocuments, userDocumentChunks } from '@/database/schema/user-documents.schema';
 
@@ -57,6 +58,7 @@ export class SecureDocumentsService {
     private readonly db: NodePgDatabase<typeof schema>,
     private readonly encryption: EncryptionService,
     private readonly config: ConfigService,
+    private readonly userDocsRag: UserDocsRagService,
   ) {
     this.expiryDays = this.config.get<number>('DOCUMENT_EXPIRY_DAYS', DEFAULT_EXPIRY_DAYS);
   }
@@ -102,19 +104,29 @@ export class SecureDocumentsService {
       // Chunk the text
       const chunks = this.chunkText(text);
       
-      // Encrypt and store each chunk
+      // Encrypt and store each chunk, then embed via RAG service
       for (let i = 0; i < chunks.length; i++) {
         const encryptedContent = this.encryption.encrypt(chunks[i]);
         
-        // Generate embedding (placeholder - would call embedding API)
-        const embedding = await this.generateEmbedding(chunks[i]);
+        // Call RAG service to embed chunk (uses Upstash Vector)
+        // This is done BEFORE encryption since we need plaintext for embedding
+        let vectorId: string | null = null;
+        if (this.userDocsRag.isAvailable()) {
+          vectorId = await this.userDocsRag.embedChunk(
+            documentId,
+            i,
+            userId,
+            chunks[i], // Plaintext for embedding
+            file.originalname,
+          );
+        }
         
         await this.db.insert(userDocumentChunks).values({
           documentId,
           userId,
           chunkIndex: i,
           encryptedContent,
-          embedding: embedding ? JSON.stringify(embedding) : null,
+          vectorId, // Store Upstash vector ID for later deletion
           tokenCount: Math.ceil(chunks[i].length / 4), // Rough estimate
         });
       }
@@ -200,72 +212,22 @@ export class SecureDocumentsService {
   }
 
   /**
-   * Semantic search across user's documents.
+   * Semantic search across user's documents using Upstash Vector.
    * Returns relevant chunk indices without decrypting content.
    */
-  async searchDocuments(
+  async searchUserDocuments(
     userId: string,
-    queryEmbedding: number[],
+    query: string,
+    documentIds?: string[],
     limit = 5,
-    sessionId?: string,
+    minScore = 0.5,
   ): Promise<{ documentId: string; chunkIndex: number; score: number }[]> {
-    // Get user's active documents
-    const whereClause = sessionId
-      ? and(
-          eq(userDocuments.userId, userId),
-          eq(userDocuments.sessionId, sessionId),
-          eq(userDocuments.status, 'ready'),
-          eq(userDocuments.isExpired, false),
-        )
-      : and(
-          eq(userDocuments.userId, userId),
-          eq(userDocuments.status, 'ready'),
-          eq(userDocuments.isExpired, false),
-        );
+    if (!this.userDocsRag.isAvailable()) {
+      this.logger.warn('RAG service not available, returning empty results');
+      return [];
+    }
 
-    const documents = await this.db
-      .select({ id: userDocuments.id })
-      .from(userDocuments)
-      .where(whereClause);
-
-    if (documents.length === 0) return [];
-
-    const documentIds = documents.map(d => d.id);
-
-    // Get all chunks with embeddings
-    const chunks = await this.db
-      .select()
-      .from(userDocumentChunks)
-      .where(and(
-        eq(userDocumentChunks.userId, userId),
-      ));
-
-    // Filter to only chunks from user's documents
-    const relevantChunks = chunks.filter(c => 
-      documentIds.includes(c.documentId) && c.embedding
-    );
-
-    // Calculate cosine similarity
-    const scored = relevantChunks
-      .map(chunk => {
-        try {
-          const embedding = JSON.parse(chunk.embedding!) as number[];
-          const score = this.cosineSimilarity(queryEmbedding, embedding);
-          return {
-            documentId: chunk.documentId,
-            chunkIndex: chunk.chunkIndex,
-            score,
-          };
-        } catch {
-          return null;
-        }
-      })
-      .filter((s): s is NonNullable<typeof s> => s !== null);
-
-    // Sort by score and return top results
-    return scored
-      .sort((a, b) => b.score - a.score)
-      .slice(0, limit);
+    return this.userDocsRag.searchDocuments(query, userId, documentIds, limit, minScore);
   }
 
 
@@ -290,17 +252,22 @@ export class SecureDocumentsService {
    * Delete a document and all its chunks (user-controlled deletion).
    */
   async deleteDocument(documentId: string, userId: string): Promise<void> {
-    const [document] = await this.db
+    const [doc] = await this.db
       .select()
       .from(userDocuments)
       .where(and(eq(userDocuments.id, documentId), eq(userDocuments.userId, userId)))
       .limit(1);
 
-    if (!document) {
+    if (!doc) {
       throw new NotFoundException('Document not found');
     }
 
-    // Delete chunks first (cascade should handle this, but be explicit)
+    // Delete vectors from Upstash first
+    if (this.userDocsRag.isAvailable()) {
+      await this.userDocsRag.deleteDocumentVectors(documentId, doc.chunkCount);
+    }
+
+    // Delete chunks from database
     await this.db
       .delete(userDocumentChunks)
       .where(eq(userDocumentChunks.documentId, documentId));
@@ -328,7 +295,12 @@ export class SecureDocumentsService {
       .from(userDocumentChunks)
       .where(eq(userDocumentChunks.userId, userId));
 
-    // Delete all chunks
+    // Delete all vectors from Upstash first
+    if (this.userDocsRag.isAvailable()) {
+      await this.userDocsRag.deleteUserVectors(userId);
+    }
+
+    // Delete all chunks from database
     await this.db
       .delete(userDocumentChunks)
       .where(eq(userDocumentChunks.userId, userId));
@@ -367,8 +339,13 @@ export class SecureDocumentsService {
 
     let chunksDeleted = 0;
 
-    // Delete chunks and mark documents as expired
+    // Delete chunks, vectors, and mark documents as expired
     for (const doc of expiredDocs) {
+      // Delete vectors from Upstash first
+      if (this.userDocsRag.isAvailable()) {
+        await this.userDocsRag.deleteDocumentVectors(doc.id, doc.chunkCount);
+      }
+
       const deleted = await this.db
         .delete(userDocumentChunks)
         .where(eq(userDocumentChunks.documentId, doc.id))
@@ -456,21 +433,43 @@ export class SecureDocumentsService {
       return file.buffer.toString('utf-8');
     }
 
-    // For PDF - would use pdf-parse library
+    // For PDF - use pdf-parse library
     if (file.mimetype === 'application/pdf' || ext === 'pdf') {
-      // Placeholder - in production, use pdf-parse
-      // const pdfParse = require('pdf-parse');
-      // const data = await pdfParse(file.buffer);
-      // return data.text;
-      return `[PDF content from ${file.originalname}]`;
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const pdfParse = require('pdf-parse');
+        const data = await pdfParse(file.buffer);
+        if (data.text && data.text.trim().length > 0) {
+          this.logger.log(`PDF extracted: ${file.originalname} (${data.numpages} pages, ${data.text.length} chars)`);
+          return data.text;
+        }
+        this.logger.warn(`PDF extraction returned empty text: ${file.originalname}`);
+        return `[PDF: ${file.originalname} - Could not extract text. The PDF may be image-based or protected.]`;
+      } catch (error) {
+        this.logger.error(`PDF extraction failed for ${file.originalname}`, error);
+        return `[PDF: ${file.originalname} - Text extraction failed]`;
+      }
     }
 
-    // For Word docs - would use mammoth library
+    // For Word docs - use mammoth library
     if (file.mimetype.includes('word') || file.mimetype.includes('document') || ext === 'doc' || ext === 'docx') {
-      return `[Word document content from ${file.originalname}]`;
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const mammoth = require('mammoth');
+        const result = await mammoth.extractRawText({ buffer: file.buffer });
+        if (result.value && result.value.trim().length > 0) {
+          this.logger.log(`Word doc extracted: ${file.originalname} (${result.value.length} chars)`);
+          return result.value;
+        }
+        this.logger.warn(`Word extraction returned empty text: ${file.originalname}`);
+        return `[Word: ${file.originalname} - Could not extract text]`;
+      } catch (error) {
+        this.logger.error(`Word extraction failed for ${file.originalname}`, error);
+        return `[Word: ${file.originalname} - Text extraction failed]`;
+      }
     }
 
-    return `[Document content from ${file.originalname}]`;
+    return `[Document: ${file.originalname} - Unsupported format for text extraction]`;
   }
 
   private chunkText(text: string): string[] {
@@ -486,37 +485,6 @@ export class SecureDocumentsService {
 
     // Ensure we don't have empty chunks
     return chunks.filter(c => c.trim().length > 0);
-  }
-
-  private async generateEmbedding(text: string): Promise<number[] | null> {
-    // Placeholder - in production, call embedding API (OpenAI, HuggingFace, etc.)
-    // For now, return null (embeddings disabled)
-    // 
-    // Example with OpenAI:
-    // const response = await openai.embeddings.create({
-    //   model: 'text-embedding-3-small',
-    //   input: text,
-    // });
-    // return response.data[0].embedding;
-    
-    return null;
-  }
-
-  private cosineSimilarity(a: number[], b: number[]): number {
-    if (a.length !== b.length) return 0;
-    
-    let dotProduct = 0;
-    let normA = 0;
-    let normB = 0;
-    
-    for (let i = 0; i < a.length; i++) {
-      dotProduct += a[i] * b[i];
-      normA += a[i] * a[i];
-      normB += b[i] * b[i];
-    }
-    
-    const magnitude = Math.sqrt(normA) * Math.sqrt(normB);
-    return magnitude === 0 ? 0 : dotProduct / magnitude;
   }
 
   private toResponse(doc: typeof userDocuments.$inferSelect): SecureDocumentResponse {

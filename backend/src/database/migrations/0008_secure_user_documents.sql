@@ -42,8 +42,12 @@ CREATE TABLE IF NOT EXISTS user_document_chunks (
   encrypted_content TEXT NOT NULL,
   
   -- Embedding vector (NOT encrypted - embeddings don't reveal original content)
-  -- Stored as JSON array of floats
+  -- Stored as JSON array of floats (legacy - now using Upstash Vector)
   embedding TEXT,
+  
+  -- Upstash Vector ID for semantic search
+  -- Format: user_{document_id}_{chunk_index}
+  vector_id TEXT,
   
   -- Metadata for search (non-sensitive)
   token_count INTEGER,

@@ -4,6 +4,7 @@ import { SecureDocumentsController } from './secure-documents.controller';
 import { SecureDocumentsService } from './secure-documents.service';
 import { DatabaseModule } from '@/database/database.module';
 import { EncryptionService } from '@/common/encryption/encryption.service';
+import { UserDocsRagService } from '@/common/rag/user-docs-rag.service';
 
 @Module({
   imports: [
@@ -15,7 +16,7 @@ import { EncryptionService } from '@/common/encryption/encryption.service';
     }),
   ],
   controllers: [SecureDocumentsController],
-  providers: [SecureDocumentsService, EncryptionService],
+  providers: [SecureDocumentsService, EncryptionService, UserDocsRagService],
   exports: [SecureDocumentsService],
 })
 export class SecureDocumentsModule {}

@@ -4,7 +4,6 @@ import { LlmCouncilService } from '@/common/llm/llm-council.service';
 import { RagService } from '@/common/rag/rag.service';
 import { RagSector, RagJurisdiction } from '@/common/rag/rag.types';
 import { sanitizeResponse } from '@/common/llm/utils/response-sanitizer';
-import { sanitizePII, restorePII, SanitizationMap } from '@/common/llm/utils/pii-sanitizer';
 import { BaseAgent, AgentInput, AgentOutput } from '../../types/agent.types';
 
 const FINANCE_SYSTEM_PROMPT = `You are an expert startup finance advisor specializing in: financial modeling, burn rate analysis, unit economics, valuation methods, budgeting, pricing strategy, and cash flow management.
@@ -33,31 +32,25 @@ GUARDRAILS:
 
 // Map common finance topics to jurisdictions for better RAG filtering
 const TOPIC_JURISDICTION_MAP: Record<string, RagJurisdiction[]> = {
-  // Securities & Fundraising
   fundraising: ['sec', 'finra', 'fca', 'sebi', 'mas', 'esma'],
   securities: ['sec', 'finra', 'fca', 'sebi', 'mas', 'esma'],
   investment: ['sec', 'finra', 'fca', 'sebi', 'mas', 'esma'],
   equity: ['sec', 'finra', 'fca', 'sebi', 'mas', 'esma'],
   'venture capital': ['sec', 'finra', 'fca', 'sebi', 'mas', 'esma'],
   ipo: ['sec', 'finra', 'fca', 'sebi', 'mas', 'esma'],
-  // Compliance
   sox: ['sox'],
   'sarbanes-oxley': ['sox'],
   audit: ['sox'],
-  // AML/KYC
   'anti-money': ['aml_kyc'],
   aml: ['aml_kyc'],
   kyc: ['aml_kyc'],
   'money laundering': ['aml_kyc'],
-  // Payments
   payment: ['pci_dss'],
   'credit card': ['pci_dss'],
   pci: ['pci_dss'],
-  // Tax
   tax: ['tax'],
   taxation: ['tax'],
   'tax planning': ['tax'],
-  // Corporate
   corporate: ['corporate'],
   governance: ['corporate'],
   board: ['corporate'],
@@ -81,22 +74,13 @@ export class FinanceAgentService implements BaseAgent {
   async runDraft(input: AgentInput): Promise<AgentOutput> {
     this.logger.debug('Running finance agent with LLM Council + RAG');
 
-    // Get sector and country from startup metadata
     const sector = (input.context.metadata.sector as RagSector) || 'saas';
     const country = (input.context.metadata.country as string) || undefined;
-
-    // Extract company/founder names for PII sanitization
-    const companyName = typeof input.context.metadata.companyName === 'string' 
-      ? input.context.metadata.companyName : undefined;
-    const founderName = typeof input.context.metadata.founderName === 'string'
-      ? input.context.metadata.founderName : undefined;
-
-    // Detect relevant jurisdictions from the query
     const detectedJurisdictions = this.detectJurisdictions(input.prompt);
 
-    // Fetch RAG context for finance domain with jurisdiction filtering
+    // Only fetch RAG if no user documents provided
     let ragContext = '';
-    if (this.ragService.isAvailable()) {
+    if (input.documents.length === 0 && this.ragService.isAvailable()) {
       ragContext = await this.ragService.getContext(
         input.prompt,
         'finance',
@@ -106,15 +90,13 @@ export class FinanceAgentService implements BaseAgent {
         5,
       );
       if (ragContext) {
-        this.logger.debug(`RAG context fetched for finance/${sector} (country: ${country ?? 'global'})`);
+        this.logger.debug(`RAG context fetched for finance/${sector}`);
       }
     }
 
-    // Build and sanitize the user prompt to prevent LLM training on company data
-    const rawPrompt = this.buildUserPrompt(input, ragContext, country);
-    const { text: sanitizedPrompt, mappings } = sanitizePII(rawPrompt, companyName, founderName);
+    const userPrompt = this.buildUserPrompt(input, ragContext, country);
 
-    const result = await this.council.runCouncil(FINANCE_SYSTEM_PROMPT, sanitizedPrompt, {
+    const result = await this.council.runCouncil(FINANCE_SYSTEM_PROMPT, userPrompt, {
       minModels: this.minModels,
       maxModels: this.maxModels,
       temperature: 0.6,
@@ -132,13 +114,13 @@ export class FinanceAgentService implements BaseAgent {
         country,
         detectedJurisdictions,
         ragEnabled: Boolean(ragContext),
+        hasUserDocuments: input.documents.length > 0,
         modelsUsed: result.metadata.modelsUsed,
         totalTokens: result.metadata.totalTokens,
         processingTimeMs: result.metadata.processingTimeMs,
         consensusScore: result.consensus.averageScore,
         responsesCount: result.responses.length,
         critiquesCount: result.critiques.length,
-        piiMappings: mappings, // Store for restoration in runFinal
       },
     };
   }
@@ -151,68 +133,48 @@ export class FinanceAgentService implements BaseAgent {
       content: `Council critique completed with ${String(critiquesCount)} cross-critiques`,
       confidence: draft.confidence,
       sources: [],
-      metadata: {
-        phase: 'critique',
-        agent: 'finance',
-        ...draft.metadata,
-      },
+      metadata: { phase: 'critique', agent: 'finance', ...draft.metadata },
     });
   }
 
   runFinal(_input: AgentInput, draft: AgentOutput, _critique: AgentOutput): Promise<AgentOutput> {
-    let cleanContent = sanitizeResponse(draft.content);
-    
-    // Restore original company/founder names in the response
-    const mappings = draft.metadata?.piiMappings as SanitizationMap[] | undefined;
-    if (mappings && mappings.length > 0) {
-      cleanContent = restorePII(cleanContent, mappings);
-    }
-
-    // Remove piiMappings from final metadata (internal use only)
-    const { piiMappings: _, ...restMetadata } = draft.metadata || {};
-    
+    const cleanContent = sanitizeResponse(draft.content);
     return Promise.resolve({
       content: cleanContent,
       confidence: draft.confidence,
       sources: [],
-      metadata: {
-        phase: 'final',
-        agent: 'finance',
-        ...restMetadata,
-      },
+      metadata: { phase: 'final', agent: 'finance', ...draft.metadata },
     });
   }
 
-  /**
-   * Detect relevant jurisdictions from the query text.
-   */
   private detectJurisdictions(query: string): RagJurisdiction[] {
     const lowerQuery = query.toLowerCase();
     const detected = new Set<RagJurisdiction>();
-
     for (const [topic, jurisdictions] of Object.entries(TOPIC_JURISDICTION_MAP)) {
       if (lowerQuery.includes(topic)) {
         jurisdictions.forEach((j) => detected.add(j));
       }
     }
-
     return Array.from(detected);
   }
 
   private buildUserPrompt(input: AgentInput, ragContext: string, country?: string): string {
-    let prompt = input.prompt;
+    const parts: string[] = [];
 
-    // Add RAG context if available
-    if (ragContext) {
-      prompt += ragContext;
-    }
-
-    // Add any additional documents
+    // PRIORITY 1: User-uploaded documents (highest priority)
     if (input.documents.length > 0) {
-      prompt += `\n\nAdditional documents:\n${input.documents.join('\n---\n')}`;
+      parts.push(`PRIMARY CONTEXT - User Documents (analyze these first):\n${input.documents.join('\n---\n')}`);
     }
 
-    // Add startup context with financial info and country
+    // PRIORITY 2: User's query
+    parts.push(`\nUser Question:\n${input.prompt}`);
+
+    // PRIORITY 3: RAG context (only if no user documents)
+    if (ragContext) {
+      parts.push(`\nReference Knowledge:${ragContext}`);
+    }
+
+    // Startup context
     const meta = input.context.metadata;
     if (Object.keys(meta).length > 0) {
       const companyName = typeof meta.companyName === 'string' ? meta.companyName : '';
@@ -223,22 +185,15 @@ export class FinanceAgentService implements BaseAgent {
       const monthlyRevenue = typeof meta.monthlyRevenue === 'number' ? meta.monthlyRevenue : null;
 
       let context = `\n\nStartup: ${companyName} (${industry}, ${stage}`;
-      if (country) {
-        context += `, based in ${country}`;
-      }
+      if (country) context += `, based in ${country}`;
       context += ')';
-      
       if (fundingStage) context += `\nFunding: ${fundingStage}`;
-      if (totalRaised !== null) context += `, Raised: $${String(totalRaised)}`;
-      if (monthlyRevenue !== null) context += `\nMRR: $${String(monthlyRevenue)}`;
-      
-      if (country) {
-        context += `\n\nNote: Consider ${country}-specific financial regulations and reporting requirements.`;
-      }
-      
-      prompt += context;
+      if (totalRaised !== null) context += `, Raised: ${String(totalRaised)}`;
+      if (monthlyRevenue !== null) context += `\nMRR: ${String(monthlyRevenue)}`;
+      if (country) context += `\n\nNote: Consider ${country}-specific financial regulations.`;
+      parts.push(context);
     }
 
-    return prompt;
+    return parts.join('\n');
   }
 }

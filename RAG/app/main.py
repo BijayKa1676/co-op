@@ -17,6 +17,11 @@ from app.services import (
     vectorize_file,
     compression_health,
     query_rag_compressed,
+    # User document functions
+    embed_user_document_chunk,
+    search_user_documents,
+    delete_user_document_vectors,
+    delete_user_vectors,
 )
 from app.schemas import (
     Domain, Sector, Region, Jurisdiction, DocumentType,
@@ -24,6 +29,10 @@ from app.schemas import (
     FileResponse, RegisterResponse, VectorizeResponse,
     CleanupResponse, HealthResponse,
     CompressionQueryRequest, CompressionQueryResponse, CompressionHealthResponse,
+    # User document schemas
+    UserDocEmbedRequest, UserDocEmbedResponse,
+    UserDocSearchRequest, UserDocSearchResponse,
+    UserDocDeleteResponse,
 )
 
 RAG_API_KEY = os.getenv("RAG_API_KEY", "")
@@ -251,6 +260,67 @@ async def compressed_query(request: CompressionQueryRequest, _: bool = Depends(v
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Query failed: {str(e)}")
+
+
+# ============================================
+# User Document Endpoints (Secure Documents)
+# ============================================
+
+@app.post("/user-docs/embed", response_model=UserDocEmbedResponse)
+async def embed_user_doc_chunk(request: UserDocEmbedRequest, _: bool = Depends(verify_api_key)):
+    """Embed a user document chunk and store in Upstash Vector."""
+    try:
+        result = await embed_user_document_chunk(
+            document_id=request.document_id,
+            chunk_index=request.chunk_index,
+            user_id=request.user_id,
+            content=request.content,
+            filename=request.filename
+        )
+        if not result["success"]:
+            raise HTTPException(status_code=400, detail=result["message"])
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Embedding failed: {str(e)}")
+
+
+@app.post("/user-docs/search", response_model=UserDocSearchResponse)
+async def search_user_docs(request: UserDocSearchRequest, _: bool = Depends(verify_api_key)):
+    """Search user documents using semantic similarity."""
+    try:
+        return await search_user_documents(
+            query=request.query,
+            user_id=request.user_id,
+            document_ids=request.document_ids,
+            limit=request.limit,
+            min_score=request.min_score
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Search failed: {str(e)}")
+
+
+@app.delete("/user-docs/{document_id}", response_model=UserDocDeleteResponse)
+async def delete_user_doc_vectors(
+    document_id: str, 
+    chunk_count: int = 100,
+    _: bool = Depends(verify_api_key)
+):
+    """Delete all vectors for a specific user document."""
+    try:
+        return await delete_user_document_vectors(document_id, chunk_count)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Delete failed: {str(e)}")
+
+
+@app.delete("/user-docs/user/{user_id}", response_model=UserDocDeleteResponse)
+async def purge_user_vectors(user_id: str, _: bool = Depends(verify_api_key)):
+    """Delete ALL vectors for a user (purge operation)."""
+    try:
+        return await delete_user_vectors(user_id)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Purge failed: {str(e)}")
 
 
 if __name__ == "__main__":

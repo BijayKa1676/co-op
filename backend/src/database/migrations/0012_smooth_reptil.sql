@@ -1,0 +1,1 @@
+ALTER TABLE "user_document_chunks" ADD COLUMN "vector_id" text;
