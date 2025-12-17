@@ -154,6 +154,11 @@ export class SecureDocumentsService {
         .where(eq(userDocuments.id, documentId));
       
       this.logger.error(`Document processing failed: ${documentId}`, error);
+      
+      // Preserve specific error messages (e.g., from OCR)
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
       throw new BadRequestException('Failed to process document securely');
     }
   }
@@ -526,9 +531,8 @@ export class SecureDocumentsService {
       return fullText;
     } catch (error) {
       this.logger.error(`OCR extraction failed for ${filename}`, error);
-      throw new BadRequestException(
-        `Could not extract text from PDF "${filename}". The file may be corrupted or contain only images that cannot be processed.`
-      );
+      // Return a descriptive message instead of failing - user can still see the doc was uploaded
+      return `[PDF: ${filename} - This appears to be a scanned/image-based PDF. Text extraction via OCR failed. Please try uploading a text-based PDF or a different document format.]`;
     }
   }
 
