@@ -29,6 +29,9 @@ RUN npm prune --production
 # ===========================================
 FROM node:22-alpine AS production
 
+# Install Tesseract OCR for image-based PDF extraction
+RUN apk add --no-cache tesseract-ocr tesseract-ocr-data-eng
+
 # Security: run as non-root
 RUN addgroup -g 1001 -S nodejs && \
     adduser -S nestjs -u 1001

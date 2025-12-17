@@ -433,21 +433,22 @@ export class SecureDocumentsService {
       return file.buffer.toString('utf-8');
     }
 
-    // For PDF - use pdf-parse library
+    // For PDF - use pdf-parse library, fallback to OCR
     if (file.mimetype === 'application/pdf' || ext === 'pdf') {
       try {
         // eslint-disable-next-line @typescript-eslint/no-require-imports
         const pdfParse = require('pdf-parse');
         const data = await pdfParse(file.buffer);
-        if (data.text && data.text.trim().length > 0) {
+        if (data.text && data.text.trim().length > 100) {
           this.logger.log(`PDF extracted: ${file.originalname} (${data.numpages} pages, ${data.text.length} chars)`);
           return data.text;
         }
-        this.logger.warn(`PDF extraction returned empty text: ${file.originalname}`);
-        return `[PDF: ${file.originalname} - Could not extract text. The PDF may be image-based or protected.]`;
+        // Text extraction returned little/no content - try OCR
+        this.logger.warn(`PDF text extraction returned minimal content, trying OCR: ${file.originalname}`);
+        return this.extractTextWithOcr(file.buffer, file.originalname);
       } catch (error) {
-        this.logger.error(`PDF extraction failed for ${file.originalname}`, error);
-        return `[PDF: ${file.originalname} - Text extraction failed]`;
+        this.logger.warn(`PDF parse failed, trying OCR: ${file.originalname}`, error);
+        return this.extractTextWithOcr(file.buffer, file.originalname);
       }
     }
 
@@ -470,6 +471,65 @@ export class SecureDocumentsService {
     }
 
     return `[Document: ${file.originalname} - Unsupported format for text extraction]`;
+  }
+
+  /**
+   * Extract text from image-based PDFs using Tesseract OCR.
+   * Converts PDF pages to images, then runs OCR on each.
+   */
+  private async extractTextWithOcr(pdfBuffer: Buffer, filename: string): Promise<string> {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const { pdfToPng } = require('pdf-to-png-converter');
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const Tesseract = require('tesseract.js');
+
+      this.logger.log(`Starting OCR for: ${filename}`);
+
+      // Convert PDF pages to PNG images
+      const pngPages = await pdfToPng(pdfBuffer, {
+        disableFontFace: true,
+        useSystemFonts: true,
+        viewportScale: 2.0, // Higher resolution for better OCR
+      });
+
+      if (!pngPages || pngPages.length === 0) {
+        this.logger.warn(`No pages extracted from PDF: ${filename}`);
+        throw new Error('No pages extracted');
+      }
+
+      this.logger.log(`Converted ${pngPages.length} pages to images, running OCR...`);
+
+      // Run OCR on each page
+      const textParts: string[] = [];
+      for (let i = 0; i < pngPages.length; i++) {
+        const page = pngPages[i];
+        try {
+          const result = await Tesseract.recognize(page.content, 'eng', {
+            logger: () => {}, // Suppress progress logs
+          });
+          if (result.data.text && result.data.text.trim().length > 0) {
+            textParts.push(result.data.text.trim());
+          }
+        } catch (pageError) {
+          this.logger.warn(`OCR failed for page ${i + 1} of ${filename}`, pageError);
+        }
+      }
+
+      if (textParts.length === 0) {
+        this.logger.warn(`OCR returned no text for: ${filename}`);
+        throw new Error('OCR returned no text');
+      }
+
+      const fullText = textParts.join('\n\n');
+      this.logger.log(`OCR completed: ${filename} (${pngPages.length} pages, ${fullText.length} chars)`);
+      return fullText;
+    } catch (error) {
+      this.logger.error(`OCR extraction failed for ${filename}`, error);
+      throw new BadRequestException(
+        `Could not extract text from PDF "${filename}". The file may be corrupted or contain only images that cannot be processed.`
+      );
+    }
   }
 
   private chunkText(text: string): string[] {
