@@ -1,4 +1,5 @@
 import { Injectable, Logger, BadRequestException, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { v4 as uuid } from 'uuid';
 import { createHash } from 'crypto';
 import { GroqProvider } from './providers/groq.provider';
@@ -18,6 +19,11 @@ import {
   AVAILABLE_MODELS,
 } from './types/llm.types';
 import { sanitizeResponse } from './utils/response-sanitizer';
+
+// Default timeout for LLM calls (30 seconds)
+const LLM_TIMEOUT_MS = 30000;
+// Timeout for critique phase (60 seconds total)
+const CRITIQUE_TIMEOUT_MS = 60000;
 
 interface CritiqueJson {
   score: number;
@@ -55,28 +61,46 @@ export class LlmCouncilService implements OnModuleInit, OnModuleDestroy {
   private readonly providers: Map<LlmProvider, LlmProviderService>;
   private availableModels: ModelConfig[] = [];
   private healthCheckResults = new Map<string, ModelHealthCheck>();
+  private readonly maxCouncilModels: number;
+  private readonly minCouncilModels: number;
 
   constructor(
     private readonly groqProvider: GroqProvider,
     private readonly googleProvider: GoogleProvider,
     private readonly huggingFaceProvider: HuggingFaceProvider,
     private readonly cache: CacheService,
+    private readonly configService: ConfigService,
   ) {
     this.providers = new Map<LlmProvider, LlmProviderService>([
       ['groq', this.groqProvider],
       ['google', this.googleProvider],
       ['huggingface', this.huggingFaceProvider],
     ]);
+    
+    // Configurable council size for scalability
+    this.minCouncilModels = this.configService.get<number>('LLM_COUNCIL_MIN_MODELS', 2);
+    this.maxCouncilModels = this.configService.get<number>('LLM_COUNCIL_MAX_MODELS', 3);
   }
 
   /**
-   * Generate cache key for a prompt
+   * Wrap a promise with a timeout
+   */
+  private withTimeout<T>(promise: Promise<T>, timeoutMs: number, operation: string): Promise<T> {
+    return Promise.race([
+      promise,
+      new Promise<T>((_, reject) =>
+        setTimeout(() => { reject(new Error(`${operation} timed out after ${timeoutMs}ms`)); }, timeoutMs)
+      ),
+    ]);
+  }
+
+  /**
+   * Generate cache key for a prompt - use full 32-char MD5 for better collision resistance
    */
   private getCacheKey(systemPrompt: string, userPrompt: string, model: string): string {
     const hash = createHash('md5')
       .update(`${systemPrompt}:${userPrompt}:${model}`)
-      .digest('hex')
-      .slice(0, 16);
+      .digest('hex'); // Full 32-char hash (128-bit entropy)
     return `${LLM_CACHE_PREFIX}${hash}`;
   }
 
@@ -84,8 +108,12 @@ export class LlmCouncilService implements OnModuleInit, OnModuleDestroy {
   private readonly HEALTH_CHECK_INTERVAL_MS = 10 * 60 * 1000; // 10 minutes
 
   async onModuleInit(): Promise<void> {
-    this.logger.log('Running LLM model health checks on boot...');
-    await this.runHealthChecks();
+    this.logger.log('Starting LLM model health checks (non-blocking)...');
+    
+    // Run health checks asynchronously to not block startup
+    void this.runHealthChecks().catch(err => 
+      { this.logger.warn('Initial health check failed, will retry on schedule', err); }
+    );
     
     // Schedule periodic health checks to recover from transient failures
     this.healthCheckInterval = setInterval(() => {
@@ -154,16 +182,20 @@ export class LlmCouncilService implements OnModuleInit, OnModuleDestroy {
     }
 
     try {
-      // Simple health check prompt - minimal tokens
+      // Simple health check prompt - minimal tokens with timeout
       const messages: ChatMessage[] = [
         { role: 'user', content: 'Reply with only: OK' },
       ];
 
-      await provider.chat(messages, {
-        model: model.model,
-        temperature: 0,
-        maxTokens: 10,
-      });
+      await this.withTimeout(
+        provider.chat(messages, {
+          model: model.model,
+          temperature: 0,
+          maxTokens: 10,
+        }),
+        10000, // 10 second timeout for health checks
+        `Health check for ${model.name}`
+      );
 
       return {
         model: model.model,
@@ -224,11 +256,11 @@ export class LlmCouncilService implements OnModuleInit, OnModuleDestroy {
     },
   ): Promise<CouncilResult> {
     const startTime = Date.now();
-    const minModels = options?.minModels ?? 2;
-    const maxModels = options?.maxModels ?? 4;
+    const minModels = options?.minModels ?? this.minCouncilModels;
+    const maxModels = options?.maxModels ?? this.maxCouncilModels;
     const onProgress = options?.onProgress;
 
-    // Select models for the council
+    // Select models for the council (limited for scalability)
     const councilModels = this.selectCouncilModels(minModels, maxModels);
 
     // MANDATORY: Must have at least 2 models for cross-critique
@@ -316,19 +348,20 @@ export class LlmCouncilService implements OnModuleInit, OnModuleDestroy {
     };
   }
 
-  private selectCouncilModels(min: number, _max: number): ModelConfig[] {
+  private selectCouncilModels(min: number, max: number): ModelConfig[] {
     if (this.availableModels.length === 0) {
       throw new Error('No LLM models available. Configure at least one provider.');
     }
 
-    // Use ALL available healthy models - no limiting
+    // Shuffle and limit to max models for scalability (prevents N² explosion)
     const available = this.shuffleArray(this.availableModels);
+    const selected = available.slice(0, Math.min(max, available.length));
 
-    if (available.length < min) {
-      this.logger.warn(`Only ${String(available.length)} models available, requested minimum ${String(min)}`);
+    if (selected.length < min) {
+      this.logger.warn(`Only ${String(selected.length)} models available, requested minimum ${String(min)}`);
     }
 
-    return available;
+    return selected;
   }
 
   private async generateResponses(
@@ -358,7 +391,11 @@ export class LlmCouncilService implements OnModuleInit, OnModuleDestroy {
 
       try {
         onProgress?.(`${model.name} generating response...`);
-        const result = await provider.chat(messages, { ...options, model: model.model });
+        const result = await this.withTimeout(
+          provider.chat(messages, { ...options, model: model.model }),
+          LLM_TIMEOUT_MS,
+          `Response generation from ${model.name}`
+        );
         onProgress?.(`${model.name} completed (${result.usage.totalTokens} tokens)`);
         
         const response: CouncilResponse = {
@@ -374,7 +411,8 @@ export class LlmCouncilService implements OnModuleInit, OnModuleDestroy {
         
         return response;
       } catch (error) {
-        this.logger.warn(`Model ${model.name} failed to generate response`, error);
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        this.logger.warn(`Model ${model.name} failed: ${errorMsg.slice(0, 100)}`);
         onProgress?.(`${model.name} failed - skipping`);
         return null;
       }
@@ -391,21 +429,22 @@ export class LlmCouncilService implements OnModuleInit, OnModuleDestroy {
     originalPrompt: string,
     onProgress?: (step: string) => void,
   ): Promise<CouncilCritique[]> {
-    // Build all critique tasks for parallel execution
-    // Each model critiques ALL other responses (full cross-critique)
+    // Limit critiques for scalability: each model critiques at most 2 other responses
+    const maxCritiquesPerModel = 2;
     const critiqueTasks: Promise<CouncilCritique | null>[] = [];
-    const totalCritiques = models.length * (responses.length - 1);
     
-    onProgress?.(`Starting ${totalCritiques} cross-critiques (${models.length} models × ${responses.length - 1} responses each)...`);
+    // Calculate expected critiques
+    const expectedCritiques = models.length * Math.min(maxCritiquesPerModel, responses.length - 1);
+    onProgress?.(`Starting ${expectedCritiques} cross-critiques (${models.length} models × up to ${maxCritiquesPerModel} responses each)...`);
 
     for (const model of models) {
       const provider = this.providers.get(model.provider);
       if (!provider) continue;
 
-      // Find ALL responses not from this model - full cross-critique
-      const otherResponses = responses.filter(
-        r => !(r.provider === model.provider && r.model === model.model),
-      );
+      // Find responses not from this model, limit to maxCritiquesPerModel
+      const otherResponses = responses
+        .filter(r => !(r.provider === model.provider && r.model === model.model))
+        .slice(0, maxCritiquesPerModel);
 
       for (const response of otherResponses) {
         critiqueTasks.push(
@@ -417,16 +456,31 @@ export class LlmCouncilService implements OnModuleInit, OnModuleDestroy {
               return result;
             })
             .catch(error => {
-              this.logger.warn(`Model ${model.name} failed to critique`, error);
+              const errorMsg = error instanceof Error ? error.message : String(error);
+              this.logger.warn(`Model ${model.name} failed to critique: ${errorMsg.slice(0, 100)}`);
               return null;
             })
         );
       }
     }
 
-    // Run all critiques in parallel
-    const results = await Promise.all(critiqueTasks);
-    return results.filter((c): c is CouncilCritique => c !== null);
+    // Run all critiques in parallel with overall timeout
+    try {
+      const results = await this.withTimeout(
+        Promise.all(critiqueTasks),
+        CRITIQUE_TIMEOUT_MS,
+        'Critique phase'
+      );
+      return results.filter((c): c is CouncilCritique => c !== null);
+    } catch {
+      this.logger.warn('Critique phase timed out, using partial results');
+      // Return whatever critiques completed before timeout
+      const partialResults = await Promise.allSettled(critiqueTasks);
+      return partialResults
+        .filter((r): r is PromiseFulfilledResult<CouncilCritique | null> => r.status === 'fulfilled')
+        .map(r => r.value)
+        .filter((c): c is CouncilCritique => c !== null);
+    }
   }
 
   private async critiqueResponse(
@@ -466,11 +520,15 @@ Output ONLY valid JSON:
       { role: 'user', content: critiquePrompt },
     ];
 
-    const result = await provider.chat(messages, {
-      model: criticModel.model,
-      temperature: 0.3,
-      maxTokens: 300,
-    });
+    const result = await this.withTimeout(
+      provider.chat(messages, {
+        model: criticModel.model,
+        temperature: 0.3,
+        maxTokens: 300,
+      }),
+      LLM_TIMEOUT_MS,
+      `Critique from ${criticModel.name}`
+    );
 
     const parsed = this.parseCritiqueWithFallback(result.content, criticModel.name);
     
@@ -713,19 +771,25 @@ INSTRUCTIONS:
 Output the improved response only:`;
 
     try {
-      const result = await provider.chat(
-        [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: synthesisPrompt },
-        ],
-        { model: synthModel.model, temperature: 0.4, maxTokens: 1500 },
+      const result = await this.withTimeout(
+        provider.chat(
+          [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: synthesisPrompt },
+          ],
+          { model: synthModel.model, temperature: 0.4, maxTokens: 1500 },
+        ),
+        LLM_TIMEOUT_MS,
+        'Final synthesis'
       );
 
       // Sanitize the final response to remove markdown and apply guardrails
       const cleanResponse = sanitizeResponse(result.content);
       onProgress?.('Final response sanitized and ready');
       return { finalResponse: cleanResponse, bestResponseId, averageScore };
-    } catch {
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      this.logger.warn(`Synthesis failed: ${errorMsg.slice(0, 100)}, using best response`);
       // Sanitize fallback response as well
       const cleanFallback = sanitizeResponse(bestResponse.content);
       onProgress?.('Using best response as fallback');

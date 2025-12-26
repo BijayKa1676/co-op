@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { drizzle, NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
 import * as schema from './schema';
+import { MetricsService } from '@/common/metrics/metrics.service';
 
 export const DATABASE_CONNECTION = 'DATABASE_CONNECTION';
 export const DATABASE_POOL = 'DATABASE_POOL';
@@ -12,9 +13,10 @@ export const DATABASE_POOL = 'DATABASE_POOL';
   providers: [
     {
       provide: DATABASE_POOL,
-      inject: [ConfigService],
-      useFactory: (configService: ConfigService): Pool => {
+      inject: [ConfigService, MetricsService],
+      useFactory: (configService: ConfigService, metricsService: MetricsService): Pool => {
         const isProduction = configService.get<string>('NODE_ENV') === 'production';
+        const logger = new Logger('DatabasePool');
 
         const pool = new Pool({
           connectionString: configService.get<string>('DATABASE_URL'),
@@ -27,10 +29,10 @@ export const DATABASE_POOL = 'DATABASE_POOL';
           maxUses: 7500, // Close connection after N uses (prevents memory leaks)
         });
 
-        const logger = new Logger('DatabasePool');
-
         pool.on('connect', () => {
           logger.debug('New database connection established');
+          // Update active connections metric
+          metricsService.setDbConnectionsActive(pool.totalCount);
         });
 
         pool.on('error', (err) => {
@@ -39,7 +41,21 @@ export const DATABASE_POOL = 'DATABASE_POOL';
 
         pool.on('remove', () => {
           logger.debug('Database connection removed from pool');
+          metricsService.setDbConnectionsActive(pool.totalCount);
         });
+
+        pool.on('acquire', () => {
+          metricsService.setDbConnectionsActive(pool.totalCount - pool.idleCount);
+        });
+
+        pool.on('release', () => {
+          metricsService.setDbConnectionsActive(pool.totalCount - pool.idleCount);
+        });
+
+        // Periodic connection pool metrics update
+        setInterval(() => {
+          metricsService.setDbConnectionsActive(pool.totalCount - pool.idleCount);
+        }, 10000);
 
         return pool;
       },

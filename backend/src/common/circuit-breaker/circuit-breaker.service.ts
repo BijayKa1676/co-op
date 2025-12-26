@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import * as Opossum from 'opossum';
+import { MetricsService } from '@/common/metrics/metrics.service';
 
 // Handle CommonJS/ESM interop
 const CircuitBreaker = (Opossum as { default?: typeof Opossum }).default ?? Opossum;
@@ -41,6 +42,8 @@ export class CircuitBreakerService {
     resetTimeout: 30000,
     volumeThreshold: 5,
   };
+
+  constructor(private readonly metricsService: MetricsService) {}
 
   /**
    * Clean up least recently used breakers if we exceed MAX_BREAKERS
@@ -90,14 +93,17 @@ export class CircuitBreakerService {
 
     breaker.on('open', () => {
       this.logger.warn(`Circuit breaker "${name}" opened`);
+      this.metricsService.setCircuitBreakerState(name, 'open');
     });
 
     breaker.on('halfOpen', () => {
       this.logger.log(`Circuit breaker "${name}" half-open`);
+      this.metricsService.setCircuitBreakerState(name, 'half-open');
     });
 
     breaker.on('close', () => {
       this.logger.log(`Circuit breaker "${name}" closed`);
+      this.metricsService.setCircuitBreakerState(name, 'closed');
     });
 
     breaker.on('fallback', () => {
@@ -107,6 +113,9 @@ export class CircuitBreakerService {
     breaker.on('timeout', () => {
       this.logger.warn(`Circuit breaker "${name}" timeout`);
     });
+
+    // Set initial state
+    this.metricsService.setCircuitBreakerState(name, 'closed');
 
     this.breakers.set(name, breaker);
     this.breakerLastUsed.set(name, Date.now());

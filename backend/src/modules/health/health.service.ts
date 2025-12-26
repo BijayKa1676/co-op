@@ -14,9 +14,14 @@ interface ServiceCheckResult {
   error: string;
 }
 
+// Cache health check results for 10 seconds to prevent hammering during high traffic
+const HEALTH_CACHE_TTL_MS = 10000;
+
 @Injectable()
 export class HealthService {
   private readonly logger = new Logger(HealthService.name);
+  private cachedResult: HealthCheckDto | null = null;
+  private cacheTimestamp = 0;
 
   constructor(
     @Inject(DATABASE_CONNECTION)
@@ -26,11 +31,17 @@ export class HealthService {
     private readonly ragService: RagService,
   ) {}
 
-  async check(): Promise<HealthCheckDto> {
+  async check(skipCache = false): Promise<HealthCheckDto> {
+    // Return cached result if still valid (prevents hammering during high traffic)
+    const now = Date.now();
+    if (!skipCache && this.cachedResult && (now - this.cacheTimestamp) < HEALTH_CACHE_TTL_MS) {
+      return this.cachedResult;
+    }
+
     const services: Record<string, ServiceStatus> = {};
     const details: Record<string, ServiceCheckResult> = {};
 
-    // Check database
+    // Check database (includes write test for reliability)
     const dbCheck = await this.checkDatabase();
     services.database = dbCheck.status;
     details.database = dbCheck;
@@ -57,12 +68,18 @@ export class HealthService {
     const allHealthy = Object.values(services).every(s => s === ServiceStatus.HEALTHY);
     const anyHealthy = Object.values(services).some(s => s === ServiceStatus.HEALTHY);
 
-    return {
+    const result: HealthCheckDto = {
       status: allHealthy ? ServiceStatus.HEALTHY : anyHealthy ? ServiceStatus.DEGRADED : ServiceStatus.UNHEALTHY,
       timestamp: new Date().toISOString(),
       version: '1.0.0',
       services,
     };
+
+    // Cache the result
+    this.cachedResult = result;
+    this.cacheTimestamp = now;
+
+    return result;
   }
 
   private async checkDatabase(): Promise<ServiceCheckResult> {

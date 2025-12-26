@@ -1,6 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createClient, SupabaseClient, User } from '@supabase/supabase-js';
+import { RedisService } from '@/common/redis/redis.service';
+
+// Token blacklist key prefix and TTL (24 hours - matches typical JWT expiry)
+const TOKEN_BLACKLIST_PREFIX = 'token:blacklist:';
+const TOKEN_BLACKLIST_TTL_SECONDS = 24 * 60 * 60;
 
 export interface SupabaseUser {
   id: string;
@@ -18,7 +23,10 @@ export class SupabaseService {
   private readonly client: SupabaseClient;
   private readonly serviceClient: SupabaseClient;
 
-  constructor(private readonly configService: ConfigService) {
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly redis: RedisService,
+  ) {
     const supabaseUrl = this.configService.get<string>('SUPABASE_URL');
     const supabaseAnonKey = this.configService.get<string>('SUPABASE_ANON_KEY');
     const supabaseServiceKey = this.configService.get<string>('SUPABASE_SERVICE_KEY');
@@ -52,6 +60,14 @@ export class SupabaseService {
   }
 
   async verifyToken(token: string): Promise<SupabaseUser | null> {
+    // Check if token is blacklisted (revoked)
+    const tokenHash = this.hashToken(token);
+    const isBlacklisted = await this.redis.exists(`${TOKEN_BLACKLIST_PREFIX}${tokenHash}`);
+    if (isBlacklisted) {
+      this.logger.debug('Token is blacklisted (revoked)');
+      return null;
+    }
+
     const {
       data: { user },
       error,
@@ -63,6 +79,40 @@ export class SupabaseService {
     }
 
     return this.mapUser(user);
+  }
+
+  /**
+   * Blacklist a token (for logout/revocation)
+   * Token will be rejected until TTL expires
+   */
+  async blacklistToken(token: string): Promise<void> {
+    const tokenHash = this.hashToken(token);
+    await this.redis.set(`${TOKEN_BLACKLIST_PREFIX}${tokenHash}`, { revokedAt: Date.now() }, TOKEN_BLACKLIST_TTL_SECONDS);
+    this.logger.debug('Token blacklisted');
+  }
+
+  /**
+   * Blacklist all tokens for a user (force logout everywhere)
+   */
+  async blacklistUserTokens(userId: string): Promise<void> {
+    // Store user-level revocation timestamp
+    await this.redis.set(`${TOKEN_BLACKLIST_PREFIX}user:${userId}`, { revokedAt: Date.now() }, TOKEN_BLACKLIST_TTL_SECONDS);
+    this.logger.log(`All tokens blacklisted for user ${userId}`);
+  }
+
+  /**
+   * Check if user's tokens are globally revoked
+   */
+  async isUserTokensRevoked(userId: string): Promise<boolean> {
+    return this.redis.exists(`${TOKEN_BLACKLIST_PREFIX}user:${userId}`);
+  }
+
+  /**
+   * Hash token for storage (don't store raw tokens)
+   */
+  private hashToken(token: string): string {
+    // Use last 32 chars of token as identifier (unique enough, avoids storing full token)
+    return token.slice(-32);
   }
 
   async getUserById(userId: string): Promise<SupabaseUser | null> {

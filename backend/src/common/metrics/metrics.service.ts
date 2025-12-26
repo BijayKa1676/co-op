@@ -17,9 +17,16 @@ export class MetricsService implements OnModuleInit {
   private readonly llmRequestsTotal: Counter;
   private readonly llmRequestDuration: Histogram;
   private readonly llmErrors: Counter;
+  private readonly llmTokensTotal: Counter;
   private readonly agentTasksTotal: Counter;
   private readonly agentTaskDuration: Histogram;
   private readonly circuitBreakerState: Gauge;
+  private readonly redisOperationsTotal: Counter;
+  private readonly redisCacheHits: Counter;
+  private readonly redisCacheMisses: Counter;
+  private readonly redisErrors: Counter;
+  private readonly dbQueryDuration: Histogram;
+  private readonly dbConnectionsActive: Gauge;
 
   constructor() {
     this.registry = new Registry();
@@ -67,6 +74,13 @@ export class MetricsService implements OnModuleInit {
       registers: [this.registry],
     });
 
+    this.llmTokensTotal = new Counter({
+      name: 'llm_tokens_total',
+      help: 'Total number of LLM tokens used',
+      labelNames: ['provider', 'model', 'type'],
+      registers: [this.registry],
+    });
+
     this.agentTasksTotal = new Counter({
       name: 'agent_tasks_total',
       help: 'Total number of agent tasks',
@@ -86,6 +100,47 @@ export class MetricsService implements OnModuleInit {
       name: 'circuit_breaker_state',
       help: 'Circuit breaker state (0=closed, 1=open, 0.5=half-open)',
       labelNames: ['name'],
+      registers: [this.registry],
+    });
+
+    // Redis metrics
+    this.redisOperationsTotal = new Counter({
+      name: 'redis_operations_total',
+      help: 'Total number of Redis operations',
+      labelNames: ['operation'],
+      registers: [this.registry],
+    });
+
+    this.redisCacheHits = new Counter({
+      name: 'redis_cache_hits_total',
+      help: 'Total number of Redis cache hits',
+      registers: [this.registry],
+    });
+
+    this.redisCacheMisses = new Counter({
+      name: 'redis_cache_misses_total',
+      help: 'Total number of Redis cache misses',
+      registers: [this.registry],
+    });
+
+    this.redisErrors = new Counter({
+      name: 'redis_errors_total',
+      help: 'Total number of Redis errors',
+      registers: [this.registry],
+    });
+
+    // Database metrics
+    this.dbQueryDuration = new Histogram({
+      name: 'db_query_duration_seconds',
+      help: 'Database query duration in seconds',
+      labelNames: ['operation'],
+      buckets: [0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 5],
+      registers: [this.registry],
+    });
+
+    this.dbConnectionsActive = new Gauge({
+      name: 'db_connections_active',
+      help: 'Number of active database connections',
       registers: [this.registry],
     });
   }
@@ -128,6 +183,38 @@ export class MetricsService implements OnModuleInit {
   setCircuitBreakerState(name: string, state: 'closed' | 'open' | 'half-open'): void {
     const value = state === 'closed' ? 0 : state === 'open' ? 1 : 0.5;
     this.circuitBreakerState.set({ name }, value);
+  }
+
+  // Redis metrics
+  recordRedisOperation(operation: string): void {
+    this.redisOperationsTotal.inc({ operation });
+  }
+
+  recordRedisCacheHit(): void {
+    this.redisCacheHits.inc();
+  }
+
+  recordRedisCacheMiss(): void {
+    this.redisCacheMisses.inc();
+  }
+
+  recordRedisError(): void {
+    this.redisErrors.inc();
+  }
+
+  // Database metrics
+  recordDbQuery(operation: string, durationMs: number): void {
+    this.dbQueryDuration.observe({ operation }, durationMs / 1000);
+  }
+
+  setDbConnectionsActive(count: number): void {
+    this.dbConnectionsActive.set(count);
+  }
+
+  // LLM token tracking
+  recordLlmTokens(provider: string, model: string, promptTokens: number, completionTokens: number): void {
+    this.llmTokensTotal.inc({ provider, model, type: 'prompt' }, promptTokens);
+    this.llmTokensTotal.inc({ provider, model, type: 'completion' }, completionTokens);
   }
 
   async getMetrics(): Promise<string> {

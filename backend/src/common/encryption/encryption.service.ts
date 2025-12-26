@@ -1,20 +1,24 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createCipheriv, createDecipheriv, randomBytes, createHash } from 'crypto';
 
 /**
  * AES-256-GCM encryption service for sensitive data at rest.
  * Used for webhook secrets, API tokens, etc.
+ * 
+ * SECURITY: In production, ENCRYPTION_KEY is REQUIRED.
  */
 @Injectable()
-export class EncryptionService {
+export class EncryptionService implements OnModuleInit {
   private readonly logger = new Logger(EncryptionService.name);
   private readonly algorithm = 'aes-256-gcm';
   private readonly key: Buffer | null;
   private readonly isConfigured: boolean;
+  private readonly isProduction: boolean;
 
   constructor(private readonly configService: ConfigService) {
     const encryptionKey = this.configService.get<string>('ENCRYPTION_KEY');
+    this.isProduction = this.configService.get<string>('NODE_ENV') === 'production';
 
     if (encryptionKey) {
       // Derive a 32-byte key from the provided key using SHA-256
@@ -24,7 +28,18 @@ export class EncryptionService {
     } else {
       this.key = null;
       this.isConfigured = false;
-      this.logger.warn('ENCRYPTION_KEY not set - sensitive data will be stored in plaintext');
+      if (this.isProduction) {
+        this.logger.error('CRITICAL: ENCRYPTION_KEY not set in production!');
+      } else {
+        this.logger.warn('ENCRYPTION_KEY not set - sensitive data will be stored in plaintext (dev mode only)');
+      }
+    }
+  }
+
+  onModuleInit(): void {
+    // Fail fast in production if encryption is not configured
+    if (this.isProduction && !this.isConfigured) {
+      throw new Error('ENCRYPTION_KEY is required in production. Set a 32+ character secret key.');
     }
   }
 
@@ -76,11 +91,24 @@ export class EncryptionService {
     const parts = ciphertext.split(':');
     if (parts.length !== 3) {
       // Not encrypted format - return as-is (legacy plaintext data)
+      this.logger.debug('Data not in encrypted format, returning as-is');
+      return ciphertext;
+    }
+
+    // Validate hex format before attempting decryption
+    const [ivHex, authTagHex, encryptedHex] = parts;
+    if (!/^[0-9a-f]+$/i.test(ivHex) || !/^[0-9a-f]+$/i.test(authTagHex) || !/^[0-9a-f]+$/i.test(encryptedHex)) {
+      this.logger.warn('Data appears to be in encrypted format but contains invalid hex');
+      return ciphertext;
+    }
+
+    // Validate expected lengths (iv=24 hex chars, authTag=32 hex chars)
+    if (ivHex.length !== 24 || authTagHex.length !== 32) {
+      this.logger.warn('Data has invalid IV or authTag length');
       return ciphertext;
     }
 
     try {
-      const [ivHex, authTagHex, encryptedHex] = parts;
       const iv = Buffer.from(ivHex, 'hex');
       const authTag = Buffer.from(authTagHex, 'hex');
 
@@ -91,9 +119,14 @@ export class EncryptionService {
       decrypted += decipher.final('utf8');
 
       return decrypted;
-    } catch (error) {
-      this.logger.error('Decryption failed - data may be corrupted or key changed', error);
-      // Return original value if decryption fails (might be legacy plaintext)
+    } catch {
+      // Log decryption failures for security audit
+      this.logger.error('Decryption failed - possible tampering, key change, or corrupted data');
+      // In production, don't silently return potentially sensitive data
+      if (this.isProduction) {
+        throw new Error('Decryption failed - data may be corrupted or encryption key changed');
+      }
+      // In dev, return original for debugging
       return ciphertext;
     }
   }

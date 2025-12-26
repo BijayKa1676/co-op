@@ -38,7 +38,8 @@ class ApiError extends Error {
   constructor(
     message: string,
     public status: number,
-    public code?: string
+    public code?: string,
+    public requestId?: string
   ) {
     super(message);
     this.name = 'ApiError';
@@ -157,7 +158,7 @@ class ApiClient {
         if (!res.ok) {
           const error = await res.json().catch(() => ({ error: 'Request failed' }));
           
-          // Handle backend error format: { success: false, error: string, details?: string[] }
+          // Handle backend error format: { success: false, error: string, requestId?: string, details?: string[] }
           // Also handle NestJS validation errors: { message: string | string[] }
           let errorMessage = error.error || error.message || `HTTP ${res.status}`;
           
@@ -168,7 +169,15 @@ class ApiClient {
             errorMessage = error.message.join(', ');
           }
           
-          lastError = new ApiError(errorMessage, res.status, error.code);
+          // Extract request ID for error correlation
+          const requestId = error.requestId || res.headers.get('X-Request-Id') || undefined;
+          
+          lastError = new ApiError(errorMessage, res.status, error.code, requestId);
+          
+          // Log error with request ID for debugging
+          if (requestId) {
+            console.error(`API Error [${requestId}]: ${errorMessage}`);
+          }
           
           // Only retry on retryable errors
           if (this.isRetryable(res.status) && attempt < this.maxRetries - 1) {
@@ -268,6 +277,20 @@ class ApiClient {
 
   async updateStartup(data: Partial<OnboardingData>): Promise<User> {
     return this.patch<User>('/users/me/startup', data);
+  }
+
+  /**
+   * Logout and invalidate current token
+   */
+  async logout(): Promise<void> {
+    await this.post('/users/me/logout');
+  }
+
+  /**
+   * Logout from all devices (invalidate all tokens)
+   */
+  async logoutAll(): Promise<void> {
+    await this.post('/users/me/logout-all');
   }
 
   // ============================================

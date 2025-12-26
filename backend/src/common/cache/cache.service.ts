@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { RedisService } from '@/common/redis/redis.service';
 
 /**
@@ -22,6 +22,7 @@ export const CACHE_PREFIX = {
   MCP: 'mcp:',
   RATE_LIMIT: 'rate:',
   API_KEY: 'apikey:',
+  WARMUP: 'warmup:',
 } as const;
 
 interface CacheOptions {
@@ -29,19 +30,111 @@ interface CacheOptions {
   prefix?: string;
 }
 
+interface CacheStats {
+  hits: number;
+  misses: number;
+  hitRate: number;
+}
+
+/**
+ * Cache warm-up configuration
+ */
+interface WarmupConfig {
+  key: string;
+  factory: () => Promise<unknown>;
+  ttl: number;
+  prefix?: string;
+}
+
 @Injectable()
-export class CacheService {
+export class CacheService implements OnModuleInit {
   private readonly logger = new Logger(CacheService.name);
   private readonly defaultPrefix = 'cache:';
+  
+  // In-memory stats for monitoring
+  private hits = 0;
+  private misses = 0;
+  
+  // Warm-up registry
+  private readonly warmupRegistry: WarmupConfig[] = [];
 
   constructor(private readonly redis: RedisService) {}
+
+  async onModuleInit(): Promise<void> {
+    // Run cache warm-up on startup (non-blocking)
+    if (this.warmupRegistry.length > 0) {
+      void this.warmup();
+    }
+  }
+
+  /**
+   * Register a cache key for warm-up on startup
+   */
+  registerWarmup(config: WarmupConfig): void {
+    this.warmupRegistry.push(config);
+  }
+
+  /**
+   * Run cache warm-up for all registered keys
+   */
+  async warmup(): Promise<void> {
+    if (this.warmupRegistry.length === 0) return;
+
+    this.logger.log(`Warming up ${this.warmupRegistry.length} cache keys...`);
+    const start = Date.now();
+
+    const results = await Promise.allSettled(
+      this.warmupRegistry.map(async (config) => {
+        try {
+          const value = await config.factory();
+          await this.set(config.key, value, { ttl: config.ttl, prefix: config.prefix });
+          return config.key;
+        } catch (error) {
+          this.logger.warn(`Failed to warm up cache key ${config.key}: ${String(error)}`);
+          throw error;
+        }
+      })
+    );
+
+    const succeeded = results.filter(r => r.status === 'fulfilled').length;
+    const duration = Date.now() - start;
+    this.logger.log(`Cache warm-up complete: ${succeeded}/${this.warmupRegistry.length} keys in ${duration}ms`);
+  }
+
+  /**
+   * Get cache statistics
+   */
+  getStats(): CacheStats {
+    const total = this.hits + this.misses;
+    return {
+      hits: this.hits,
+      misses: this.misses,
+      hitRate: total > 0 ? (this.hits / total) * 100 : 0,
+    };
+  }
+
+  /**
+   * Reset cache statistics
+   */
+  resetStats(): void {
+    this.hits = 0;
+    this.misses = 0;
+  }
 
   /**
    * Get cached value
    */
   async get<T>(key: string, prefix?: string): Promise<T | null> {
     const fullKey = this.buildKey(key, prefix);
-    return this.redis.get<T>(fullKey);
+    const result = await this.redis.get<T>(fullKey);
+    
+    if (result !== null) {
+      this.hits++;
+    } else {
+      this.misses++;
+    }
+    
+    return result;
   }
 
   /**
@@ -61,14 +154,79 @@ export class CacheService {
     const cached = await this.redis.get<T>(fullKey);
 
     if (cached !== null) {
+      this.hits++;
       this.logger.debug(`Cache hit: ${fullKey}`);
       return cached;
     }
 
+    this.misses++;
     this.logger.debug(`Cache miss: ${fullKey}`);
     const value = await factory();
     await this.redis.set(fullKey, value, options.ttl);
     return value;
+  }
+
+  /**
+   * Get or set with stale-while-revalidate pattern
+   * Returns stale data immediately while refreshing in background
+   */
+  async getOrSetSWR<T>(
+    key: string,
+    factory: () => Promise<T>,
+    options: CacheOptions & { staleTime?: number }
+  ): Promise<T> {
+    const fullKey = this.buildKey(key, options.prefix);
+    const metaKey = `${fullKey}:meta`;
+    
+    const [cached, meta] = await Promise.all([
+      this.redis.get<T>(fullKey),
+      this.redis.get<{ updatedAt: number }>(metaKey),
+    ]);
+
+    const now = Date.now();
+    const staleTime = (options.staleTime ?? options.ttl / 2) * 1000;
+    const isStale = meta ? (now - meta.updatedAt) > staleTime : true;
+
+    // If we have cached data
+    if (cached !== null) {
+      this.hits++;
+      
+      // If stale, refresh in background
+      if (isStale) {
+        this.logger.debug(`Cache stale, refreshing in background: ${fullKey}`);
+        void this.refreshInBackground(fullKey, metaKey, factory, options.ttl);
+      }
+      
+      return cached;
+    }
+
+    // No cached data, fetch synchronously
+    this.misses++;
+    this.logger.debug(`Cache miss: ${fullKey}`);
+    const value = await factory();
+    await Promise.all([
+      this.redis.set(fullKey, value, options.ttl),
+      this.redis.set(metaKey, { updatedAt: now }, options.ttl),
+    ]);
+    return value;
+  }
+
+  private async refreshInBackground<T>(
+    fullKey: string,
+    metaKey: string,
+    factory: () => Promise<T>,
+    ttl: number
+  ): Promise<void> {
+    try {
+      const value = await factory();
+      await Promise.all([
+        this.redis.set(fullKey, value, ttl),
+        this.redis.set(metaKey, { updatedAt: Date.now() }, ttl),
+      ]);
+      this.logger.debug(`Background refresh complete: ${fullKey}`);
+    } catch (error) {
+      this.logger.warn(`Background refresh failed: ${fullKey} - ${String(error)}`);
+    }
   }
 
   /**

@@ -1,8 +1,16 @@
-import { Injectable, Inject, Logger } from '@nestjs/common';
+import { Injectable, Inject, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { eq, desc, and, gte, lte } from 'drizzle-orm';
 import { DATABASE_CONNECTION } from '@/database/database.module';
+import { RedisService } from '@/common/redis/redis.service';
 import * as schema from '@/database/schema';
+
+// Redis key for failed audit log queue (dead letter queue)
+const AUDIT_DLQ_KEY = 'audit:dlq';
+// Max items in DLQ before we stop accepting new ones
+const AUDIT_DLQ_MAX_SIZE = 1000;
+// Retry interval for processing DLQ (5 minutes)
+const AUDIT_DLQ_RETRY_INTERVAL_MS = 5 * 60 * 1000;
 
 interface AuditLogInput {
   userId: string | null;
@@ -42,13 +50,73 @@ interface AuditLogQuery {
 }
 
 @Injectable()
-export class AuditService {
+export class AuditService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(AuditService.name);
+  private dlqRetryInterval: NodeJS.Timeout | null = null;
 
   constructor(
     @Inject(DATABASE_CONNECTION)
     private readonly db: NodePgDatabase<typeof schema>,
+    private readonly redis: RedisService,
   ) {}
+
+  onModuleInit(): void {
+    // Start DLQ retry processor
+    this.dlqRetryInterval = setInterval(() => {
+      void this.processDlq();
+    }, AUDIT_DLQ_RETRY_INTERVAL_MS);
+    
+    // Process any existing DLQ items on startup
+    void this.processDlq();
+  }
+
+  onModuleDestroy(): void {
+    if (this.dlqRetryInterval) {
+      clearInterval(this.dlqRetryInterval);
+      this.dlqRetryInterval = null;
+    }
+  }
+
+  /**
+   * Process dead letter queue - retry failed audit logs
+   */
+  private async processDlq(): Promise<void> {
+    try {
+      const items = await this.redis.lrange(AUDIT_DLQ_KEY, 0, 50);
+      if (items.length === 0) return;
+
+      this.logger.log(`Processing ${items.length} items from audit DLQ`);
+      let processed = 0;
+
+      for (const item of items) {
+        try {
+          const input = JSON.parse(item) as AuditLogInput;
+          await this.db.insert(schema.auditLogs).values({
+            userId: input.userId,
+            action: input.action,
+            resource: input.resource,
+            resourceId: input.resourceId,
+            oldValue: input.oldValue,
+            newValue: input.newValue,
+            ipAddress: input.ipAddress,
+            userAgent: input.userAgent,
+            metadata: input.metadata,
+          });
+          // Remove from DLQ on success
+          await this.redis.lrem(AUDIT_DLQ_KEY, 1, item);
+          processed++;
+        } catch {
+          // Leave in DLQ for next retry
+        }
+      }
+
+      if (processed > 0) {
+        this.logger.log(`Processed ${processed}/${items.length} audit DLQ items`);
+      }
+    } catch (error) {
+      this.logger.warn(`Failed to process audit DLQ: ${String(error)}`);
+    }
+  }
 
   async log(input: AuditLogInput): Promise<void> {
     try {
@@ -65,6 +133,22 @@ export class AuditService {
       });
     } catch (error) {
       this.logger.error(`Failed to create audit log: ${String(error)}`);
+      // Queue to Redis DLQ for retry
+      await this.queueToDlq(input);
+    }
+  }
+
+  /**
+   * Queue failed audit log to Redis dead letter queue
+   */
+  private async queueToDlq(input: AuditLogInput): Promise<void> {
+    try {
+      const queueLength = await this.redis.lpush(AUDIT_DLQ_KEY, JSON.stringify(input));
+      if (queueLength > AUDIT_DLQ_MAX_SIZE) {
+        this.logger.warn(`Audit DLQ size (${queueLength}) exceeds max (${AUDIT_DLQ_MAX_SIZE})`);
+      }
+    } catch (dlqError) {
+      this.logger.error(`Failed to queue audit log to DLQ: ${String(dlqError)}`);
     }
   }
 

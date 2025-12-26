@@ -1,6 +1,7 @@
 import { Injectable, ExecutionContext, CanActivate } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { ThrottlerException } from '@nestjs/throttler';
+import { Response } from 'express';
 import { RedisService } from '@/common/redis/redis.service';
 import { RATE_LIMIT_KEY, RateLimitOptions } from '@/common/decorators/rate-limit.decorator';
 
@@ -22,6 +23,7 @@ export class UserThrottleGuard implements CanActivate {
       path: string;
       method: string;
     }>();
+    const response = context.switchToHttp().getResponse<Response>();
 
     // Get rate limit options from decorator (method first, then class)
     const rateLimitOptions = this.reflector.getAllAndOverride<RateLimitOptions | undefined>(
@@ -44,7 +46,14 @@ export class UserThrottleGuard implements CanActivate {
       await this.redis.expire(key, ttl);
     }
 
+    // Add rate limit headers for client visibility
+    const remaining = Math.max(0, limit - current);
+    response.setHeader('X-RateLimit-Limit', String(limit));
+    response.setHeader('X-RateLimit-Remaining', String(remaining));
+    response.setHeader('X-RateLimit-Reset', String(Math.ceil(Date.now() / 1000) + ttl));
+
     if (current > limit) {
+      response.setHeader('Retry-After', String(ttl));
       throw new ThrottlerException(`Rate limit exceeded. Maximum ${String(limit)} requests per ${String(ttl)} seconds.`);
     }
 

@@ -5,6 +5,100 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.2] - 2025-12-26
+
+### Infrastructure Improvements
+
+#### Security
+- **Token Blacklist** - Implemented token revocation via Redis blacklist
+  - `blacklistToken()` for single token revocation (logout)
+  - `blacklistUserTokens()` for user-wide revocation (force logout everywhere)
+  - 24-hour TTL matching typical JWT expiry
+- **Auth Rate Limiting** - Added per-IP rate limiting on token verification (20 attempts/minute)
+- **Health Check Caching** - 10-second cache to prevent hammering during high traffic
+- **Enhanced CORS** - Explicit allowed methods and headers, exposed rate limit headers
+- **Improved Helmet Config** - Production-appropriate CSP settings
+
+#### Reliability
+- **Graceful Shutdown** - 30-second timeout with proper signal handling (SIGTERM/SIGINT)
+- **Uncaught Exception Handling** - Process-level error handlers with log flushing
+- **Task Dead Letter Queue** - Failed agent tasks now queued to Redis DLQ
+  - Automatic retry with exponential backoff (up to 3 retries)
+  - DLQ stats endpoint for monitoring
+  - 10-minute retry interval
+- **Audit Log DLQ** - Failed audit writes queued to Redis for retry
+  - 5-minute retry interval
+  - Max 1000 items in queue
+- **Email Retry Logic** - Automatic retry with exponential backoff (3 attempts)
+  - 10-second timeout per attempt
+  - Configurable retry count
+
+#### Observability
+- **Request ID Tracing** - Unique request IDs for error correlation
+  - Generated for each request
+  - Included in error responses and X-Request-Id header
+  - Logged with all exceptions
+- **Database Connection Metrics** - Real-time tracking of active connections
+  - Pool acquire/release events tracked
+  - 10-second periodic updates
+- **Circuit Breaker Metrics** - Automatic state reporting to Prometheus
+  - State changes (open/half-open/closed) tracked
+- **Cache Statistics** - Hit/miss tracking with hit rate calculation
+  - `getStats()` method for monitoring
+  - Reset capability for testing
+
+#### Performance
+- **Stale-While-Revalidate Cache** - New `getOrSetSWR()` method
+  - Returns stale data immediately
+  - Refreshes in background
+  - Configurable stale time
+- **Cache Warm-up** - Pre-populate cache on startup
+  - `registerWarmup()` for key registration
+  - Non-blocking warm-up on module init
+
+### Changed
+- SupabaseService now requires RedisService for token blacklist
+- AuditService now requires RedisService for DLQ
+- DatabaseModule now tracks connection pool metrics
+- CircuitBreakerService now reports state to MetricsService
+- CacheService now implements OnModuleInit for warm-up
+- HttpExceptionFilter now includes request ID in responses
+
+## [1.3.1] - 2025-12-26
+
+### Infrastructure Improvements
+
+#### Performance
+- **LLM Council Optimization** - Limited council to 2-3 models max (configurable via `LLM_COUNCIL_MAX_MODELS`)
+  - Reduced N² cross-critique complexity to bounded O(1)
+  - Limited critiques per model to 2 responses max
+  - Added 30-second timeout to all LLM calls
+  - Added 60-second timeout to critique phase with partial result fallback
+- **Non-blocking Startup** - Health checks now run asynchronously on boot
+- **Cache Key Collision Fix** - Using full 32-char MD5 hash (128-bit entropy) instead of truncated 16-char
+- **Improved Retry Logic** - Full jitter algorithm for better distribution, increased max attempts to 5
+
+#### Security
+- **Production Encryption Required** - `ENCRYPTION_KEY` now required in production (fails fast on startup)
+- **Strict Decryption Validation** - Validates hex format and lengths before attempting decryption
+- **Rate Limit Headers** - Added `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset`, `Retry-After` headers
+
+#### Observability
+- **Redis Metrics** - Added operation counts, cache hits/misses, error tracking
+- **LLM Token Tracking** - New `llm_tokens_total` metric for cost monitoring
+- **Database Metrics** - Added query duration histogram and connection gauge
+- **Retry Metrics** - Track retry attempts, successes, and failures
+
+#### Reliability
+- **Timeout Protection** - All LLM calls now have 30-second timeout
+- **Graceful Degradation** - Critique phase returns partial results on timeout
+- **Better Error Messages** - More descriptive error messages with truncated details
+
+### Changed
+- Default `LLM_COUNCIL_MAX_MODELS` set to 3 (was unlimited)
+- Default retry `maxAttempts` increased to 5 (was 3)
+- Default retry `maxDelayMs` increased to 30000ms (was 10000ms)
+
 ## [1.3.0] - 2025-12-26
 
 ### Added
@@ -156,6 +250,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 | Version | Date | Description |
 |---------|------|-------------|
+| 1.3.1 | 2025-12-26 | Infrastructure improvements (performance, security, observability) |
 | 1.3.0 | 2025-12-26 | Customer outreach, secure documents with RAG |
 | 1.2.0 | 2025-12-16 | Investor database, competitor alerts, financial tools |
 | 1.1.0 | 2025-12-15 | LLM model updates, progress tracking |

@@ -10,19 +10,40 @@ export interface RetryOptions {
 }
 
 const DEFAULT_OPTIONS: Required<Omit<RetryOptions, 'retryableErrors' | 'onRetry'>> = {
-  maxAttempts: 3,
+  maxAttempts: 5, // Increased from 3 for better resilience
   initialDelayMs: 1000,
-  maxDelayMs: 10000,
+  maxDelayMs: 30000, // Increased from 10000 for longer backoff
   backoffMultiplier: 2,
 };
 
 /**
- * Retry Service with exponential backoff
+ * Retry Service with exponential backoff and full jitter
  * Provides automatic retry logic for transient failures
+ * 
+ * Uses "full jitter" algorithm for better distribution:
+ * delay = random(0, min(maxDelay, baseDelay * 2^attempt))
+ * 
+ * Reference: https://aws.amazon.com/blogs/architecture/exponential-backoff-and-jitter/
  */
 @Injectable()
 export class RetryService {
   private readonly logger = new Logger(RetryService.name);
+  
+  // Metrics for monitoring retry behavior
+  private retryAttempts = 0;
+  private retrySuccesses = 0;
+  private retryFailures = 0;
+
+  /**
+   * Get retry metrics for monitoring
+   */
+  getMetrics(): { attempts: number; successes: number; failures: number } {
+    return {
+      attempts: this.retryAttempts,
+      successes: this.retrySuccesses,
+      failures: this.retryFailures,
+    };
+  }
 
   /**
    * Execute a function with automatic retry on failure
@@ -33,13 +54,17 @@ export class RetryService {
   ): Promise<T> {
     const opts = { ...DEFAULT_OPTIONS, ...options };
     let lastError: Error | null = null;
-    let delay = opts.initialDelayMs;
 
     for (let attempt = 1; attempt <= opts.maxAttempts; attempt++) {
       try {
-        return await fn();
+        const result = await fn();
+        if (attempt > 1) {
+          this.retrySuccesses++;
+        }
+        return result;
       } catch (error) {
         lastError = error as Error;
+        this.retryAttempts++;
         
         // Check if error is retryable
         if (!this.isRetryable(lastError, opts.retryableErrors)) {
@@ -51,9 +76,11 @@ export class RetryService {
           break;
         }
 
-        // Calculate delay with jitter
-        const jitter = Math.random() * 0.3 * delay;
-        const actualDelay = Math.min(delay + jitter, opts.maxDelayMs);
+        // Calculate delay with full jitter (better distribution than decorrelated jitter)
+        // Full jitter: delay = random(0, min(maxDelay, baseDelay * 2^attempt))
+        const exponentialDelay = opts.initialDelayMs * Math.pow(opts.backoffMultiplier, attempt - 1);
+        const cappedDelay = Math.min(exponentialDelay, opts.maxDelayMs);
+        const actualDelay = Math.random() * cappedDelay;
 
         this.logger.warn(
           `Attempt ${attempt}/${opts.maxAttempts} failed: ${lastError.message}. Retrying in ${Math.round(actualDelay)}ms`,
@@ -62,10 +89,10 @@ export class RetryService {
         opts.onRetry?.(attempt, lastError, actualDelay);
 
         await this.sleep(actualDelay);
-        delay = Math.min(delay * opts.backoffMultiplier, opts.maxDelayMs);
       }
     }
 
+    this.retryFailures++;
     this.logger.error(`All ${opts.maxAttempts} attempts failed`);
     throw lastError;
   }

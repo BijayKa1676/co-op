@@ -217,14 +217,30 @@ export default function AnalyticsPage() {
   const llmRequestsTotal = getMetricTotal('llm_requests_total');
   const llmErrorsTotal = getMetricTotal('llm_errors_total');
   const agentTasksTotal = getMetricTotal('agent_tasks_total');
+  const llmTokensTotal = getMetricTotal('llm_tokens_total');
+  const redisOpsTotal = getMetricTotal('redis_operations_total');
+  const redisCacheHits = getMetricTotal('redis_cache_hits_total');
+  const redisCacheMisses = getMetricTotal('redis_cache_misses_total');
+  const redisErrors = getMetricTotal('redis_errors_total');
+  const dbConnectionsActive = getMetricTotal('db_connections_active');
+  const retryAttempts = getMetricTotal('retry_attempts_total');
+  const retrySuccesses = getMetricTotal('retry_successes_total');
   
   const httpByStatus = getMetricByLabel('http_requests_total', 'status');
   const httpByPath = getMetricByLabel('http_requests_total', 'path');
   const llmByProvider = getMetricByLabel('llm_requests_total', 'provider');
   const llmByModel = getMetricByLabel('llm_requests_total', 'model');
+  const llmTokensByType = getMetricByLabel('llm_tokens_total', 'type');
   const agentsByType = getMetricByLabel('agent_tasks_total', 'agent');
   const agentsByStatus = getMetricByLabel('agent_tasks_total', 'status');
   const circuitBreakers = getCircuitBreakerStates();
+  
+  // Calculate cache hit rate
+  const totalCacheOps = redisCacheHits + redisCacheMisses;
+  const cacheHitRate = totalCacheOps > 0 ? (redisCacheHits / totalCacheOps) * 100 : 0;
+  
+  // Calculate retry success rate
+  const retrySuccessRate = retryAttempts > 0 ? (retrySuccesses / retryAttempts) * 100 : 100;
 
   return (
     <div className="max-w-6xl mx-auto space-y-8">
@@ -406,6 +422,151 @@ export default function AnalyticsPage() {
                 )}
               </CardContent>
             </Card>
+
+            {/* LLM Tokens */}
+            <Card className="border-border/40">
+              <CardContent className="p-5">
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-sm text-muted-foreground">LLM Tokens</p>
+                  <Lightning weight="regular" className="w-4 h-4 text-muted-foreground" />
+                </div>
+                <p className="text-3xl font-serif font-medium">{llmTokensTotal.toLocaleString()}</p>
+                {llmTokensByType.length > 0 && (
+                  <div className="flex gap-2 mt-3 flex-wrap">
+                    {llmTokensByType.map(t => (
+                      <Badge key={t.label} variant="outline" className="text-xs">
+                        {t.label}: {t.value.toLocaleString()}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Redis Operations */}
+            <Card className="border-border/40">
+              <CardContent className="p-5">
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-sm text-muted-foreground">Redis Ops</p>
+                  <Pulse weight="regular" className="w-4 h-4 text-muted-foreground" />
+                </div>
+                <p className="text-3xl font-serif font-medium">{redisOpsTotal.toLocaleString()}</p>
+                <div className="mt-3">
+                  <div className="flex justify-between text-xs text-muted-foreground mb-1">
+                    <span>Cache Hit Rate</span>
+                    <span>{cacheHitRate.toFixed(1)}%</span>
+                  </div>
+                  <Progress value={cacheHitRate} className="h-1" />
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Cache Stats */}
+            <Card className="border-border/40">
+              <CardContent className="p-5">
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-sm text-muted-foreground">Cache Stats</p>
+                  <ChartLine weight="regular" className="w-4 h-4 text-muted-foreground" />
+                </div>
+                <div className="space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-sm text-muted-foreground">Hits</span>
+                    <span className="text-sm font-medium text-green-500">{redisCacheHits.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-muted-foreground">Misses</span>
+                    <span className="text-sm font-medium text-yellow-500">{redisCacheMisses.toLocaleString()}</span>
+                  </div>
+                  {redisErrors > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-sm text-muted-foreground">Errors</span>
+                      <span className="text-sm font-medium text-red-500">{redisErrors.toLocaleString()}</span>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Database Connections */}
+            <Card className="border-border/40">
+              <CardContent className="p-5">
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-sm text-muted-foreground">DB Connections</p>
+                  <Pulse weight="regular" className="w-4 h-4 text-muted-foreground" />
+                </div>
+                <p className="text-3xl font-serif font-medium">{dbConnectionsActive}</p>
+                <p className="text-xs text-muted-foreground mt-2">Active pool connections</p>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* Infrastructure Health */}
+        {!metricsError && (retryAttempts > 0 || circuitBreakers.length > 0) && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+            {/* Retry Stats */}
+            {retryAttempts > 0 && (
+              <Card className="border-border/40">
+                <CardHeader className="pb-3">
+                  <CardTitle className="font-serif text-lg">Retry Statistics</CardTitle>
+                  <CardDescription>Automatic retry performance</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-muted-foreground">Total Attempts</span>
+                      <span className="text-lg font-medium">{retryAttempts.toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-muted-foreground">Successful</span>
+                      <span className="text-lg font-medium text-green-500">{retrySuccesses.toLocaleString()}</span>
+                    </div>
+                    <div>
+                      <div className="flex justify-between text-xs text-muted-foreground mb-1">
+                        <span>Success Rate</span>
+                        <span>{retrySuccessRate.toFixed(1)}%</span>
+                      </div>
+                      <Progress value={retrySuccessRate} className="h-2" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Circuit Breakers - moved here */}
+            {circuitBreakers.length > 0 && (
+              <Card className="border-border/40">
+                <CardHeader className="pb-3">
+                  <CardTitle className="font-serif text-lg">Circuit Breakers</CardTitle>
+                  <CardDescription>Service health status</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex flex-wrap gap-3">
+                    {circuitBreakers.map((cb) => (
+                      <div 
+                        key={cb.name} 
+                        className="flex items-center gap-2 px-3 py-2 rounded-lg border border-border/40"
+                      >
+                        {cb.state === 'closed' ? (
+                          <CheckCircle weight="fill" className="w-4 h-4 text-green-500" />
+                        ) : cb.state === 'open' ? (
+                          <XCircle weight="fill" className="w-4 h-4 text-red-500" />
+                        ) : (
+                          <Warning weight="fill" className="w-4 h-4 text-yellow-500" />
+                        )}
+                        <span className="text-sm font-medium">{cb.name}</span>
+                        <Badge 
+                          variant={cb.state === 'closed' ? 'default' : cb.state === 'open' ? 'destructive' : 'secondary'}
+                          className="text-xs"
+                        >
+                          {cb.state}
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </div>
         )}
 
@@ -474,41 +635,6 @@ export default function AnalyticsPage() {
               </Card>
             )}
           </div>
-        )}
-
-        {/* Circuit Breakers */}
-        {!metricsError && circuitBreakers.length > 0 && (
-          <Card className="border-border/40">
-            <CardHeader className="pb-3">
-              <CardTitle className="font-serif text-lg">Circuit Breakers</CardTitle>
-              <CardDescription>Service health status</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex flex-wrap gap-3">
-                {circuitBreakers.map((cb) => (
-                  <div 
-                    key={cb.name} 
-                    className="flex items-center gap-2 px-3 py-2 rounded-lg border border-border/40"
-                  >
-                    {cb.state === 'closed' ? (
-                      <CheckCircle weight="fill" className="w-4 h-4 text-green-500" />
-                    ) : cb.state === 'open' ? (
-                      <XCircle weight="fill" className="w-4 h-4 text-red-500" />
-                    ) : (
-                      <Warning weight="fill" className="w-4 h-4 text-yellow-500" />
-                    )}
-                    <span className="text-sm font-medium">{cb.name}</span>
-                    <Badge 
-                      variant={cb.state === 'closed' ? 'default' : cb.state === 'open' ? 'destructive' : 'secondary'}
-                      className="text-xs"
-                    >
-                      {cb.state}
-                    </Badge>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
         )}
       </motion.div>
     </div>

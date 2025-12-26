@@ -9,6 +9,7 @@ import {
   UseGuards,
   ParseUUIDPipe,
   Logger,
+  Headers,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { UsersService } from './users.service';
@@ -18,13 +19,17 @@ import { AuthGuard } from '@/common/guards/auth.guard';
 import { AdminGuard } from '@/common/guards/admin.guard';
 import { CurrentUser, CurrentUserPayload } from '@/common/decorators/current-user.decorator';
 import { ApiResponseDto } from '@/common/dto/api-response.dto';
+import { SupabaseService } from '@/common/supabase/supabase.service';
 
 @ApiTags('Users')
 @Controller('users')
 export class UsersController {
   private readonly logger = new Logger(UsersController.name);
 
-  constructor(private readonly usersService: UsersService) {}
+  constructor(
+    private readonly usersService: UsersService,
+    private readonly supabaseService: SupabaseService,
+  ) {}
 
   @Post()
   @UseGuards(AdminGuard)
@@ -111,6 +116,36 @@ export class UsersController {
   ): Promise<ApiResponseDto<UserResponseDto>> {
     const user = await this.usersService.update(currentUser.id, dto);
     return ApiResponseDto.success(user, 'Profile updated successfully');
+  }
+
+  @Post('me/logout')
+  @UseGuards(AuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Logout and invalidate current token' })
+  @ApiResponse({ status: 200, description: 'Logged out successfully' })
+  async logout(
+    @CurrentUser() currentUser: CurrentUserPayload,
+    @Headers('authorization') authHeader: string,
+  ): Promise<ApiResponseDto<null>> {
+    const token = authHeader?.replace('Bearer ', '');
+    if (token) {
+      await this.supabaseService.blacklistToken(token);
+      this.logger.log(`User ${currentUser.id} logged out`);
+    }
+    return ApiResponseDto.message('Logged out successfully');
+  }
+
+  @Post('me/logout-all')
+  @UseGuards(AuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Logout from all devices (invalidate all tokens)' })
+  @ApiResponse({ status: 200, description: 'Logged out from all devices' })
+  async logoutAll(
+    @CurrentUser() currentUser: CurrentUserPayload,
+  ): Promise<ApiResponseDto<null>> {
+    await this.supabaseService.blacklistUserTokens(currentUser.id);
+    this.logger.log(`User ${currentUser.id} logged out from all devices`);
+    return ApiResponseDto.message('Logged out from all devices');
   }
 
   @Patch(':id')

@@ -13,6 +13,8 @@ interface EmailOptions {
   html: string;
   /** Plain text fallback (optional) */
   text?: string;
+  /** Number of retry attempts (default: 3) */
+  retries?: number;
 }
 
 /**
@@ -22,9 +24,15 @@ interface SendGridErrorResponse {
   errors?: { message: string; field?: string }[];
 }
 
+// Retry configuration
+const DEFAULT_RETRIES = 3;
+const RETRY_DELAY_MS = 1000;
+const RETRY_BACKOFF_MULTIPLIER = 2;
+
 /**
  * Email service using SendGrid for transactional emails.
  * Gracefully handles missing configuration by disabling email functionality.
+ * Includes automatic retry with exponential backoff.
  */
 @Injectable()
 export class EmailService {
@@ -35,6 +43,7 @@ export class EmailService {
   private readonly isConfigured: boolean;
 
   private static readonly SENDGRID_API_URL = 'https://api.sendgrid.com/v3/mail/send';
+  private static readonly TIMEOUT_MS = 10000; // 10 second timeout
 
   constructor(private readonly configService: ConfigService) {
     this.apiKey = this.configService.get<string>('SENDGRID_API_KEY', '');
@@ -57,7 +66,7 @@ export class EmailService {
   }
 
   /**
-   * Send an email via SendGrid
+   * Send an email via SendGrid with automatic retry
    * @param options - Email options including recipient, subject, and content
    * @returns true if email was sent successfully, false otherwise
    */
@@ -73,6 +82,42 @@ export class EmailService {
       return false;
     }
 
+    const maxRetries = options.retries ?? DEFAULT_RETRIES;
+    let lastError: Error | null = null;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        const success = await this.sendWithTimeout(options);
+        if (success) {
+          if (attempt > 1) {
+            this.logger.log(`Email sent successfully to ${this.maskEmail(options.to)} after ${attempt} attempts`);
+          } else {
+            this.logger.log(`Email sent successfully to ${this.maskEmail(options.to)}`);
+          }
+          return true;
+        }
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+        
+        if (attempt < maxRetries) {
+          const delay = RETRY_DELAY_MS * Math.pow(RETRY_BACKOFF_MULTIPLIER, attempt - 1);
+          this.logger.warn(`Email attempt ${attempt}/${maxRetries} failed, retrying in ${delay}ms...`);
+          await this.sleep(delay);
+        }
+      }
+    }
+
+    this.logger.error(`Failed to send email to ${this.maskEmail(options.to)} after ${maxRetries} attempts: ${lastError?.message}`);
+    return false;
+  }
+
+  /**
+   * Send email with timeout
+   */
+  private async sendWithTimeout(options: EmailOptions): Promise<boolean> {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => { controller.abort(); }, EmailService.TIMEOUT_MS);
+
     try {
       const response = await fetch(EmailService.SENDGRID_API_URL, {
         method: 'POST',
@@ -86,6 +131,7 @@ export class EmailService {
           subject: options.subject,
           content: this.buildEmailContent(options),
         }),
+        signal: controller.signal,
       });
 
       if (!response.ok) {
@@ -93,12 +139,14 @@ export class EmailService {
         return false;
       }
 
-      this.logger.log(`Email sent successfully to ${this.maskEmail(options.to)}`);
       return true;
-    } catch (error) {
-      this.logger.error(`Failed to send email to ${this.maskEmail(options.to)}`, error);
-      return false;
+    } finally {
+      clearTimeout(timeoutId);
     }
+  }
+
+  private sleep(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
   }
 
   /**
