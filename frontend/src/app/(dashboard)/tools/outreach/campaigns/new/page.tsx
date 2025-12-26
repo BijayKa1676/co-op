@@ -54,7 +54,7 @@ export default function NewCampaignPage() {
   const [selectedLeads, setSelectedLeads] = useState<Set<string>>(new Set());
   const [isLoading, setIsLoading] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
-  const [isPreviewing, setIsPreviewing] = useState(false);
+  const [_isPreviewing, setIsPreviewing] = useState(false);
   const [step, setStep] = useState(1);
   const [previewLead, setPreviewLead] = useState<Lead | null>(null);
   const [previewContent, setPreviewContent] = useState<{ subject: string; body: string } | null>(null);

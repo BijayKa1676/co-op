@@ -1,6 +1,6 @@
 import { Injectable, Inject, NotFoundException } from '@nestjs/common';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
-import { eq, and, or, ilike, desc, asc, sql } from 'drizzle-orm';
+import { eq, and, or, ilike, desc, asc } from 'drizzle-orm';
 import { DATABASE_CONNECTION } from '@/database/database.module';
 import * as schema from '@/database/schema';
 import { investors } from '@/database/schema/investors.schema';

@@ -21,6 +21,7 @@ const CHUNK_SIZE = 2000;
 /** Chunk overlap in characters */
 const CHUNK_OVERLAP = 200;
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const ALLOWED_MIME_TYPES = ['application/pdf'] as const;
 
 export interface SecureDocumentResponse {
@@ -76,7 +77,7 @@ export class SecureDocumentsService {
     expiresAt.setDate(expiresAt.getDate() + expiry);
 
     // Create document record first
-    const [document] = await this.db
+    await this.db
       .insert(userDocuments)
       .values({
         id: documentId,
@@ -88,8 +89,7 @@ export class SecureDocumentsService {
         fileSize: file.size,
         status: 'processing',
         expiresAt,
-      })
-      .returning();
+      });
 
     try {
       // Extract text from document
@@ -188,7 +188,7 @@ export class SecureDocumentsService {
       .where(eq(userDocuments.id, documentId));
 
     // Get chunks
-    let query = this.db
+    const query = this.db
       .select()
       .from(userDocumentChunks)
       .where(eq(userDocumentChunks.documentId, documentId))

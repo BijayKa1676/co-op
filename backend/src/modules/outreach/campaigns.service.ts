@@ -520,37 +520,37 @@ export class CampaignsService {
 
     // Lead variables
     if (lead.leadType === 'person') {
-      vars['name'] = lead.name ?? '';
-      vars['platform'] = lead.platform ?? '';
-      vars['handle'] = lead.handle ?? '';
-      vars['followers'] = lead.followers?.toString() ?? '';
-      vars['niche'] = lead.niche ?? '';
-      vars['profileUrl'] = lead.profileUrl ?? '';
+      vars.name = lead.name ?? '';
+      vars.platform = lead.platform ?? '';
+      vars.handle = lead.handle ?? '';
+      vars.followers = lead.followers?.toString() ?? '';
+      vars.niche = lead.niche ?? '';
+      vars.profileUrl = lead.profileUrl ?? '';
     } else {
-      vars['companyName'] = lead.companyName ?? '';
-      vars['website'] = lead.website ?? '';
-      vars['industry'] = lead.industry ?? '';
-      vars['companySize'] = lead.companySize ?? '';
+      vars.companyName = lead.companyName ?? '';
+      vars.website = lead.website ?? '';
+      vars.industry = lead.industry ?? '';
+      vars.companySize = lead.companySize ?? '';
     }
 
     // Common lead variables
-    vars['email'] = lead.email ?? '';
-    vars['location'] = lead.location ?? '';
-    vars['description'] = lead.description ?? '';
+    vars.email = lead.email ?? '';
+    vars.location = lead.location ?? '';
+    vars.description = lead.description ?? '';
 
     // Custom fields
-    const customFields = (lead.customFields as Record<string, string>) ?? {};
+    const customFields = (lead.customFields) ?? {};
     for (const [key, value] of Object.entries(customFields)) {
       vars[key] = value;
     }
 
     // Startup variables
     if (startup) {
-      vars['myCompany'] = startup.companyName ?? '';
-      vars['myProduct'] = startup.description ?? '';
-      vars['myIndustry'] = startup.industry ?? '';
-      vars['myFounder'] = startup.founderName ?? '';
-      vars['myWebsite'] = startup.website ?? '';
+      vars.myCompany = startup.companyName ?? '';
+      vars.myProduct = startup.description ?? '';
+      vars.myIndustry = startup.industry ?? '';
+      vars.myFounder = startup.founderName ?? '';
+      vars.myWebsite = startup.website ?? '';
     }
 
     return vars;
@@ -629,8 +629,8 @@ Return JSON only:
       // Fallback to template if AI fails
       const variables = this.buildVariables(lead, startup);
       return {
-        subject: `Quick question for ${variables['name'] ?? variables['companyName'] ?? 'you'}`,
-        body: `Hi ${variables['name'] ?? 'there'},\n\n${campaign.campaignGoal ?? 'I wanted to reach out.'}\n\n${campaign.callToAction ?? 'Would love to connect!'}\n\nBest,\n${startup?.founderName ?? 'Team'}`,
+        subject: `Quick question for ${variables.name ?? variables.companyName ?? 'you'}`,
+        body: `Hi ${variables.name ?? 'there'},\n\n${campaign.campaignGoal ?? 'I wanted to reach out.'}\n\n${campaign.callToAction ?? 'Would love to connect!'}\n\nBest,\n${startup?.founderName ?? 'Team'}`,
       };
     }
   }
@@ -667,7 +667,7 @@ ${includeUnsubscribe ? `<div style="margin-top: 30px; padding-top: 20px; border-
       callToAction: campaign.callToAction,
       status: campaign.status ?? 'draft',
       settings: campaign.settings ?? {},
-      availableVariables: (campaign.availableVariables as string[]) ?? [],
+      availableVariables: (campaign.availableVariables) ?? [],
       stats: campaign.stats ?? {},
       createdAt: campaign.createdAt.toISOString(),
       updatedAt: campaign.updatedAt.toISOString(),

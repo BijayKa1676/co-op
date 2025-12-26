@@ -478,11 +478,11 @@ Return ONLY a JSON array. No explanation.`;
       location: lead.location,
       description: lead.description,
       profileUrl: lead.profileUrl,
-      customFields: (lead.customFields as Record<string, string>) ?? {},
+      customFields: (lead.customFields) ?? {},
       leadScore: lead.leadScore ?? 0,
       status: lead.status ?? 'new',
       source: lead.source,
-      tags: (lead.tags as string[]) ?? [],
+      tags: (lead.tags) ?? [],
       createdAt: lead.createdAt.toISOString(),
       displayName,
     };
