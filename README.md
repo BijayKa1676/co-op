@@ -45,12 +45,14 @@ Co-Op is an open-source AI advisory platform that provides startup founders with
 | **A2A Protocol** | Multi-agent collaboration mode |
 | **Session Export** | Markdown/JSON export + email summaries |
 | **Document Upload** | PDF, DOC, TXT context for chat |
+| **Secure Documents** | AES-256 encrypted user documents with RAG |
 | **Bookmarks** | Save and organize AI responses |
 | **Usage Analytics** | Personal usage dashboard |
 | **PWA Support** | Installable with shortcuts |
 | **Financial Tools** | Runway, burn rate, valuation calculators |
 | **Investor Database** | 20+ real investors with admin management |
 | **Competitor Alerts** | Real-time monitoring with email notifications |
+| **Customer Outreach** | AI-powered lead discovery & email campaigns |
 | **Self-Hostable** | Deploy on your own infrastructure |
 
 ---
@@ -64,6 +66,7 @@ Co-Op is an open-source AI advisory platform that provides startup founders with
 | **Rate Limiting** | Per-user throttling via Redis with configurable presets |
 | **API Keys** | SHA-256 hashed, timing-safe comparison |
 | **Encryption** | AES-256-GCM for sensitive data at rest |
+| **Document Encryption** | User documents encrypted chunk-by-chunk |
 | **Input Validation** | class-validator DTOs, whitelist mode |
 | **SQL Injection** | Drizzle ORM parameterized queries |
 | **CORS** | Configurable allowed origins |
@@ -99,7 +102,7 @@ Co-Op is an open-source AI advisory platform that provides startup founders with
 ┌─────────────────────────────────────────────────────────────────────┐
 │                           FRONTEND                                  │
 │                    Next.js 15 (Vercel)                              │
-│    Dashboard • Chat • Sessions • Bookmarks • Usage • Settings       │
+│    Dashboard • Chat • Sessions • Bookmarks • Usage • Outreach       │
 └─────────────────────────────────────────────────────────────────────┘
                                 │
                                 ▼
@@ -114,6 +117,9 @@ Co-Op is an open-source AI advisory platform that provides startup founders with
 │  │                    LLM Council                                │  │
 │  │     [Llama 3.3] [Gemini 2.5] [DeepSeek R1] [Kimi K2]         │  │
 │  │              Mandatory Cross-Critique                         │  │
+│  └───────────────────────────────────────────────────────────────┘  │
+│  ┌───────────────────────────────────────────────────────────────┐  │
+│  │  Outreach: Lead Discovery • Campaign Management • Email Track │  │
 │  └───────────────────────────────────────────────────────────────┘  │
 │  ┌───────────────────────────────────────────────────────────────┐  │
 │  │  Security: Auth Guard • Rate Limiting • Encryption • Audit   │  │
@@ -139,14 +145,28 @@ Co-Op is an open-source AI advisory platform that provides startup founders with
 co-op/
 ├── Backend/                 # NestJS API server
 │   ├── src/
-│   │   ├── modules/         # Feature modules (agents, sessions, users, etc.)
-│   │   ├── common/          # Shared services (LLM, RAG, cache, email, streaming)
+│   │   ├── modules/         # Feature modules
+│   │   │   ├── agents/      # AI agents + streaming
+│   │   │   ├── sessions/    # Chat sessions + export
+│   │   │   ├── outreach/    # Leads + campaigns + email tracking
+│   │   │   ├── alerts/      # Competitor monitoring
+│   │   │   ├── investors/   # Investor database
+│   │   │   ├── bookmarks/   # Saved responses
+│   │   │   ├── documents/   # Chat document upload
+│   │   │   ├── secure-documents/  # Encrypted user docs
+│   │   │   └── ...
+│   │   ├── common/          # Shared services (LLM, RAG, cache, email)
 │   │   └── database/        # Drizzle ORM schemas & migrations
 │   └── README.md
 │
 ├── Frontend/                # Next.js web application
 │   ├── src/
 │   │   ├── app/             # App Router pages
+│   │   │   ├── (dashboard)/ # Protected routes
+│   │   │   │   ├── tools/outreach/  # Lead management + campaigns
+│   │   │   │   ├── tools/alerts/    # Competitor alerts
+│   │   │   │   ├── tools/investors/ # Investor search
+│   │   │   │   └── ...
 │   │   ├── components/      # UI components (Radix + custom)
 │   │   └── lib/             # API client, hooks, stores
 │   └── README.md
@@ -292,43 +312,51 @@ curl -H "X-API-Key: coop_xxxxx" \
 | `/sessions` | POST | Create advisory session |
 | `/sessions/:id/export` | POST | Export session (MD/JSON) |
 | `/sessions/:id/email` | POST | Email session summary |
-| `/sessions/:id/pin` | PATCH | Pin/unpin session |
 | `/agents/run` | POST | Run agent (sync) |
 | `/agents/queue` | POST | Queue agent (async) |
 | `/agents/stream/:taskId` | GET | SSE stream for task |
 | `/analytics/me` | GET | Personal usage analytics |
 | `/bookmarks` | GET/POST | Manage bookmarks |
 | `/documents/upload` | POST | Upload chat document |
-| `/mcp-server/discover` | GET | List MCP tools |
-| `/mcp-server/execute` | POST | Execute MCP tool |
+| `/secure-documents/upload` | POST | Upload encrypted document |
+| `/outreach/leads/discover` | POST | AI-powered lead discovery |
+| `/outreach/leads` | GET/POST | Manage leads |
+| `/outreach/campaigns` | GET/POST | Manage email campaigns |
+| `/outreach/campaigns/:id/send` | POST | Send campaign emails |
+| `/alerts` | GET/POST | Competitor alerts |
+| `/investors` | GET | Search investor database |
 
 See [Backend README](./Backend/README.md) for complete API documentation.
 
 ---
 
-## Features Completed
+## Features
 
-### High Priority ✓
-- [x] Session export (Markdown/JSON download)
-- [x] Email session summaries (SendGrid)
-- [x] Document upload in chat (PDF, DOC, TXT)
-- [x] Saved responses/bookmarks system
+### Core Platform
+- [x] Multi-model LLM Council with cross-critique
+- [x] 4 domain-specific AI agents
 - [x] True SSE streaming with fallback polling
-- [x] RAG query caching (30-min TTL)
-- [x] Error recovery with automatic retry
+- [x] RAG knowledge base with caching
+- [x] Session management with pin/export
+- [x] Document upload for chat context
+- [x] Bookmarks system
+- [x] User analytics dashboard
+- [x] PWA with shortcuts
 
-### Medium Priority ✓
-- [x] User analytics dashboard (/usage)
-- [x] Personal usage history and trends
-- [x] Pin/favorite sessions
-- [x] Mobile-responsive design
-- [x] PWA improvements (shortcuts, share target)
-
-### Agent Improvements ✓
-- [x] Jurisdiction selector for legal agent (9 regions, 25+ jurisdictions)
-- [x] Built-in financial calculators (Runway, Burn Rate, Valuation, Unit Economics)
-- [x] Searchable investor database (20+ real investors, admin management)
+### Tools
+- [x] Financial calculators (Runway, Burn Rate, Valuation, Unit Economics)
+- [x] Searchable investor database (20+ real investors)
 - [x] Real-time competitor alerts (3 per user, email notifications)
+- [x] Customer outreach with AI lead discovery
+- [x] Email campaign management with tracking
+
+### Security & Enterprise
+- [x] AES-256-GCM encryption for sensitive data
+- [x] Encrypted user document storage
+- [x] API key management
+- [x] Webhook integrations
+- [x] Audit logging
+- [x] Rate limiting with presets
 
 ### Coming Soon
 - [ ] Team workspaces
@@ -337,11 +365,35 @@ See [Backend README](./Backend/README.md) for complete API documentation.
 
 ---
 
+## Customer Outreach
+
+The outreach module enables AI-powered customer acquisition:
+
+### Lead Discovery
+- Discover influencers (People) or companies using AI-powered web research
+- Filter by platform, niche, followers, location, company size
+- Automatic lead scoring based on startup fit
+- Rate limited to 5 discoveries per hour (pilot)
+
+### Campaign Management
+- **Single Template Mode**: Use variable placeholders like `{{name}}`, `{{company}}`
+- **AI Personalized Mode**: Generate unique emails per lead using LLM
+- Email tracking (opens, clicks)
+- Unsubscribe handling
+- Daily send limits (50 emails/day pilot)
+
+### Pilot Limits
+- 50 leads maximum
+- 5 campaigns maximum
+- 50 emails per day
+
+---
+
 ## Roadmap
 
 | Phase | Timeline | Features |
 |-------|----------|----------|
-| **Now** | Pilot | Single founder, 3 free requests/month, 4 agents, A2A mode |
+| **Now** | Pilot | Single founder, 3 free requests/month, 4 agents, outreach tools |
 | **Q1 2026** | Teams | Multiple founders, collaboration, shared sessions |
 | **Q2 2026** | Idea Stage | Idea validation flow, market research agent |
 | **Q3 2026** | Enterprise | SSO, custom AI training, on-premise deployment |

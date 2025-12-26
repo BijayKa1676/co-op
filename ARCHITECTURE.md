@@ -54,6 +54,10 @@ Co-Op is a multi-service AI advisory platform consisting of three main component
 │  │  Sessions   │  │  Bookmarks  │  │   Usage     │  │   Admin     │        │
 │  │   History   │  │             │  │  Analytics  │  │   Panel     │        │
 │  └─────────────┘  └─────────────┘  └─────────────┘  └─────────────┘        │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐        │
+│  │  Customer   │  │   Secure    │  │  Investors  │  │   Alerts    │        │
+│  │  Outreach   │  │  Documents  │  │  Database   │  │  Monitoring │        │
+│  └─────────────┘  └─────────────┘  └─────────────┘  └─────────────┘        │
 │                                                                             │
 │                         Next.js 15 (Vercel)                                 │
 └─────────────────────────────────────────────────────────────────────────────┘
@@ -210,6 +214,10 @@ Key Features:
 | `admin/` | Admin operations (embeddings, analytics) |
 | `mcp/` | Model Context Protocol server |
 | `notion/` | Notion integration for exports |
+| `outreach/` | Customer outreach (leads, campaigns, email tracking) |
+| `secure-documents/` | Encrypted user documents with RAG |
+| `investors/` | Investor database CRUD |
+| `alerts/` | Competitor monitoring alerts |
 
 Common Services:
 
@@ -225,6 +233,7 @@ Common Services:
 | `circuit-breaker.service.ts` | Fault tolerance for external services |
 | `audit.service.ts` | Audit logging for compliance |
 | `redis.service.ts` | Caching and rate limiting |
+| `user-docs-rag.service.ts` | User document RAG with encryption |
 
 ### RAG Service (FastAPI)
 
@@ -491,6 +500,82 @@ async fetchData() { ... }
 | Orientation | Any (portrait/landscape) |
 | Categories | business, productivity, finance |
 
+### Customer Outreach System
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    CUSTOMER OUTREACH                            │
+│                                                                 │
+│   ┌─────────────────────────────────────────────────────────┐   │
+│   │                   LEAD DISCOVERY                        │   │
+│   │                                                         │   │
+│   │   AI-Powered Search ──▶ Lead Enrichment ──▶ Scoring    │   │
+│   │                                                         │   │
+│   │   Lead Types:                                           │   │
+│   │   - People (influencers, content creators)              │   │
+│   │   - Companies (potential customers, partners)           │   │
+│   │                                                         │   │
+│   │   Data Points:                                          │   │
+│   │   - Contact info, social profiles                       │   │
+│   │   - Followers, engagement metrics                       │   │
+│   │   - Industry, niche, location                           │   │
+│   └─────────────────────────────────────────────────────────┘   │
+│                           │                                     │
+│                           ▼                                     │
+│   ┌─────────────────────────────────────────────────────────┐   │
+│   │                  CAMPAIGN MANAGEMENT                    │   │
+│   │                                                         │   │
+│   │   Campaign Modes:                                       │   │
+│   │   - Single Template: One email for all leads            │   │
+│   │   - AI Personalized: Unique emails per lead             │   │
+│   │                                                         │   │
+│   │   Features:                                             │   │
+│   │   - Variable substitution ({{name}}, {{company}})       │   │
+│   │   - Email preview before sending                        │   │
+│   │   - Open/click tracking                                 │   │
+│   │   - Campaign analytics                                  │   │
+│   └─────────────────────────────────────────────────────────┘   │
+│                           │                                     │
+│                           ▼                                     │
+│   ┌─────────────────────────────────────────────────────────┐   │
+│   │                   EMAIL TRACKING                        │   │
+│   │                                                         │   │
+│   │   Status Flow:                                          │   │
+│   │   pending → sent → delivered → opened → clicked         │   │
+│   │                                                         │   │
+│   │   Tracking:                                             │   │
+│   │   - Pixel tracking for opens                            │   │
+│   │   - Link wrapping for clicks                            │   │
+│   │   - Bounce/failure handling                             │   │
+│   └─────────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Secure Documents (User RAG)
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    SECURE DOCUMENTS                             │
+│                                                                 │
+│   Upload ──▶ Process ──▶ Chunk ──▶ Encrypt ──▶ Embed ──▶ Store │
+│                                                                 │
+│   Security Features:                                            │
+│   - AES-256-GCM encryption for all content                     │
+│   - Original files deleted after processing                    │
+│   - Per-user isolation (users only see their docs)             │
+│   - Auto-expiry with configurable TTL                          │
+│                                                                 │
+│   RAG Integration:                                              │
+│   - Semantic search via Upstash Vector                         │
+│   - Chunks decrypted on-demand for queries                     │
+│   - Context injection into AI conversations                    │
+│                                                                 │
+│   Supported Formats:                                            │
+│   - PDF, DOC, DOCX, TXT, MD                                    │
+│   - Images (with description)                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
 
 ---
 
@@ -601,6 +686,41 @@ async fetchData() { ... }
 │ description     │       │ metadata        │
 │ createdAt       │       │ createdAt       │
 └─────────────────┘       └─────────────────┘
+
+┌─────────────────┐       ┌─────────────────┐       ┌─────────────────┐
+│     leads       │       │   campaigns     │       │ campaign_emails │
+├─────────────────┤       ├─────────────────┤       ├─────────────────┤
+│ id (PK)         │       │ id (PK)         │       │ id (PK)         │
+│ userId (FK)     │       │ userId (FK)     │       │ campaignId (FK) │
+│ startupId (FK)  │       │ startupId (FK)  │       │ leadId (FK)     │
+│ leadType        │       │ name            │       │ subject         │
+│ companyName     │       │ mode            │       │ body            │
+│ name            │       │ subjectTemplate │       │ status          │
+│ email           │       │ bodyTemplate    │       │ trackingId      │
+│ platform        │       │ campaignGoal    │       │ sentAt          │
+│ handle          │       │ tone            │       │ openedAt        │
+│ followers       │       │ targetLeadType  │       │ clickedAt       │
+│ leadScore       │       │ status          │       │ createdAt       │
+│ status          │       │ settings        │       └─────────────────┘
+│ tags            │       │ stats           │
+│ createdAt       │       │ createdAt       │
+└─────────────────┘       └─────────────────┘
+
+┌─────────────────┐       ┌─────────────────────┐
+│ user_documents  │       │ user_document_chunks│
+├─────────────────┤       ├─────────────────────┤
+│ id (PK)         │       │ id (PK)             │
+│ userId (FK)     │       │ documentId (FK)     │
+│ sessionId (FK)  │       │ userId (FK)         │
+│ filename        │       │ chunkIndex          │
+│ originalName    │       │ encryptedContent    │
+│ mimeType        │       │ embedding           │
+│ fileSize        │       │ vectorId            │
+│ status          │       │ tokenCount          │
+│ chunkCount      │       │ createdAt           │
+│ expiresAt       │       └─────────────────────┘
+│ createdAt       │
+└─────────────────┘
 ```
 
 
@@ -656,6 +776,14 @@ Error:
 | `POST /bookmarks` | JWT | CREATE | Create bookmark |
 | `POST /documents/upload` | JWT | CREATE | Upload document |
 | `POST /admin/embeddings/upload` | Admin | CREATE | Upload RAG document |
+| `GET /outreach/leads` | JWT | READ | List leads |
+| `POST /outreach/leads/discover` | JWT | CREATE | AI-powered lead discovery |
+| `POST /outreach/campaigns` | JWT | CREATE | Create campaign |
+| `GET /outreach/campaigns/:id` | JWT | READ | Get campaign details |
+| `POST /outreach/campaigns/:id/send` | JWT | STANDARD | Send campaign emails |
+| `GET /secure-documents` | JWT | READ | List user documents |
+| `POST /secure-documents/upload` | JWT | CREATE | Upload encrypted document |
+| `POST /secure-documents/query` | JWT | STANDARD | Query documents with RAG |
 
 ---
 

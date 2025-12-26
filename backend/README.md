@@ -54,6 +54,8 @@ src/
     ├── users/                 # User management
     ├── investors/             # Investor database (CRUD + admin)
     ├── alerts/                # Competitor monitoring alerts
+    ├── outreach/              # Customer outreach (leads, campaigns, email tracking)
+    ├── secure-documents/      # Encrypted user documents with RAG
     ├── mcp/                   # MCP protocol server
     └── ...
 ```
@@ -187,6 +189,32 @@ curl -H "X-API-Key: coop_xxxxx" /api/v1/mcp-server/discover
 | POST | `/mcp-server/execute` | STANDARD | Execute MCP tool |
 | GET | `/health` | - | Health check |
 | GET | `/metrics` | - | Prometheus metrics |
+
+### Outreach Endpoints
+
+| Method | Endpoint | Rate Limit | Description |
+|--------|----------|------------|-------------|
+| GET | `/outreach/leads` | READ | List user's leads |
+| POST | `/outreach/leads` | CREATE | Create lead manually |
+| POST | `/outreach/leads/discover` | CREATE | AI-powered lead discovery |
+| PATCH | `/outreach/leads/:id` | STANDARD | Update lead |
+| DELETE | `/outreach/leads/:id` | STANDARD | Delete lead |
+| GET | `/outreach/campaigns` | READ | List campaigns |
+| POST | `/outreach/campaigns` | CREATE | Create campaign |
+| GET | `/outreach/campaigns/:id` | READ | Get campaign details |
+| PATCH | `/outreach/campaigns/:id` | STANDARD | Update campaign |
+| POST | `/outreach/campaigns/:id/send` | STANDARD | Send campaign emails |
+| GET | `/outreach/campaigns/:id/emails` | READ | Get campaign emails |
+
+### Secure Documents Endpoints
+
+| Method | Endpoint | Rate Limit | Description |
+|--------|----------|------------|-------------|
+| GET | `/secure-documents` | READ | List user's documents |
+| POST | `/secure-documents/upload` | CREATE | Upload & encrypt document |
+| GET | `/secure-documents/:id` | READ | Get document metadata |
+| DELETE | `/secure-documents/:id` | STANDARD | Delete document & chunks |
+| POST | `/secure-documents/query` | STANDARD | Query documents with RAG |
 
 ### Rate Limit Presets
 

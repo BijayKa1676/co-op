@@ -56,7 +56,8 @@ src/
 │   │   ├── tools/              # Startup tools
 │   │   │   ├── calculators/    # Financial calculators
 │   │   │   ├── investors/      # Investor database
-│   │   │   └── alerts/         # Competitor alerts
+│   │   │   ├── alerts/         # Competitor alerts
+│   │   │   └── outreach/       # Customer outreach (leads, campaigns)
 │   │   ├── usage/              # Personal analytics
 │   │   └── settings/           # User settings
 │   ├── auth/callback/          # OAuth callback
@@ -133,6 +134,12 @@ Four specialized agents with real-time SSE streaming:
 - **Financial Calculators** - Runway, burn rate, valuation, unit economics
 - **Investor Database** - 20+ real investors, filter by stage/sector/region
 - **Competitor Alerts** - Real-time monitoring with email notifications
+- **Customer Outreach** - Lead discovery and campaign management
+  - AI-powered lead discovery (people and companies)
+  - Lead enrichment with social profiles and engagement metrics
+  - Campaign creation (single template or AI personalized)
+  - Email tracking (opens, clicks, bounces)
+  - Campaign analytics
 
 ### Settings
 - Profile editing
@@ -238,6 +245,18 @@ const docs = await api.getDocuments(sessionId);
 
 // Analytics
 const analytics = await api.getMyAnalytics();
+
+// Outreach - Leads
+const leads = await api.getLeads();
+await api.discoverLeads({ query, leadType, count });
+await api.createLead(leadData);
+await api.updateLead(leadId, updates);
+
+// Outreach - Campaigns
+const campaigns = await api.getCampaigns();
+await api.createCampaign(campaignData);
+await api.sendCampaign(campaignId);
+const emails = await api.getCampaignEmails(campaignId);
 ```
 
 ## License

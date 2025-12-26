@@ -39,6 +39,25 @@
 - [x] Investor: Searchable investor database
 - [x] Competitor: Real-time competitor monitoring alerts
 
+## Customer Outreach - COMPLETED ✓
+
+- [x] Lead discovery (AI-powered search for people and companies)
+- [x] Lead enrichment (social profiles, followers, engagement)
+- [x] Lead scoring and status tracking
+- [x] Campaign management (single template + AI personalized modes)
+- [x] Variable substitution in email templates
+- [x] Email tracking (opens, clicks, bounces)
+- [x] Campaign analytics
+
+## Secure Documents - COMPLETED ✓
+
+- [x] Encrypted document storage (AES-256-GCM)
+- [x] Document chunking and processing
+- [x] Per-user isolation
+- [x] Auto-expiry with configurable TTL
+- [x] Semantic search via Upstash Vector
+- [x] RAG integration for AI conversations
+
 ## Low Priority / Future
 
 ### Collaboration
@@ -124,3 +143,40 @@
   - Daily/weekly/realtime frequency
   - Results viewing with read/unread status
   - Split-view UI for alerts and results
+
+### Customer Outreach (v1.3.0)
+- [x] Lead discovery with AI-powered search
+  - People (influencers, content creators)
+  - Companies (potential customers, partners)
+- [x] Lead enrichment
+  - Social profiles, followers, engagement metrics
+  - Industry, niche, location
+  - Custom fields for flexible data
+- [x] Lead management
+  - Scoring and status tracking
+  - Tags and filtering
+  - Bulk operations
+- [x] Campaign management
+  - Single Template mode (one email for all)
+  - AI Personalized mode (unique emails per lead)
+  - Variable substitution ({{name}}, {{company}}, etc.)
+  - Email preview before sending
+- [x] Email tracking
+  - Open tracking (pixel)
+  - Click tracking (link wrapping)
+  - Bounce/failure handling
+  - Campaign analytics
+
+### Secure Documents (v1.3.0)
+- [x] Encrypted document storage
+  - AES-256-GCM encryption for all content
+  - Original files deleted after processing
+  - Per-user isolation
+- [x] Document processing
+  - Chunking for large documents
+  - Supported formats: PDF, DOC, DOCX, TXT, MD, images
+  - Auto-expiry with configurable TTL
+- [x] RAG integration
+  - Semantic search via Upstash Vector
+  - Context injection into AI conversations
+  - On-demand decryption for queries

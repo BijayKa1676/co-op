@@ -5,6 +5,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] - 2025-12-26
+
+### Added
+- **Customer Outreach Module** - Full lead discovery and campaign management
+  - AI-powered lead discovery for people (influencers) and companies
+  - Lead enrichment with social profiles, followers, engagement metrics
+  - Lead scoring and status tracking (new → enriched → contacted → converted)
+  - Campaign management with two modes:
+    - Single Template: One email template for all leads
+    - AI Personalized: Unique AI-generated emails per lead
+  - Variable substitution ({{name}}, {{company}}, etc.)
+  - Email tracking (opens, clicks, bounces)
+  - Campaign analytics and stats
+- **Secure Documents Module** - Encrypted user document storage with RAG
+  - AES-256-GCM encryption for all document content
+  - Original files deleted after processing (chunks only stored)
+  - Per-user isolation (users only see their own documents)
+  - Auto-expiry with configurable TTL
+  - Semantic search via Upstash Vector
+  - RAG integration for AI conversations
+  - Supported formats: PDF, DOC, DOCX, TXT, MD, images
+- New database tables: leads, campaigns, campaign_emails, user_documents, user_document_chunks
+- Email tracking controller with pixel tracking and link wrapping
+- User docs RAG service for encrypted document queries
+
+### Changed
+- Fixed ESLint errors (non-null assertions, unused imports)
+- Improved type safety in campaigns and leads services
+
 ## [1.2.0] - 2025-12-16
 
 ### Added
@@ -127,6 +156,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 | Version | Date | Description |
 |---------|------|-------------|
+| 1.3.0 | 2025-12-26 | Customer outreach, secure documents with RAG |
 | 1.2.0 | 2025-12-16 | Investor database, competitor alerts, financial tools |
 | 1.1.0 | 2025-12-15 | LLM model updates, progress tracking |
 | 1.0.0 | 2024-12-13 | Initial release |
