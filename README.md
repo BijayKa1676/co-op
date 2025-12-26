@@ -72,6 +72,8 @@ Co-Op is an open-source AI advisory platform that provides startup founders with
 | **CORS** | Configurable allowed origins |
 | **Security Headers** | Helmet.js middleware |
 | **Audit Logging** | Full audit trail for sensitive operations |
+| **IP Validation** | Proxy-aware IP extraction with validation |
+| **Error Sanitization** | Sensitive data filtered from error responses |
 
 | Scalability Feature | Implementation |
 |---------------------|----------------|
@@ -80,8 +82,10 @@ Co-Op is an open-source AI advisory platform that provides startup founders with
 | **Async Processing** | QStash message queue with webhooks |
 | **Circuit Breaker** | Opossum for fault tolerance |
 | **Retry Logic** | Exponential backoff with jitter |
-| **RAG Caching** | 30-min TTL, popularity-based extension |
+| **RAG Caching** | 30-min TTL, SHA-256 cache keys |
+| **SSE Reconnection** | Auto-reconnect with exponential backoff |
 | **Horizontal Scaling** | Stateless services, Redis-backed state |
+| **Embedding Timeout** | 30-second timeout on RAG embedding calls |
 
 ---
 

@@ -120,6 +120,12 @@
 - [x] Audit logging service
 - [x] Circuit breaker with LRU cleanup
 - [x] Timing-safe API key comparison
+- [x] SHA-256 cache keys (upgraded from MD5)
+- [x] IP validation for proxy headers
+- [x] Error message sanitization
+- [x] Encryption key required in production
+- [x] SSE reconnection with exponential backoff
+- [x] Embedding timeout protection (30s)
 
 ### Agent Improvements
 - [x] Legal: Jurisdiction selector (region + specific regulations)

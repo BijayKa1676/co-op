@@ -670,21 +670,35 @@ class ApiClient {
   // ============================================
 
   /**
-   * Connect to SSE stream for real-time agent updates
+   * Connect to SSE stream for real-time agent updates with automatic reconnection
    * Note: EventSource doesn't support custom headers, so auth is handled via cookies/session
+   * 
+   * Features:
+   * - Automatic reconnection with exponential backoff
+   * - Maximum 5 reconnection attempts
+   * - Graceful handling of connection failures
    */
   streamAgentTask(
     taskId: string,
     onEvent: (event: import('./types').StreamEvent) => void | Promise<void>,
     onError?: (error: Error) => void,
   ): () => void {
-    const connect = async () => {
-      const url = `${API_URL}/agents/stream/${taskId}`;
+    let eventSource: EventSource | null = null;
+    let reconnectAttempts = 0;
+    let isCompleted = false;
+    let isClosed = false;
+    const maxReconnectAttempts = 5;
+    const baseReconnectDelay = 1000; // 1 second
+    
+    const connect = () => {
+      if (isClosed || isCompleted) return;
       
-      const eventSource = new EventSource(url);
+      const url = `${API_URL}/agents/stream/${taskId}`;
+      eventSource = new EventSource(url);
       
       eventSource.addEventListener('connected', () => {
-        // Connection established
+        // Connection established, reset reconnect counter
+        reconnectAttempts = 0;
       });
       
       eventSource.addEventListener('progress', (e) => {
@@ -712,10 +726,11 @@ class ApiClient {
       });
       
       eventSource.addEventListener('done', async (e) => {
+        isCompleted = true;
         try {
           // Await the async handler to ensure message is saved before closing
           await onEvent({ type: 'done', data: JSON.parse(e.data) });
-          eventSource.close();
+          eventSource?.close();
         } catch (err) {
           onError?.(err as Error);
         }
@@ -725,6 +740,7 @@ class ApiClient {
         try {
           const data = (e as MessageEvent).data;
           if (data) {
+            isCompleted = true; // Don't reconnect on explicit error events
             void onEvent({ type: 'error', data: JSON.parse(data) });
           }
         } catch {
@@ -733,17 +749,36 @@ class ApiClient {
       });
       
       eventSource.onerror = () => {
-        onError?.(new Error('SSE connection failed'));
-        eventSource.close();
+        eventSource?.close();
+        
+        // Don't reconnect if task is completed or manually closed
+        if (isCompleted || isClosed) return;
+        
+        // Attempt reconnection with exponential backoff
+        if (reconnectAttempts < maxReconnectAttempts) {
+          reconnectAttempts++;
+          const delay = baseReconnectDelay * Math.pow(2, reconnectAttempts - 1);
+          const jitter = Math.random() * 500; // Add jitter to prevent thundering herd
+          
+          console.log(`SSE connection lost, reconnecting in ${delay}ms (attempt ${reconnectAttempts}/${maxReconnectAttempts})`);
+          
+          setTimeout(() => {
+            if (!isClosed && !isCompleted) {
+              connect();
+            }
+          }, delay + jitter);
+        } else {
+          onError?.(new Error(`SSE connection failed after ${maxReconnectAttempts} attempts`));
+        }
       };
-      
-      return () => eventSource.close();
     };
     
-    let cleanup: (() => void) | undefined;
-    connect().then(c => { cleanup = c; }).catch(onError);
+    connect();
     
-    return () => cleanup?.();
+    return () => {
+      isClosed = true;
+      eventSource?.close();
+    };
   }
 
   // ============================================

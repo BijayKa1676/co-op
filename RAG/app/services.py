@@ -50,6 +50,9 @@ supabase: Client | None = _init_supabase()
 vector_index: Index | None = _init_vector_index()
 STORAGE_BUCKET = os.getenv("SUPABASE_STORAGE_BUCKET", "documents")
 
+# Timeout for embedding API calls (30 seconds)
+EMBEDDING_TIMEOUT_SECONDS = 30
+
 
 def _sync_embed_content(text: str, task_type: str) -> list[float]:
     result = genai.embed_content(
@@ -61,6 +64,19 @@ def _sync_embed_content(text: str, task_type: str) -> list[float]:
 
 
 async def get_embedding(text: str) -> list[float]:
+    """
+    Generate embedding for document text with timeout protection.
+    
+    Args:
+        text: Text to embed (max 8000 chars)
+    
+    Returns:
+        768-dimensional embedding vector
+    
+    Raises:
+        ValueError: If Google AI not configured
+        asyncio.TimeoutError: If embedding takes longer than EMBEDDING_TIMEOUT_SECONDS
+    """
     if not _google_ai_ready:
         raise ValueError("Google AI not configured")
     
@@ -68,10 +84,30 @@ async def get_embedding(text: str) -> list[float]:
     if len(clean_text) > 8000:
         clean_text = clean_text[:8000]
     
-    return await asyncio.to_thread(_sync_embed_content, clean_text, "retrieval_document")
+    try:
+        return await asyncio.wait_for(
+            asyncio.to_thread(_sync_embed_content, clean_text, "retrieval_document"),
+            timeout=EMBEDDING_TIMEOUT_SECONDS
+        )
+    except asyncio.TimeoutError:
+        logger.error(f"Embedding timeout after {EMBEDDING_TIMEOUT_SECONDS}s for text of length {len(clean_text)}")
+        raise
 
 
 async def get_query_embedding(text: str) -> list[float]:
+    """
+    Generate embedding for query text with timeout protection.
+    
+    Args:
+        text: Query text to embed
+    
+    Returns:
+        768-dimensional embedding vector
+    
+    Raises:
+        ValueError: If Google AI not configured or query is empty
+        asyncio.TimeoutError: If embedding takes longer than EMBEDDING_TIMEOUT_SECONDS
+    """
     if not _google_ai_ready:
         raise ValueError("Google AI not configured")
     
@@ -79,8 +115,14 @@ async def get_query_embedding(text: str) -> list[float]:
     if not clean_text:
         raise ValueError("Query cannot be empty")
     
-    # Use asyncio.to_thread to avoid blocking the event loop
-    return await asyncio.to_thread(_sync_embed_content, clean_text, "retrieval_query")
+    try:
+        return await asyncio.wait_for(
+            asyncio.to_thread(_sync_embed_content, clean_text, "retrieval_query"),
+            timeout=EMBEDDING_TIMEOUT_SECONDS
+        )
+    except asyncio.TimeoutError:
+        logger.error(f"Query embedding timeout after {EMBEDDING_TIMEOUT_SECONDS}s")
+        raise
 
 
 async def download_from_storage(storage_path: str) -> bytes:

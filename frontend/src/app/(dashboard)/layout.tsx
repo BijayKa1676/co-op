@@ -82,25 +82,25 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   // Prevent body scroll when mobile menu is open
   useEffect(() => {
-    const scrollY = window.scrollY;
-    
     if (mobileMenuOpen) {
-      // Store scroll position and lock body
-      document.documentElement.classList.add('menu-open');
-      document.body.style.top = `-${scrollY}px`;
+      // Use overflow hidden on html element for better cross-browser support
+      document.documentElement.style.overflow = 'hidden';
+      document.body.style.overflow = 'hidden';
+      // Prevent iOS Safari bounce
+      document.body.style.position = 'fixed';
+      document.body.style.width = '100%';
     } else {
-      // Restore scroll position
-      const storedScrollY = document.body.style.top;
-      document.documentElement.classList.remove('menu-open');
-      document.body.style.top = '';
-      if (storedScrollY) {
-        window.scrollTo(0, parseInt(storedScrollY || '0', 10) * -1);
-      }
+      document.documentElement.style.overflow = '';
+      document.body.style.overflow = '';
+      document.body.style.position = '';
+      document.body.style.width = '';
     }
     
     return () => {
-      document.documentElement.classList.remove('menu-open');
-      document.body.style.top = '';
+      document.documentElement.style.overflow = '';
+      document.body.style.overflow = '';
+      document.body.style.position = '';
+      document.body.style.width = '';
     };
   }, [mobileMenuOpen]);
 

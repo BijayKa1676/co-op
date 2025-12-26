@@ -80,18 +80,29 @@ export class EncryptionService implements OnModuleInit {
   /**
    * Decrypt a string value.
    * Expects format: iv:authTag:ciphertext (all hex encoded)
+   * 
+   * SECURITY: In production, decryption failures throw errors to prevent
+   * silent data corruption or key mismatch issues.
    */
   decrypt(ciphertext: string): string {
+    // SECURITY: Never return plaintext in production without encryption
     if (!this.key) {
-      // Return as-is if encryption not configured (assume plaintext)
+      if (this.isProduction) {
+        throw new Error('Encryption not configured - cannot decrypt in production');
+      }
+      // Only allow plaintext fallback in development
+      this.logger.warn('Encryption not configured - returning data as-is (dev mode only)');
       return ciphertext;
     }
 
     // Check if this looks like encrypted data (has the iv:authTag:ciphertext format)
     const parts = ciphertext.split(':');
     if (parts.length !== 3) {
-      // Not encrypted format - return as-is (legacy plaintext data)
-      this.logger.debug('Data not in encrypted format, returning as-is');
+      // Not encrypted format - could be legacy plaintext data
+      if (this.isProduction) {
+        // In production, log warning but allow legacy data migration
+        this.logger.warn('Unencrypted data found in production - consider migrating to encrypted format');
+      }
       return ciphertext;
     }
 
@@ -122,12 +133,12 @@ export class EncryptionService implements OnModuleInit {
     } catch {
       // Log decryption failures for security audit
       this.logger.error('Decryption failed - possible tampering, key change, or corrupted data');
-      // In production, don't silently return potentially sensitive data
+      // SECURITY: Always throw in production to prevent silent failures
       if (this.isProduction) {
         throw new Error('Decryption failed - data may be corrupted or encryption key changed');
       }
-      // In dev, return original for debugging
-      return ciphertext;
+      // In dev, throw to surface issues early
+      throw new Error('Decryption failed - check encryption key and data format');
     }
   }
 

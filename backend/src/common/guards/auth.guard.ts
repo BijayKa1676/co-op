@@ -1,4 +1,5 @@
 import { Injectable, CanActivate, ExecutionContext, UnauthorizedException, Inject, forwardRef, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { SupabaseService, SupabaseUser } from '@/common/supabase/supabase.service';
 import { UsersService } from '@/modules/users/users.service';
 
@@ -17,15 +18,30 @@ const TOKEN_VERIFY_WINDOW_MS = 60000; // 1 minute window
 const TOKEN_VERIFY_MAX_ATTEMPTS = 20; // Max 20 attempts per IP per minute
 const ipAttempts = new Map<string, { count: number; resetAt: number }>();
 
+// Trusted proxy hosts (Render, Vercel, Cloudflare, Koyeb)
+const TRUSTED_PROXY_HOSTS = [
+  'onrender.com',
+  'vercel.app',
+  'cloudflare.com',
+  'koyeb.app',
+];
+
 @Injectable()
 export class AuthGuard implements CanActivate {
   private readonly logger = new Logger(AuthGuard.name);
+  private readonly isProduction: boolean;
+  private readonly trustProxy: boolean;
 
   constructor(
     private readonly supabase: SupabaseService,
     @Inject(forwardRef(() => UsersService))
     private readonly usersService: UsersService,
-  ) {}
+    private readonly configService: ConfigService,
+  ) {
+    this.isProduction = this.configService.get<string>('NODE_ENV') === 'production';
+    // Trust proxy headers in production (behind Render/Vercel/Cloudflare)
+    this.trustProxy = this.isProduction;
+  }
 
   /**
    * Check rate limit for token verification attempts
@@ -49,15 +65,34 @@ export class AuthGuard implements CanActivate {
   }
 
   /**
-   * Extract client IP from request
+   * Extract client IP from request with proxy validation
+   * Only trusts x-forwarded-for in production behind known proxies
    */
   private getClientIp(request: AuthenticatedRequest & { ip?: string; headers: Record<string, string | string[] | undefined> }): string {
-    const forwarded = request.headers['x-forwarded-for'];
-    if (forwarded) {
-      const ip = Array.isArray(forwarded) ? forwarded[0] : forwarded.split(',')[0];
-      return ip?.trim() ?? 'unknown';
+    // Only trust forwarded headers if we're behind a trusted proxy
+    if (this.trustProxy) {
+      const forwarded = request.headers['x-forwarded-for'];
+      if (forwarded) {
+        // Take the first IP (client IP) from the chain
+        const ip = Array.isArray(forwarded) ? forwarded[0] : forwarded.split(',')[0];
+        const trimmedIp = ip?.trim();
+        if (trimmedIp && this.isValidIp(trimmedIp)) {
+          return trimmedIp;
+        }
+      }
     }
     return request.ip ?? 'unknown';
+  }
+
+  /**
+   * Basic IP validation to prevent header injection
+   */
+  private isValidIp(ip: string): boolean {
+    // IPv4 pattern
+    const ipv4Pattern = /^(\d{1,3}\.){3}\d{1,3}$/;
+    // IPv6 pattern (simplified)
+    const ipv6Pattern = /^([0-9a-fA-F]{0,4}:){2,7}[0-9a-fA-F]{0,4}$/;
+    return ipv4Pattern.test(ip) || ipv6Pattern.test(ip);
   }
 
   async canActivate(context: ExecutionContext): Promise<boolean> {

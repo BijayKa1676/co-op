@@ -96,10 +96,14 @@ export class AgentsStreamController {
       }
     }, 500); // Poll every 500ms for low latency
 
-    // Keep-alive ping
+    // Keep-alive ping every 30 seconds (prevents connection timeout)
     const keepAlive = setInterval(() => {
-      res.write(`:keepalive\n\n`);
-    }, 15000);
+      try {
+        res.write(`:ping ${Date.now()}\n\n`);
+      } catch {
+        // Connection may be closed, ignore
+      }
+    }, 30000);
 
     // Timeout after 10 minutes
     const timeout = setTimeout(() => {

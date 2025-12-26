@@ -95,12 +95,14 @@ export class LlmCouncilService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
-   * Generate cache key for a prompt - use full 32-char MD5 for better collision resistance
+   * Generate cache key for a prompt using SHA-256 for better collision resistance
+   * SHA-256 provides 256-bit entropy vs MD5's 128-bit, and is cryptographically secure
    */
   private getCacheKey(systemPrompt: string, userPrompt: string, model: string): string {
-    const hash = createHash('md5')
+    const hash = createHash('sha256')
       .update(`${systemPrompt}:${userPrompt}:${model}`)
-      .digest('hex'); // Full 32-char hash (128-bit entropy)
+      .digest('hex')
+      .slice(0, 32); // Use first 32 chars (128-bit) for reasonable key length
     return `${LLM_CACHE_PREFIX}${hash}`;
   }
 
