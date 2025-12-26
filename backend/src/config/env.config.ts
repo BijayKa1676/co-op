@@ -63,6 +63,10 @@ export const envSchema = z.object({
   SENDGRID_API_KEY: z.string().optional(),
   SENDGRID_FROM_EMAIL: z.string().default('noreply@co-op.ai'),
   SENDGRID_FROM_NAME: z.string().default('Co-Op AI'),
+  SENDGRID_WEBHOOK_SECRET: z.string().optional(), // For webhook signature verification
+
+  // App URL (for tracking links)
+  APP_URL: z.string().default('http://localhost:3000'),
 });
 
 export type EnvConfig = z.infer<typeof envSchema>;

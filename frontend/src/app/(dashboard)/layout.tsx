@@ -54,6 +54,7 @@ const tools = [
   { name: 'Calculators', href: '/tools/calculators', icon: Calculator },
   { name: 'Investors', href: '/tools/investors', icon: Buildings },
   { name: 'Alerts', href: '/tools/alerts', icon: Bell },
+  { name: 'Outreach', href: '/tools/outreach', icon: UsersThree },
 ];
 
 const settings = [

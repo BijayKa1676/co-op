@@ -39,6 +39,7 @@ import { DocumentsModule } from './modules/documents/documents.module';
 import { AlertsModule } from './modules/alerts/alerts.module';
 import { InvestorsModule } from './modules/investors/investors.module';
 import { SecureDocumentsModule } from './modules/secure-documents/secure-documents.module';
+import { OutreachModule } from './modules/outreach/outreach.module';
 
 @Module({
   imports: [
@@ -90,6 +91,7 @@ import { SecureDocumentsModule } from './modules/secure-documents/secure-documen
     AlertsModule,
     InvestorsModule,
     SecureDocumentsModule,
+    OutreachModule,
   ],
 })
 export class AppModule {}

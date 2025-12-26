@@ -13,3 +13,4 @@ export * from './documents.schema';
 export * from './alerts.schema';
 export * from './investors.schema';
 export * from './user-documents.schema';
+export * from './outreach.schema';

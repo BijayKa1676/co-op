@@ -881,6 +881,84 @@ class ApiClient {
   async purgeAllDocuments(): Promise<{ documentsDeleted: number; chunksDeleted: number }> {
     return this.request<{ documentsDeleted: number; chunksDeleted: number }>('DELETE', '/secure-documents/purge/all');
   }
+
+  // ============================================
+  // OUTREACH - LEADS ENDPOINTS
+  // ============================================
+
+  async discoverLeads(data: import('./types').DiscoverLeadsRequest): Promise<import('./types').Lead[]> {
+    return this.post<import('./types').Lead[]>('/outreach/leads/discover', data);
+  }
+
+  async getLeads(filters?: import('./types').LeadFilters): Promise<import('./types').Lead[]> {
+    const params = new URLSearchParams();
+    if (filters?.search) params.set('search', filters.search);
+    if (filters?.status) params.set('status', filters.status);
+    if (filters?.industry) params.set('industry', filters.industry);
+    if (filters?.minScore !== undefined) params.set('minScore', String(filters.minScore));
+    const queryStr = params.toString();
+    return this.get<import('./types').Lead[]>(`/outreach/leads${queryStr ? `?${queryStr}` : ''}`);
+  }
+
+  async getLead(id: string): Promise<import('./types').Lead> {
+    return this.get<import('./types').Lead>(`/outreach/leads/${id}`);
+  }
+
+  async createLead(data: import('./types').CreateLeadRequest): Promise<import('./types').Lead> {
+    return this.post<import('./types').Lead>('/outreach/leads', data);
+  }
+
+  async updateLead(id: string, data: import('./types').UpdateLeadRequest): Promise<import('./types').Lead> {
+    return this.patch<import('./types').Lead>(`/outreach/leads/${id}`, data);
+  }
+
+  async deleteLead(id: string): Promise<void> {
+    await this.delete(`/outreach/leads/${id}`);
+  }
+
+  // ============================================
+  // OUTREACH - CAMPAIGNS ENDPOINTS
+  // ============================================
+
+  async generateEmailTemplate(data: import('./types').GenerateTemplateRequest): Promise<import('./types').GeneratedTemplate> {
+    return this.post<import('./types').GeneratedTemplate>('/outreach/campaigns/generate-template', data);
+  }
+
+  async getCampaigns(): Promise<import('./types').Campaign[]> {
+    return this.get<import('./types').Campaign[]>('/outreach/campaigns');
+  }
+
+  async getCampaign(id: string): Promise<import('./types').Campaign> {
+    return this.get<import('./types').Campaign>(`/outreach/campaigns/${id}`);
+  }
+
+  async createCampaign(data: import('./types').CreateCampaignRequest): Promise<import('./types').Campaign> {
+    return this.post<import('./types').Campaign>('/outreach/campaigns', data);
+  }
+
+  async updateCampaign(id: string, data: import('./types').UpdateCampaignRequest): Promise<import('./types').Campaign> {
+    return this.patch<import('./types').Campaign>(`/outreach/campaigns/${id}`, data);
+  }
+
+  async deleteCampaign(id: string): Promise<void> {
+    await this.delete(`/outreach/campaigns/${id}`);
+  }
+
+  async generateCampaignEmails(campaignId: string, leadIds: string[]): Promise<import('./types').CampaignEmail[]> {
+    return this.post<import('./types').CampaignEmail[]>(`/outreach/campaigns/${campaignId}/generate-emails`, { leadIds });
+  }
+
+  async getCampaignEmails(campaignId: string): Promise<import('./types').CampaignEmail[]> {
+    return this.get<import('./types').CampaignEmail[]>(`/outreach/campaigns/${campaignId}/emails`);
+  }
+
+  async sendCampaign(campaignId: string): Promise<{ sent: number; failed: number }> {
+    return this.post<{ sent: number; failed: number }>(`/outreach/campaigns/${campaignId}/send`);
+  }
+
+  async getCampaignStats(campaignId: string): Promise<import('./types').CampaignStats> {
+    return this.get<import('./types').CampaignStats>(`/outreach/campaigns/${campaignId}/stats`);
+  }
 }
 
 export const api = new ApiClient();

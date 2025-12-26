@@ -731,6 +731,151 @@ export interface DocumentChunkContext {
   content: string; // Decrypted content
 }
 
+// === OUTREACH - LEADS ===
+export type LeadStatus = 'new' | 'enriched' | 'contacted' | 'replied' | 'converted' | 'unsubscribed';
+
+export interface Lead {
+  id: string;
+  companyName: string;
+  website: string | null;
+  industry: string | null;
+  companySize: string | null;
+  location: string | null;
+  description: string | null;
+  contactName: string | null;
+  contactEmail: string | null;
+  contactTitle: string | null;
+  linkedinUrl: string | null;
+  leadScore: number;
+  status: LeadStatus;
+  source: string | null;
+  createdAt: string;
+}
+
+export interface DiscoverLeadsRequest {
+  startupIdea: string;
+  targetIndustry?: string;
+  targetCompanySizes?: string[];
+  targetLocations?: string[];
+  idealCustomerProfile?: string;
+  maxLeads?: number;
+}
+
+export interface CreateLeadRequest {
+  companyName: string;
+  website?: string;
+  industry?: string;
+  companySize?: string;
+  location?: string;
+  description?: string;
+  contactName?: string;
+  contactEmail?: string;
+  contactTitle?: string;
+  linkedinUrl?: string;
+  source?: string;
+}
+
+export interface UpdateLeadRequest {
+  companyName?: string;
+  website?: string;
+  industry?: string;
+  companySize?: string;
+  location?: string;
+  description?: string;
+  contactName?: string;
+  contactEmail?: string;
+  contactTitle?: string;
+  linkedinUrl?: string;
+  status?: LeadStatus;
+  leadScore?: number;
+}
+
+export interface LeadFilters {
+  search?: string;
+  status?: LeadStatus;
+  industry?: string;
+  minScore?: number;
+}
+
+// === OUTREACH - CAMPAIGNS ===
+export type CampaignStatus = 'draft' | 'scheduled' | 'sending' | 'paused' | 'completed';
+export type EmailStatus = 'pending' | 'sent' | 'delivered' | 'opened' | 'clicked' | 'bounced' | 'failed';
+
+export interface Campaign {
+  id: string;
+  name: string;
+  subjectTemplate: string;
+  bodyTemplate: string;
+  status: CampaignStatus;
+  settings: {
+    trackOpens?: boolean;
+    trackClicks?: boolean;
+    dailyLimit?: number;
+  };
+  stats: {
+    totalEmails?: number;
+    sent?: number;
+    delivered?: number;
+    opened?: number;
+    clicked?: number;
+    bounced?: number;
+  };
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateCampaignRequest {
+  name: string;
+  subjectTemplate: string;
+  bodyTemplate: string;
+  trackOpens?: boolean;
+  trackClicks?: boolean;
+  dailyLimit?: number;
+}
+
+export interface UpdateCampaignRequest {
+  name?: string;
+  subjectTemplate?: string;
+  bodyTemplate?: string;
+  status?: CampaignStatus;
+  trackOpens?: boolean;
+  trackClicks?: boolean;
+}
+
+export interface GenerateTemplateRequest {
+  pitch: string;
+  tone?: 'professional' | 'casual' | 'friendly';
+}
+
+export interface GeneratedTemplate {
+  subjectTemplate: string;
+  bodyTemplate: string;
+}
+
+export interface CampaignEmail {
+  id: string;
+  leadId: string;
+  subject: string;
+  body: string;
+  status: EmailStatus;
+  sentAt: string | null;
+  openedAt: string | null;
+  clickedAt: string | null;
+  createdAt: string;
+}
+
+export interface CampaignStats {
+  totalEmails: number;
+  sent: number;
+  delivered: number;
+  opened: number;
+  clicked: number;
+  bounced: number;
+  openRate: number;
+  clickRate: number;
+  bounceRate: number;
+}
+
 // === API RESPONSE ===
 export interface ApiResponse<T> {
   success: boolean;
