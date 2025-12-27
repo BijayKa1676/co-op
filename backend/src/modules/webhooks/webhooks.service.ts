@@ -38,6 +38,8 @@ export interface UserWebhookUsageSummary {
 
 // Blocked hosts for SSRF prevention
 const BLOCKED_HOSTS = ['localhost', '127.0.0.1', '0.0.0.0', '::1', '169.254.169.254'];
+// Blocked ports for SSRF prevention (common internal service ports)
+const BLOCKED_PORTS = [22, 23, 25, 110, 143, 445, 3306, 5432, 6379, 27017, 9200, 11211];
 
 @Injectable()
 export class WebhooksService {
@@ -75,6 +77,12 @@ export class WebhooksService {
           /^172\.(1[6-9]|2[0-9]|3[0-1])\./.exec(hostname)
         ) {
           throw new BadRequestException('Webhook URL cannot point to private IP addresses');
+        }
+
+        // Block dangerous ports (common internal service ports)
+        const port = parsed.port ? parseInt(parsed.port, 10) : (parsed.protocol === 'https:' ? 443 : 80);
+        if (BLOCKED_PORTS.includes(port)) {
+          throw new BadRequestException(`Webhook URL cannot use port ${port} (blocked for security)`);
         }
 
         // Require HTTPS in production

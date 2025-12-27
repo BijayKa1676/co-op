@@ -5,6 +5,236 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.6] - 2025-12-27
+
+### Bug Fixes
+
+#### Rate Limiting & Security
+- **Admin Controller Rate Limits** - Added rate limits to all admin endpoints
+  - Upload: 10/min, List: 100/min, Get: 100/min, Delete: 30/min
+  - Vectorize: 10/min (expensive operation), Cleanup: 5/min
+  - Prevents abuse of admin endpoints
+
+- **Alerts Controller Guards** - Added missing `UserThrottleGuard`
+  - Consistent with other controllers
+  - Added default rate limit preset
+
+- **Documents Controller Guards** - Added missing `UserThrottleGuard` and rate limits
+  - Added rate limits to GET endpoints (text extraction, download)
+  - Consistent security across all document operations
+
+- **Outreach Controllers Guards** - Added missing `UserThrottleGuard`
+  - Leads and Campaigns controllers now use consistent guards
+  - Added default rate limit presets
+
+- **MCP Controller Guards** - Added missing `UserThrottleGuard` and rate limits
+  - All MCP endpoints now have appropriate rate limits
+  - Tool execution limited to 30/min, discovery to 10/min
+  - Consistent security across MCP operations
+
+- **Notion Controller Guards** - Added missing `UserThrottleGuard` and rate limits
+  - Search limited to 30/min, export to 10/min
+  - Consistent security across Notion operations
+
+- **Startups Controller Guards** - Added missing `UserThrottleGuard` and rate limits
+  - All endpoints now have appropriate rate limits
+  - Consistent security across startup operations
+
+- **Analytics Controller Rate Limits** - Added rate limits to admin analytics endpoints
+  - Dashboard and event aggregation now rate limited
+
+- **Secure Documents Controller Guards** - Added missing `UserThrottleGuard`
+  - Consistent security across secure document operations
+
+#### Error Handling & Resilience
+- **API Client Upload Retry** - Frontend upload method now has retry logic
+  - Retries on network errors and server errors (5xx)
+  - Exponential backoff matching other request methods
+  - Improves reliability of file uploads
+
+- **Chat Polling Abort Check** - Fallback polling now checks abort signal
+  - Prevents continued polling after user cancels request
+  - Cleaner cleanup on navigation away from chat
+
+- **Auth Callback Error Handling** - OAuth error responses now properly handled
+  - Displays error_description from OAuth provider
+  - Logs errors server-side for debugging
+  - Better user feedback on auth failures
+
+- **Domain Agent RAG Graceful Degradation** - Legal and Finance agents now handle RAG failures
+  - If RAG service throws, agent continues without RAG context
+  - Logs warning but doesn't fail the entire request
+  - Improves reliability when RAG service is unavailable
+
+### Code Quality
+- Consistent guard usage across all controllers
+- Better error handling patterns in frontend
+
+## [1.3.5] - 2025-12-27
+
+### Bug Fixes
+
+#### LLM Provider Robustness
+- **Empty Response Guards** - All LLM providers now guard against empty `choices` arrays
+  - Groq, Google, HuggingFace providers throw clear errors if API returns empty response
+  - Prevents cryptic "cannot read property of undefined" errors
+
+- **Empty Messages Guard** - Google provider validates messages array is not empty
+  - Prevents sending empty requests to Gemini API
+  - Applies to both `chat()` and `chatStream()` methods
+
+- **Stream Fallback** - LLM Router now falls back to non-streaming on stream failure
+  - If streaming fails mid-response, falls back to regular chat completion
+  - Improves reliability of streaming responses
+
+#### External Service Timeouts
+- **ScrapingBee Timeout** - Added 15-second timeout to ScrapingBee API calls
+  - Prevents hanging requests from blocking research operations
+
+- **Supabase Health Check Timeout** - Added 5-second timeout to Supabase health check
+  - Prevents health endpoint from hanging if Supabase is slow
+
+#### Security Improvements
+- **API Key ID Validation** - Revoke endpoint now validates key ID format
+  - Rejects invalid key IDs before database lookup
+  - Prevents potential injection via malformed IDs
+
+- **API Key Scope Validation** - Create endpoint validates scopes against whitelist
+  - Only allows valid scopes: read, write, agents, sessions
+  - Prevents arbitrary scope injection
+
+- **Bookmark Search Sanitization** - ILIKE search patterns now escaped
+  - Escapes `%`, `_`, `\` characters in search input
+  - Prevents SQL pattern injection via search queries
+
+- **Leads Search Sanitization** - ILIKE search patterns now escaped
+  - Escapes special characters in niche and search filters
+  - Prevents SQL pattern injection via lead filters
+
+- **Sessions Search Sanitization** - ILIKE search patterns now escaped
+  - Escapes special characters in session title search
+  - Prevents SQL pattern injection via session search
+
+- **Open Redirect Prevention** - Email tracking link clicks now validate URLs
+  - Validates protocol (http/https only)
+  - Blocks javascript:, data: URLs and URLs with credentials
+  - Returns 400 error for invalid redirect URLs
+
+- **Webhook Signature Timing Attack Fix** - Fixed potential timing attack
+  - Now checks buffer lengths before timing-safe comparison
+  - Prevents length-based timing attacks on signature verification
+
+- **Admin File ID Validation** - Admin embedding endpoints validate UUID format
+  - `forceVectorize()`, `getEmbedding()`, `deleteEmbedding()` validate file IDs
+  - Prevents invalid IDs from reaching database queries
+
+#### QStash Improvements
+- **Empty Batch Guard** - `publishBatch()` now returns early for empty job arrays
+  - Prevents unnecessary API calls with empty payloads
+
+#### Redis Improvements
+- **Empty Array Guard** - `mset()` now returns early for empty entry arrays
+  - Prevents unnecessary pipeline operations with empty data
+
+#### Cache Improvements
+- **User Delete Cache Invalidation** - User cache now invalidated on delete
+  - Prevents stale user data after account deletion
+
+### Code Quality
+- Improved error messages for LLM provider failures
+- Better defensive coding patterns throughout
+
+### Bug Fixes
+
+#### Memory Leaks
+- **Auth Guard Cleanup** - Fixed memory leak in auth guard
+  - Token cache cleanup interval now properly cleared on module destroy
+  - Implements `OnModuleDestroy` lifecycle hook
+  - Clears both token cache and failed attempts map on shutdown
+
+- **Orchestrator DLQ Interval** - Already fixed in 1.3.3, interval properly cleared
+
+#### Race Conditions
+- **Chat Session Creation** - Fixed race condition when sending multiple rapid messages
+  - Added `isCreatingSession` state to prevent duplicate session creation
+  - Guards against concurrent session creation attempts
+
+#### Validation Improvements
+- **Empty Message Validation** - Sessions service now rejects empty/whitespace-only messages
+  - Prevents saving meaningless messages to database
+  - Returns clear error message to user
+
+- **Multi-Agent Empty Array** - Agents service now validates agents array is not empty
+  - Throws `BadRequestException` if no agents specified
+  - Prevents cryptic errors downstream
+
+#### Security Improvements
+- **SSRF Port Validation** - Webhook URL validation now checks for blocked ports
+  - Blocks common internal service ports (22, 3306, 5432, 6379, 27017, etc.)
+  - Prevents SSRF attacks targeting internal services on non-standard ports
+
+- **Logout-All Rate Limit** - Added strict rate limit (3/min) to `/users/me/logout-all`
+  - Prevents abuse of sensitive session invalidation endpoint
+
+#### Cache Improvements
+- **Frontend Cache Invalidation** - API client now invalidates cache on mutations
+  - POST, PATCH, DELETE operations automatically clear related cache entries
+  - Prevents stale data after creating/updating/deleting resources
+
+#### Performance Improvements
+- **Leads Batch Query** - `getLeadsByIds()` now uses SQL IN clause
+  - Previously fetched all user leads and filtered in memory
+  - Now uses efficient batch query with `inArray()` for O(1) database lookup
+
+### Code Quality
+- Fixed unused variable warning in `SkipAuthRateLimit` decorator
+- Removed unused `TRUSTED_PROXY_HOSTS` constant
+
+## [1.3.3] - 2025-12-27
+
+### Bug Fixes
+
+#### Critical: Auth Rate Limiting Breaking Chat
+- **Auth Rate Limit Rework** - Fixed rate limiting that was blocking chat functionality
+  - Changed from counting ALL auth attempts to only counting FAILED attempts
+  - Added 30-second token cache to avoid re-verifying same token repeatedly
+  - Added `@SkipAuthRateLimit()` decorator for high-frequency endpoints (SSE, polling)
+  - SSE endpoints now accept token via query parameter (EventSource can't send headers)
+  - Frontend updated to pass token via query param for SSE connections
+
+#### Orchestrator Service
+- **DLQ Retry Count Fix** - Retry count now properly incremented when restoring tasks from dead letter queue
+  - Previously, tasks restored from DLQ would reset to retry count 0
+  - Now tracks retry count in task metadata for accurate retry tracking
+
+#### Campaigns Service
+- **N+1 Query Fix** - Batch lead fetching in `getEmails()` and `sendCampaign()`
+  - Previously fetched each lead individually in a loop (N+1 queries)
+  - Now uses `getLeadsByIds()` to batch fetch all leads in single query
+  - Significant performance improvement for campaigns with many emails
+
+#### Secure Documents Service
+- **Infinite Loop Prevention** - Fixed potential infinite loop in `chunkText()`
+  - Added safety check ensuring overlap is less than chunk size
+  - Added progress check to ensure loop always advances
+  - Prevents edge case where `start` could stay at same position
+
+#### Notion Service
+- **Timeout Protection** - Added 30-second timeout to all Notion API requests
+  - Prevents hanging requests from blocking the event loop
+  - Proper cleanup of AbortController on success or failure
+
+#### MCP Service
+- **Tool Schema Fix** - `getToolSchema()` now returns actual tool data from cache
+  - Previously returned empty placeholder object
+  - Now fetches from Redis cache or triggers discovery if not cached
+
+### Security Improvements
+- Users controller now has proper rate limiting (was missing)
+- `/users/me` endpoint has higher rate limit (200/min) for frequent page loads
+- SSE endpoints properly rate limited at connection level (10 new connections/min)
+- Task status polling has high rate limit (300/min) for responsive UI
+
 ## [1.3.2] - 2025-12-26
 
 ### Infrastructure Improvements
@@ -250,6 +480,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 | Version | Date | Description |
 |---------|------|-------------|
+| 1.3.3 | 2025-12-27 | Bug fixes (DLQ retry, N+1 queries, infinite loop, timeouts) |
+| 1.3.2 | 2025-12-26 | Infrastructure improvements (token blacklist, graceful shutdown) |
 | 1.3.1 | 2025-12-26 | Infrastructure improvements (performance, security, observability) |
 | 1.3.0 | 2025-12-26 | Customer outreach, secure documents with RAG |
 | 1.2.0 | 2025-12-16 | Investor database, competitor alerts, financial tools |

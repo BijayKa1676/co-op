@@ -86,7 +86,9 @@ export class ResearchService {
         nb_results: '10',
       });
 
-      const response = await fetch(`https://app.scrapingbee.com/api/v1/store/google?${params.toString()}`);
+      const response = await fetch(`https://app.scrapingbee.com/api/v1/store/google?${params.toString()}`, {
+        signal: AbortSignal.timeout(15000), // 15 second timeout
+      });
       
       if (!response.ok) {
         this.logger.warn(`ScrapingBee request failed: ${String(response.status)}`);

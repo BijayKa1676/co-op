@@ -52,6 +52,11 @@ export class GroqProvider implements LlmProviderService {
     });
 
     const choice = response.choices[0];
+    
+    // Guard against empty choices array
+    if (!choice) {
+      throw new Error('Groq returned empty response');
+    }
 
     return {
       content: choice.message.content ?? '',

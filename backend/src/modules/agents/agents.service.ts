@@ -304,6 +304,11 @@ export class AgentsService {
     input: AgentInput,
     onProgress?: (step: string) => void,
   ): Promise<A2AAgentResponse[]> {
+    // Guard against empty agents array
+    if (!agents || agents.length === 0) {
+      throw new BadRequestException('At least one agent must be specified');
+    }
+
     const results = await Promise.all(
       agents.map(async (agent) => {
         try {

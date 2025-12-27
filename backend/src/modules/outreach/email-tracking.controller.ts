@@ -94,6 +94,12 @@ export class EmailTrackingController {
     const decodedUrl = decodeURIComponent(url);
     const redirectUrl = await this.trackingService.handleLinkClick(trackingId, decodedUrl);
     
+    // If URL validation failed, return error instead of redirecting
+    if (!redirectUrl) {
+      res.status(400).send('Invalid redirect URL');
+      return;
+    }
+    
     res.redirect(302, redirectUrl);
   }
 

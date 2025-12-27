@@ -332,6 +332,9 @@ export class UsersService {
       .set({ deletedAt: new Date(), updatedAt: new Date() })
       .where(eq(schema.users.id, id));
 
+    // Invalidate user cache
+    await this.cache.invalidate(`${CACHE_PREFIX.USER}${id}`);
+
     // Audit log
     await this.audit.log({
       userId: null, // Admin action

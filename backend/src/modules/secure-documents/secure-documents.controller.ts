@@ -14,6 +14,7 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiConsumes, ApiBody } from '@nestjs/swagger';
 import { AuthGuard } from '@/common/guards/auth.guard';
+import { UserThrottleGuard } from '@/common/guards/user-throttle.guard';
 import { CurrentUser, CurrentUserPayload } from '@/common/decorators/current-user.decorator';
 import { RateLimit, RateLimitPresets } from '@/common/decorators/rate-limit.decorator';
 import { SecureDocumentsService, SecureDocumentResponse } from './secure-documents.service';
@@ -21,7 +22,8 @@ import { SecureDocumentsService, SecureDocumentResponse } from './secure-documen
 @ApiTags('Secure Documents')
 @Controller('secure-documents')
 @ApiBearerAuth()
-@UseGuards(AuthGuard)
+@UseGuards(AuthGuard, UserThrottleGuard)
+@RateLimit(RateLimitPresets.STANDARD) // Default: 100 req/min
 export class SecureDocumentsController {
   constructor(private readonly service: SecureDocumentsService) {}
 

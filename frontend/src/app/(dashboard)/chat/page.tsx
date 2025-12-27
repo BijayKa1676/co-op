@@ -80,6 +80,7 @@ export default function ChatPage() {
   const [ratedMessages, setRatedMessages] = useState<Set<string>>(new Set());
   const [uploadedDocs, setUploadedDocs] = useState<SecureDocument[]>([]);
   const [isUploading, setIsUploading] = useState(false);
+  const [isCreatingSession, setIsCreatingSession] = useState(false); // Prevent race condition
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const sessionInitRef = useRef(false);
@@ -196,7 +197,7 @@ export default function ChatPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim() || !user?.startup || isLoading) return;
+    if (!input.trim() || !user?.startup || isLoading || isCreatingSession) return;
 
     // Check if any documents are still processing
     const processingDocs = uploadedDocs.filter(d => d.status === 'processing');
@@ -210,9 +211,16 @@ export default function ChatPage() {
     const prompt = input.trim();
     const isMultiAgent = selectedAgent === null;
 
-    // Create session on first message if none exists
+    // Create session on first message if none exists (with race condition guard)
     let sessionToUse = currentSession;
     if (!sessionToUse) {
+      // Prevent multiple rapid session creations
+      if (isCreatingSession) {
+        toast.error('Please wait, creating session...');
+        return;
+      }
+      
+      setIsCreatingSession(true);
       try {
         sessionToUse = await api.createSession({
           startupId: user.startup.id,
@@ -222,8 +230,10 @@ export default function ChatPage() {
       } catch (error) {
         console.error('Failed to create session:', error);
         toast.error('Failed to start chat session');
+        setIsCreatingSession(false);
         return;
       }
+      setIsCreatingSession(false);
     }
 
     addMessage({
@@ -473,6 +483,12 @@ export default function ChatPage() {
     let finalContent = '';
     
     while (!completed) {
+      // Check if request was aborted before polling
+      if (abortControllerRef.current?.signal.aborted) {
+        setLoading(false);
+        return;
+      }
+      
       await new Promise((resolve) => setTimeout(resolve, 800));
       try {
         const status = await api.getTaskStatus(taskId);

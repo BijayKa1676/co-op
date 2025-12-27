@@ -18,14 +18,16 @@ import { Response } from 'express';
 import { DocumentsService } from './documents.service';
 import { UploadDocumentDto, DocumentResponseDto, DocumentUrlResponseDto } from './dto/document.dto';
 import { AuthGuard } from '@/common/guards/auth.guard';
+import { UserThrottleGuard } from '@/common/guards/user-throttle.guard';
 import { CurrentUser, CurrentUserPayload } from '@/common/decorators/current-user.decorator';
 import { ApiResponseDto } from '@/common/dto/api-response.dto';
-import { RateLimit } from '@/common/decorators/rate-limit.decorator';
+import { RateLimit, RateLimitPresets } from '@/common/decorators/rate-limit.decorator';
 
 @ApiTags('Documents')
 @Controller('documents')
-@UseGuards(AuthGuard)
+@UseGuards(AuthGuard, UserThrottleGuard)
 @ApiBearerAuth()
+@RateLimit(RateLimitPresets.STANDARD) // Default: 100 req/min
 export class DocumentsController {
   constructor(private readonly documentsService: DocumentsService) {}
 
@@ -56,6 +58,7 @@ export class DocumentsController {
   }
 
   @Get()
+  @RateLimit(RateLimitPresets.READ)
   @ApiOperation({ summary: 'Get user documents' })
   @ApiResponse({ status: 200, description: 'Documents retrieved' })
   async findAll(
@@ -67,6 +70,7 @@ export class DocumentsController {
   }
 
   @Get(':id')
+  @RateLimit(RateLimitPresets.READ)
   @ApiOperation({ summary: 'Get document by ID' })
   @ApiResponse({ status: 200, description: 'Document found' })
   async findOne(
@@ -78,6 +82,7 @@ export class DocumentsController {
   }
 
   @Get(':id/url')
+  @RateLimit(RateLimitPresets.READ)
   @ApiOperation({ summary: 'Get signed URL for document' })
   @ApiResponse({ status: 200, description: 'Signed URL generated' })
   async getUrl(
@@ -89,6 +94,7 @@ export class DocumentsController {
   }
 
   @Get(':id/download')
+  @RateLimit({ limit: 30, ttl: 60, keyPrefix: 'documents:download' }) // 30 downloads per minute
   @ApiOperation({ summary: 'Download document' })
   @ApiResponse({ status: 200, description: 'Document content' })
   async download(
@@ -103,6 +109,7 @@ export class DocumentsController {
   }
 
   @Get(':id/text')
+  @RateLimit({ limit: 30, ttl: 60, keyPrefix: 'documents:text' }) // 30 text extractions per minute
   @ApiOperation({ summary: 'Extract text content from document' })
   @ApiResponse({ status: 200, description: 'Text content extracted' })
   async extractText(

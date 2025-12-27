@@ -392,22 +392,39 @@ export class NotionService {
     endpoint: string,
     body?: unknown,
   ): Promise<T> {
-    const response = await fetch(`${NOTION_API_BASE}${endpoint}`, {
-      method,
-      headers: {
-        'Authorization': `Bearer ${this.apiToken}`,
-        'Content-Type': 'application/json',
-        'Notion-Version': NOTION_API_VERSION,
-      },
-      body: body ? JSON.stringify(body) : undefined,
-    });
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => { controller.abort(); }, 30000); // 30s timeout
 
-    if (!response.ok) {
-      const error = await response.text();
-      this.logger.error(`Notion API error: ${error}`);
-      throw new BadRequestException(`Notion API error: ${String(response.status)}`);
+    try {
+      const response = await fetch(`${NOTION_API_BASE}${endpoint}`, {
+        method,
+        headers: {
+          'Authorization': `Bearer ${this.apiToken}`,
+          'Content-Type': 'application/json',
+          'Notion-Version': NOTION_API_VERSION,
+        },
+        body: body ? JSON.stringify(body) : undefined,
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        const error = await response.text();
+        this.logger.error(`Notion API error: ${error}`);
+        throw new BadRequestException(`Notion API error: ${String(response.status)}`);
+      }
+
+      return response.json() as Promise<T>;
+    } catch (error) {
+      clearTimeout(timeoutId);
+      
+      if (error instanceof Error && error.name === 'AbortError') {
+        this.logger.error('Notion API request timed out');
+        throw new BadRequestException('Notion API request timed out');
+      }
+      
+      throw error;
     }
-
-    return response.json() as Promise<T>;
   }
 }

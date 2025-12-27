@@ -12,8 +12,10 @@ import { McpService } from './mcp.service';
 import { RegisterServerDto, CallToolDto } from './dto';
 import { AdminGuard } from '@/common/guards/admin.guard';
 import { AuthGuard } from '@/common/guards/auth.guard';
+import { UserThrottleGuard } from '@/common/guards/user-throttle.guard';
 import { ApiResponseDto } from '@/common/dto/api-response.dto';
 import { McpServerConfig, McpToolDefinition, McpToolResult } from './types/mcp.types';
+import { RateLimit, RateLimitPresets } from '@/common/decorators/rate-limit.decorator';
 
 @ApiTags('MCP')
 @Controller('mcp')
@@ -22,6 +24,7 @@ export class McpController {
 
   @Post('servers')
   @UseGuards(AdminGuard)
+  @RateLimit({ limit: 10, ttl: 60, keyPrefix: 'mcp:register' }) // 10 registrations per minute
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Register an MCP server (admin only)' })
   @ApiResponse({ status: 201, description: 'Server registered' })
@@ -32,6 +35,7 @@ export class McpController {
 
   @Delete('servers/:id')
   @UseGuards(AdminGuard)
+  @RateLimit({ limit: 10, ttl: 60, keyPrefix: 'mcp:unregister' }) // 10 unregistrations per minute
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Unregister an MCP server (admin only)' })
   @ApiResponse({ status: 200, description: 'Server unregistered' })
@@ -41,7 +45,8 @@ export class McpController {
   }
 
   @Get('servers')
-  @UseGuards(AuthGuard)
+  @UseGuards(AuthGuard, UserThrottleGuard)
+  @RateLimit(RateLimitPresets.READ)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'List all MCP servers' })
   @ApiResponse({ status: 200, description: 'Servers list' })
@@ -51,7 +56,8 @@ export class McpController {
   }
 
   @Get('servers/:id/tools')
-  @UseGuards(AuthGuard)
+  @UseGuards(AuthGuard, UserThrottleGuard)
+  @RateLimit(RateLimitPresets.READ)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get tools from an MCP server' })
   @ApiResponse({ status: 200, description: 'Tools list' })
@@ -62,6 +68,7 @@ export class McpController {
 
   @Post('servers/:id/discover')
   @UseGuards(AdminGuard)
+  @RateLimit({ limit: 10, ttl: 60, keyPrefix: 'mcp:discover' }) // 10 discoveries per minute
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Discover tools from an MCP server (admin only)' })
   @ApiResponse({ status: 200, description: 'Tools discovered' })
@@ -71,7 +78,8 @@ export class McpController {
   }
 
   @Get('tools')
-  @UseGuards(AuthGuard)
+  @UseGuards(AuthGuard, UserThrottleGuard)
+  @RateLimit(RateLimitPresets.READ)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'List all available tools from all servers' })
   @ApiResponse({ status: 200, description: 'All tools' })
@@ -81,7 +89,8 @@ export class McpController {
   }
 
   @Post('execute')
-  @UseGuards(AuthGuard)
+  @UseGuards(AuthGuard, UserThrottleGuard)
+  @RateLimit({ limit: 30, ttl: 60, keyPrefix: 'mcp:execute' }) // 30 tool executions per minute
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Execute an MCP tool' })
   @ApiResponse({ status: 200, description: 'Tool executed' })

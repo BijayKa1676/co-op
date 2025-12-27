@@ -68,6 +68,11 @@ export class GoogleProvider implements LlmProviderService {
     const model = this.getModel(options?.model);
     const formattedMessages = this.formatMessages(messages);
 
+    // Guard against empty messages
+    if (formattedMessages.length === 0) {
+      throw new Error('No messages to send to Google AI');
+    }
+
     const chat = model.startChat({
       history: formattedMessages.slice(0, -1),
       generationConfig: {
@@ -99,8 +104,17 @@ export class GoogleProvider implements LlmProviderService {
     messages: ChatMessage[],
     options?: ChatCompletionOptions,
   ): AsyncGenerator<StreamChunk> {
+    if (!this.client) {
+      throw new Error('Google AI provider not configured');
+    }
+
     const model = this.getModel(options?.model);
     const formattedMessages = this.formatMessages(messages);
+
+    // Guard against empty messages
+    if (formattedMessages.length === 0) {
+      throw new Error('No messages to send to Google AI');
+    }
 
     const chat = model.startChat({
       history: formattedMessages.slice(0, -1),

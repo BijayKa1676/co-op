@@ -10,6 +10,8 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { AuthGuard } from '@/common/guards/auth.guard';
+import { UserThrottleGuard } from '@/common/guards/user-throttle.guard';
+import { RateLimit, RateLimitPresets } from '@/common/decorators/rate-limit.decorator';
 import { NotionService } from './notion.service';
 import {
   SearchPagesDto,
@@ -33,12 +35,14 @@ import {
  */
 @ApiTags('Notion')
 @Controller('notion')
-@UseGuards(AuthGuard)
+@UseGuards(AuthGuard, UserThrottleGuard)
 @ApiBearerAuth()
+@RateLimit(RateLimitPresets.STANDARD) // Default: 100 req/min
 export class NotionController {
   constructor(private readonly notionService: NotionService) {}
 
   @Get('status')
+  @RateLimit(RateLimitPresets.READ)
   @ApiOperation({ summary: 'Get Notion integration status' })
   @ApiResponse({ status: 200, type: NotionIntegrationStatusDto })
   async getStatus(): Promise<NotionIntegrationStatusDto> {
@@ -46,6 +50,7 @@ export class NotionController {
   }
 
   @Get('pages')
+  @RateLimit({ limit: 30, ttl: 60, keyPrefix: 'notion:search' }) // 30 searches per minute
   @ApiOperation({ summary: 'Search Notion pages shared with integration' })
   @ApiResponse({ status: 200, type: [NotionPageDto] })
   async searchPages(@Query() dto: SearchPagesDto): Promise<NotionPageDto[]> {
@@ -59,6 +64,7 @@ export class NotionController {
   }
 
   @Post('export')
+  @RateLimit({ limit: 10, ttl: 60, keyPrefix: 'notion:export' }) // 10 exports per minute
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Export agent output to Notion page' })
   @ApiResponse({ status: 201, type: NotionExportResultDto })

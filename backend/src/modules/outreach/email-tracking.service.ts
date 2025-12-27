@@ -64,10 +64,16 @@ export class EmailTrackingService {
         .update(timestampPayload)
         .digest('base64');
 
-      return crypto.timingSafeEqual(
-        Buffer.from(signature),
-        Buffer.from(expectedSignature),
-      );
+      // Convert both to buffers and check length before timing-safe comparison
+      const sigBuffer = Buffer.from(signature);
+      const expectedBuffer = Buffer.from(expectedSignature);
+      
+      // Length check first (not timing-safe, but necessary)
+      if (sigBuffer.length !== expectedBuffer.length) {
+        return false;
+      }
+
+      return crypto.timingSafeEqual(sigBuffer, expectedBuffer);
     } catch (error) {
       this.logger.error('Webhook signature verification failed:', error);
       return false;
@@ -319,8 +325,15 @@ export class EmailTrackingService {
 
   /**
    * Handle link click tracking
+   * SECURITY: Validates URL to prevent open redirect attacks
    */
-  async handleLinkClick(trackingId: string, originalUrl: string): Promise<string> {
+  async handleLinkClick(trackingId: string, originalUrl: string): Promise<string | null> {
+    // Validate URL to prevent open redirect attacks
+    if (!this.isValidRedirectUrl(originalUrl)) {
+      this.logger.warn(`Invalid redirect URL blocked: ${originalUrl}`);
+      return null;
+    }
+
     const [email] = await this.db
       .select()
       .from(campaignEmails)
@@ -337,6 +350,30 @@ export class EmailTrackingService {
     }
 
     return originalUrl;
+  }
+
+  /**
+   * Validate redirect URL to prevent open redirect attacks
+   */
+  private isValidRedirectUrl(url: string): boolean {
+    try {
+      const parsed = new URL(url);
+      // Only allow http/https protocols
+      if (!['http:', 'https:'].includes(parsed.protocol)) {
+        return false;
+      }
+      // Block javascript: and data: URLs that might bypass protocol check
+      if (url.toLowerCase().includes('javascript:') || url.toLowerCase().includes('data:')) {
+        return false;
+      }
+      // Block URLs with credentials (user:pass@host)
+      if (parsed.username || parsed.password) {
+        return false;
+      }
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   /**

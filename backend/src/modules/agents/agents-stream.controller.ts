@@ -3,11 +3,13 @@ import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagg
 import { Response } from 'express';
 import { StreamingService, StreamEvent } from '@/common/streaming/streaming.service';
 import { AgentsQueueService } from './queue/agents.queue.service';
-import { AuthGuard } from '@/common/guards/auth.guard';
+import { AuthGuard, SkipAuthRateLimit } from '@/common/guards/auth.guard';
+import { UserThrottleGuard } from '@/common/guards/user-throttle.guard';
+import { RateLimit } from '@/common/decorators/rate-limit.decorator';
 
 @ApiTags('Agents')
 @Controller('agents')
-@UseGuards(AuthGuard)
+@UseGuards(AuthGuard, UserThrottleGuard)
 @ApiBearerAuth()
 export class AgentsStreamController {
   private readonly logger = new Logger(AgentsStreamController.name);
@@ -18,6 +20,8 @@ export class AgentsStreamController {
   ) {}
 
   @Get('stream/:taskId')
+  @SkipAuthRateLimit() // SSE connections are long-lived, don't rate limit auth
+  @RateLimit({ limit: 10, ttl: 60, keyPrefix: 'agents:stream' }) // Limit new SSE connections (10/min per user)
   @ApiOperation({ summary: 'Stream agent responses via SSE (true streaming)' })
   @ApiResponse({ status: 200, description: 'SSE stream' })
   async stream(

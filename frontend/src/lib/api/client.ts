@@ -218,41 +218,101 @@ class ApiClient {
   }
 
   async post<T>(endpoint: string, body?: unknown): Promise<T> {
-    return this.request<T>('POST', endpoint, body);
+    const result = await this.request<T>('POST', endpoint, body);
+    // Invalidate related cache on mutations
+    this.invalidateCacheForEndpoint(endpoint);
+    return result;
   }
 
   async patch<T>(endpoint: string, body: unknown): Promise<T> {
-    return this.request<T>('PATCH', endpoint, body);
+    const result = await this.request<T>('PATCH', endpoint, body);
+    // Invalidate related cache on mutations
+    this.invalidateCacheForEndpoint(endpoint);
+    return result;
   }
 
   async delete(endpoint: string): Promise<void> {
     await this.request<null>('DELETE', endpoint);
+    // Invalidate related cache on mutations
+    this.invalidateCacheForEndpoint(endpoint);
+  }
+
+  /**
+   * Invalidate cache entries related to a mutated endpoint
+   */
+  private invalidateCacheForEndpoint(endpoint: string): void {
+    // Extract base resource from endpoint (e.g., /sessions/123 -> /sessions)
+    const parts = endpoint.split('/').filter(Boolean);
+    if (parts.length === 0) return;
+    
+    const baseResource = `/${parts[0]}`;
+    
+    // Invalidate all cache entries for this resource
+    const keysToDelete: string[] = [];
+    responseCache.forEach((_, key) => {
+      if (key.includes(baseResource)) {
+        keysToDelete.push(key);
+      }
+    });
+    keysToDelete.forEach(key => responseCache.delete(key));
   }
 
   async upload<T>(endpoint: string, formData: FormData): Promise<T> {
     const supabase = createClient();
     const { data: { session } } = await supabase.auth.getSession();
     
-    const res = await fetch(`${API_URL}${endpoint}`, {
-      method: 'POST',
-      headers: {
-        ...(session?.access_token && { Authorization: `Bearer ${session.access_token}` }),
-      },
-      body: formData,
-    });
+    let lastError: ApiError | null = null;
     
-    if (!res.ok) {
-      const error = await res.json().catch(() => ({ error: 'Upload failed' }));
-      // Handle backend error format: { success: false, error: string, details?: string[] }
-      let errorMessage = error.error || error.message || `HTTP ${res.status}`;
-      if (Array.isArray(error.details)) {
-        errorMessage = error.details.join(', ');
+    // Retry logic for uploads (network errors and server errors only)
+    for (let attempt = 0; attempt < this.maxRetries; attempt++) {
+      try {
+        const res = await fetch(`${API_URL}${endpoint}`, {
+          method: 'POST',
+          headers: {
+            ...(session?.access_token && { Authorization: `Bearer ${session.access_token}` }),
+          },
+          body: formData,
+        });
+        
+        if (!res.ok) {
+          const error = await res.json().catch(() => ({ error: 'Upload failed' }));
+          // Handle backend error format: { success: false, error: string, details?: string[] }
+          let errorMessage = error.error || error.message || `HTTP ${res.status}`;
+          if (Array.isArray(error.details)) {
+            errorMessage = error.details.join(', ');
+          }
+          lastError = new ApiError(errorMessage, res.status);
+          
+          // Only retry on server errors (5xx), not client errors (4xx)
+          if (res.status >= 500 && attempt < this.maxRetries - 1) {
+            const delay = this.retryDelay * Math.pow(2, attempt);
+            await this.sleep(delay);
+            continue;
+          }
+          
+          throw lastError;
+        }
+        
+        const json: ApiResponse<T> = await res.json();
+        return json.data;
+      } catch (error) {
+        if (error instanceof ApiError) {
+          throw error;
+        }
+        
+        // Network error - retry
+        lastError = new ApiError('Upload failed - network error', 0);
+        if (attempt < this.maxRetries - 1) {
+          const delay = this.retryDelay * Math.pow(2, attempt);
+          await this.sleep(delay);
+          continue;
+        }
+        
+        throw lastError;
       }
-      throw new ApiError(errorMessage, res.status);
     }
     
-    const json: ApiResponse<T> = await res.json();
-    return json.data;
+    throw lastError ?? new ApiError('Upload failed after retries', 0);
   }
 
   // ============================================
@@ -359,34 +419,55 @@ class ApiClient {
     return this.get<import('./types').UsageStats>('/agents/usage');
   }
 
+  /**
+   * Legacy stream method - use streamAgentTask instead
+   * @deprecated Use streamAgentTask for better error handling and reconnection
+   */
   streamTask(
     taskId: string,
     onStatus: (status: TaskStatus) => void,
     onDone: () => void,
     onError?: (error: Error) => void
   ): () => void {
-    const eventSource = new EventSource(`${API_URL}/agents/stream/${taskId}`);
+    let eventSource: EventSource | null = null;
     
-    eventSource.addEventListener('status', (e) => {
-      try {
-        onStatus(JSON.parse(e.data));
-      } catch (err) {
-        onError?.(err as Error);
+    const connect = async () => {
+      // Get auth token for SSE connection
+      const supabase = createClient();
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.access_token) {
+        onError?.(new Error('Not authenticated'));
+        onDone();
+        return;
       }
-    });
-    
-    eventSource.addEventListener('done', () => {
-      eventSource.close();
-      onDone();
-    });
-    
-    eventSource.onerror = () => {
-      eventSource.close();
-      onError?.(new Error('Stream connection failed'));
-      onDone();
+      
+      const url = `${API_URL}/agents/stream/${taskId}?token=${encodeURIComponent(session.access_token)}`;
+      eventSource = new EventSource(url);
+      
+      eventSource.addEventListener('status', (e) => {
+        try {
+          onStatus(JSON.parse(e.data));
+        } catch (err) {
+          onError?.(err as Error);
+        }
+      });
+      
+      eventSource.addEventListener('done', () => {
+        eventSource?.close();
+        onDone();
+      });
+      
+      eventSource.onerror = () => {
+        eventSource?.close();
+        onError?.(new Error('Stream connection failed'));
+        onDone();
+      };
     };
     
-    return () => eventSource.close();
+    void connect();
+    
+    return () => eventSource?.close();
   }
 
   // ============================================
@@ -671,9 +752,9 @@ class ApiClient {
 
   /**
    * Connect to SSE stream for real-time agent updates with automatic reconnection
-   * Note: EventSource doesn't support custom headers, so auth is handled via cookies/session
    * 
    * Features:
+   * - Token passed via query parameter (EventSource doesn't support headers)
    * - Automatic reconnection with exponential backoff
    * - Maximum 5 reconnection attempts
    * - Graceful handling of connection failures
@@ -690,10 +771,20 @@ class ApiClient {
     const maxReconnectAttempts = 5;
     const baseReconnectDelay = 1000; // 1 second
     
-    const connect = () => {
+    const connect = async () => {
       if (isClosed || isCompleted) return;
       
-      const url = `${API_URL}/agents/stream/${taskId}`;
+      // Get auth token for SSE connection (EventSource can't send headers)
+      const supabase = createClient();
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.access_token) {
+        onError?.(new Error('Not authenticated'));
+        return;
+      }
+      
+      // Pass token via query parameter (backend accepts this for SSE endpoints)
+      const url = `${API_URL}/agents/stream/${taskId}?token=${encodeURIComponent(session.access_token)}`;
       eventSource = new EventSource(url);
       
       eventSource.addEventListener('connected', () => {
@@ -764,7 +855,7 @@ class ApiClient {
           
           setTimeout(() => {
             if (!isClosed && !isCompleted) {
-              connect();
+              void connect();
             }
           }, delay + jitter);
         } else {
@@ -773,7 +864,7 @@ class ApiClient {
       };
     };
     
-    connect();
+    void connect();
     
     return () => {
       isClosed = true;

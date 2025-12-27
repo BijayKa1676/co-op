@@ -119,7 +119,14 @@ export class LlmRouterService {
       return;
     }
 
-    yield* provider.chatStream(messages, options);
+    try {
+      yield* provider.chatStream(messages, options);
+    } catch (error) {
+      this.logger.error(`Stream failed for ${provider.provider}, attempting fallback`, error);
+      // Fallback to non-streaming on stream failure
+      const result = await this.chatWithFallback(messages, options, provider.provider);
+      yield { content: result.content, isComplete: true };
+    }
   }
 
   private async chatWithFallback(

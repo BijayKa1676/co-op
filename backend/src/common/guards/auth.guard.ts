@@ -1,4 +1,5 @@
-import { Injectable, CanActivate, ExecutionContext, UnauthorizedException, Inject, forwardRef, Logger } from '@nestjs/common';
+import { Injectable, CanActivate, ExecutionContext, UnauthorizedException, Inject, forwardRef, Logger, OnModuleDestroy } from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
 import { ConfigService } from '@nestjs/config';
 import { SupabaseService, SupabaseUser } from '@/common/supabase/supabase.service';
 import { UsersService } from '@/modules/users/users.service';
@@ -13,21 +14,66 @@ interface AuthenticatedRequest {
   user?: AuthenticatedUser;
 }
 
-// Rate limiting for token verification (prevents brute force attacks)
-const TOKEN_VERIFY_WINDOW_MS = 60000; // 1 minute window
-const TOKEN_VERIFY_MAX_ATTEMPTS = 20; // Max 20 attempts per IP per minute
-const ipAttempts = new Map<string, { count: number; resetAt: number }>();
+/**
+ * Decorator to skip auth rate limiting for high-frequency endpoints (SSE, polling)
+ * Use sparingly - only for endpoints that are already rate-limited at the application level
+ */
+export const SKIP_AUTH_RATE_LIMIT = 'skipAuthRateLimit';
+export const SkipAuthRateLimit = () => 
+  (target: object, _propertyKey?: string | symbol, descriptor?: PropertyDescriptor) => {
+    if (descriptor) {
+      Reflect.defineMetadata(SKIP_AUTH_RATE_LIMIT, true, descriptor.value);
+    } else {
+      Reflect.defineMetadata(SKIP_AUTH_RATE_LIMIT, true, target);
+    }
+    return descriptor ?? target;
+  };
 
-// Trusted proxy hosts (Render, Vercel, Cloudflare, Koyeb)
-const TRUSTED_PROXY_HOSTS = [
-  'onrender.com',
-  'vercel.app',
-  'cloudflare.com',
-  'koyeb.app',
-];
+// Rate limiting for token verification (prevents brute force attacks)
+// These limits are for FAILED auth attempts, not successful ones
+const TOKEN_VERIFY_WINDOW_MS = 60000; // 1 minute window
+const TOKEN_VERIFY_MAX_FAILED_ATTEMPTS = 10; // Max 10 FAILED attempts per IP per minute
+const ipFailedAttempts = new Map<string, { count: number; resetAt: number }>();
+
+// Successful auth cache to avoid re-verifying same token repeatedly
+// Key: token hash (first 16 chars), Value: { userId, expiresAt }
+const TOKEN_CACHE_TTL_MS = 30000; // Cache valid tokens for 30 seconds
+const tokenCache = new Map<string, { userId: string; user: AuthenticatedUser; expiresAt: number }>();
+
+// Cleanup interval reference for proper cleanup on module destroy
+let cleanupIntervalId: NodeJS.Timeout | null = null;
+
+// Start cleanup interval (only once)
+function startCleanupInterval(): void {
+  if (cleanupIntervalId) return;
+  cleanupIntervalId = setInterval(() => {
+    const now = Date.now();
+    for (const [key, value] of tokenCache) {
+      if (now > value.expiresAt) {
+        tokenCache.delete(key);
+      }
+    }
+    for (const [key, value] of ipFailedAttempts) {
+      if (now > value.resetAt) {
+        ipFailedAttempts.delete(key);
+      }
+    }
+  }, 60000); // Cleanup every minute
+}
+
+// Stop cleanup interval
+function stopCleanupInterval(): void {
+  if (cleanupIntervalId) {
+    clearInterval(cleanupIntervalId);
+    cleanupIntervalId = null;
+  }
+}
+
+// Start cleanup on module load
+startCleanupInterval();
 
 @Injectable()
-export class AuthGuard implements CanActivate {
+export class AuthGuard implements CanActivate, OnModuleDestroy {
   private readonly logger = new Logger(AuthGuard.name);
   private readonly isProduction: boolean;
   private readonly trustProxy: boolean;
@@ -37,6 +83,7 @@ export class AuthGuard implements CanActivate {
     @Inject(forwardRef(() => UsersService))
     private readonly usersService: UsersService,
     private readonly configService: ConfigService,
+    private readonly reflector: Reflector,
   ) {
     this.isProduction = this.configService.get<string>('NODE_ENV') === 'production';
     // Trust proxy headers in production (behind Render/Vercel/Cloudflare)
@@ -44,24 +91,83 @@ export class AuthGuard implements CanActivate {
   }
 
   /**
-   * Check rate limit for token verification attempts
+   * Cleanup interval on module destroy to prevent memory leaks
    */
-  private checkRateLimit(ip: string): void {
+  onModuleDestroy(): void {
+    stopCleanupInterval();
+    // Clear caches
+    tokenCache.clear();
+    ipFailedAttempts.clear();
+  }
+
+  /**
+   * Get a cache key for the token (use first 32 chars of token as key)
+   */
+  private getTokenCacheKey(token: string): string {
+    return token.substring(0, 32);
+  }
+
+  /**
+   * Check if we have a cached valid auth for this token
+   */
+  private getCachedAuth(token: string): AuthenticatedUser | null {
+    const key = this.getTokenCacheKey(token);
+    const cached = tokenCache.get(key);
+    
+    if (cached && Date.now() < cached.expiresAt) {
+      return cached.user;
+    }
+    
+    // Expired or not found
+    if (cached) {
+      tokenCache.delete(key);
+    }
+    return null;
+  }
+
+  /**
+   * Cache a successful auth result
+   */
+  private cacheAuth(token: string, user: AuthenticatedUser): void {
+    const key = this.getTokenCacheKey(token);
+    tokenCache.set(key, {
+      userId: user.id,
+      user,
+      expiresAt: Date.now() + TOKEN_CACHE_TTL_MS,
+    });
+  }
+
+  /**
+   * Check rate limit for FAILED token verification attempts only
+   * Successful auths don't count against the limit
+   */
+  private checkFailedAuthRateLimit(ip: string): void {
     const now = Date.now();
-    const record = ipAttempts.get(ip);
+    const record = ipFailedAttempts.get(ip);
     
     if (!record || now > record.resetAt) {
-      // New window or expired window
-      ipAttempts.set(ip, { count: 1, resetAt: now + TOKEN_VERIFY_WINDOW_MS });
+      // New window or expired - no failures yet, allow
       return;
     }
     
-    if (record.count >= TOKEN_VERIFY_MAX_ATTEMPTS) {
-      this.logger.warn(`Rate limit exceeded for IP: ${ip.slice(0, 20)}...`);
-      throw new UnauthorizedException('Too many authentication attempts. Please try again later.');
+    if (record.count >= TOKEN_VERIFY_MAX_FAILED_ATTEMPTS) {
+      this.logger.warn(`Auth rate limit exceeded for IP: ${ip.slice(0, 20)}... (${record.count} failed attempts)`);
+      throw new UnauthorizedException('Too many failed authentication attempts. Please try again later.');
     }
+  }
+
+  /**
+   * Record a failed auth attempt
+   */
+  private recordFailedAuth(ip: string): void {
+    const now = Date.now();
+    const record = ipFailedAttempts.get(ip);
     
-    record.count++;
+    if (!record || now > record.resetAt) {
+      ipFailedAttempts.set(ip, { count: 1, resetAt: now + TOKEN_VERIFY_WINDOW_MS });
+    } else {
+      record.count++;
+    }
   }
 
   /**
@@ -96,23 +202,62 @@ export class AuthGuard implements CanActivate {
   }
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const request = context.switchToHttp().getRequest<AuthenticatedRequest & { ip?: string; headers: Record<string, string | string[] | undefined> }>();
+    const request = context.switchToHttp().getRequest<AuthenticatedRequest & { 
+      ip?: string; 
+      headers: Record<string, string | string[] | undefined>;
+      query?: { token?: string };
+    }>();
+    
+    // Try to get token from Authorization header first
+    let token: string | undefined;
     const authHeader = request.headers.authorization;
+    
+    if (authHeader?.startsWith('Bearer ')) {
+      token = authHeader.substring(7);
+    } else {
+      // Fallback to query parameter for SSE endpoints (EventSource can't send headers)
+      // Only allow this for endpoints that explicitly skip auth rate limiting (SSE/streaming)
+      const skipRateLimit = this.reflector.getAllAndOverride<boolean>(SKIP_AUTH_RATE_LIMIT, [
+        context.getHandler(),
+        context.getClass(),
+      ]);
+      
+      if (skipRateLimit && request.query?.token) {
+        token = request.query.token;
+        this.logger.debug('Using query parameter token for SSE endpoint');
+      }
+    }
 
-    if (!authHeader?.startsWith('Bearer ')) {
+    if (!token) {
       this.logger.warn('Missing or invalid authorization header');
       throw new UnauthorizedException('Missing or invalid authorization header');
     }
 
-    // Rate limit token verification attempts per IP
     const clientIp = this.getClientIp(request);
-    this.checkRateLimit(clientIp);
 
-    const token = authHeader.substring(7);
+    // Check if this endpoint skips auth rate limiting (for SSE/polling endpoints)
+    const skipRateLimit = this.reflector.getAllAndOverride<boolean>(SKIP_AUTH_RATE_LIMIT, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
+
+    // Check for cached auth first (avoids Supabase call for repeated requests)
+    const cachedUser = this.getCachedAuth(token);
+    if (cachedUser) {
+      request.user = cachedUser;
+      return true;
+    }
+
+    // Check rate limit for failed attempts (only if not skipped)
+    if (!skipRateLimit) {
+      this.checkFailedAuthRateLimit(clientIp);
+    }
 
     const supabaseUser = await this.supabase.verifyToken(token);
 
     if (!supabaseUser) {
+      // Record failed attempt for rate limiting
+      this.recordFailedAuth(clientIp);
       this.logger.warn('Token verification failed - invalid or expired token');
       throw new UnauthorizedException('Invalid or expired token');
     }
@@ -128,12 +273,16 @@ export class AuthGuard implements CanActivate {
     );
 
     // Merge Supabase user info with our database info
-    request.user = {
+    const authenticatedUser: AuthenticatedUser = {
       ...supabaseUser,
       onboardingCompleted: dbUser.onboardingCompleted,
       startupId: dbUser.startup?.id ?? null,
     };
 
+    // Cache the successful auth
+    this.cacheAuth(token, authenticatedUser);
+
+    request.user = authenticatedUser;
     return true;
   }
 }

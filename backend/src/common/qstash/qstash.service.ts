@@ -86,6 +86,11 @@ export class QStashService implements OnModuleInit {
       throw new Error('QStash not configured');
     }
 
+    // Guard against empty batch
+    if (jobs.length === 0) {
+      return [];
+    }
+
     const messages = jobs.map(data => ({
       url: this.callbackUrl,
       body: JSON.stringify(data),

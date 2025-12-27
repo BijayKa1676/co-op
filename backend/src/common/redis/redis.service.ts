@@ -226,6 +226,7 @@ export class RedisService implements OnModuleDestroy {
    * Set multiple keys at once with TTL
    */
   async mset(entries: { key: string; value: unknown; ttl?: number }[]): Promise<void> {
+    if (entries.length === 0) return; // Guard against empty array
     this.metrics.operations++;
     try {
       const pipeline = this.client.pipeline();

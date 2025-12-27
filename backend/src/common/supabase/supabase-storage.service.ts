@@ -33,6 +33,18 @@ export class SupabaseStorageService {
     const bucket = bucketName ?? this.bucket;
     const client = this.supabase.getServiceClient();
 
+    // Validate file size (max 50MB)
+    const MAX_FILE_SIZE = 50 * 1024 * 1024;
+    if (fileBuffer.length > MAX_FILE_SIZE) {
+      throw new Error(`File size exceeds maximum allowed (${MAX_FILE_SIZE / 1024 / 1024}MB)`);
+    }
+
+    // Validate content type
+    const allowedTypes = ['application/pdf', 'text/plain', 'text/markdown', 'application/json', 'image/png', 'image/jpeg'];
+    if (!allowedTypes.some(t => contentType.startsWith(t.split('/')[0]))) {
+      this.logger.warn(`Potentially unsafe content type: ${contentType}`);
+    }
+
     const { data, error } = await client.storage.from(bucket).upload(filePath, fileBuffer, {
       contentType,
       upsert: false,
@@ -80,7 +92,10 @@ export class SupabaseStorageService {
     const bucket = bucketName ?? this.bucket;
     const client = this.supabase.getServiceClient();
 
-    const { error } = await client.storage.from(bucket).remove([filePath]);
+    // Sanitize file path to prevent path traversal
+    const sanitizedPath = filePath.replace(/\.\./g, '').replace(/^\/+/, '');
+
+    const { error } = await client.storage.from(bucket).remove([sanitizedPath]);
 
     if (error) {
       this.logger.error(`Delete failed: ${error.message}`);
@@ -95,7 +110,10 @@ export class SupabaseStorageService {
     const bucket = bucketName ?? this.bucket;
     const client = this.supabase.getServiceClient();
 
-    const { data, error } = await client.storage.from(bucket).list(prefix);
+    // Sanitize prefix to prevent path traversal
+    const sanitizedPrefix = prefix?.replace(/\.\./g, '').replace(/^\/+/, '');
+
+    const { data, error } = await client.storage.from(bucket).list(sanitizedPrefix);
 
     if (error) {
       this.logger.error(`List failed: ${error.message}`);
@@ -113,7 +131,10 @@ export class SupabaseStorageService {
     const bucket = bucketName ?? this.bucket;
     const client = this.supabase.getServiceClient();
 
-    const { data, error } = await client.storage.from(bucket).download(filePath);
+    // Sanitize file path to prevent path traversal
+    const sanitizedPath = filePath.replace(/\.\./g, '').replace(/^\/+/, '');
+
+    const { data, error } = await client.storage.from(bucket).download(sanitizedPath);
 
     if (error || !data) {
       this.logger.error(`Download failed: ${error?.message ?? 'Unknown error'}`);

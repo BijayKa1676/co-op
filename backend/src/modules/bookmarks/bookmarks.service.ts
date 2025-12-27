@@ -30,14 +30,17 @@ export class BookmarksService {
   }
 
   async findAll(userId: string, search?: string): Promise<BookmarkResponseDto[]> {
+    // Sanitize search input to prevent SQL injection via ILIKE patterns
+    const sanitizedSearch = search?.trim().replace(/[%_\\]/g, '\\$&');
+    
     let query = this.db
       .select()
       .from(schema.bookmarks)
       .where(eq(schema.bookmarks.userId, userId))
       .orderBy(desc(schema.bookmarks.createdAt));
 
-    if (search?.trim()) {
-      const term = `%${search.trim().toLowerCase()}%`;
+    if (sanitizedSearch) {
+      const term = `%${sanitizedSearch.toLowerCase()}%`;
       query = this.db
         .select()
         .from(schema.bookmarks)

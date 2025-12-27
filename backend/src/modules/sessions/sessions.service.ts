@@ -86,7 +86,9 @@ export class SessionsService {
       .orderBy(desc(schema.sessions.createdAt));
 
     if (search?.trim()) {
-      const searchTerm = `%${search.trim().toLowerCase()}%`;
+      // Escape ILIKE special characters to prevent SQL pattern injection
+      const escapedSearch = this.escapeIlikePattern(search.trim().toLowerCase());
+      const searchTerm = `%${escapedSearch}%`;
       query = this.db
         .select()
         .from(schema.sessions)
@@ -100,6 +102,16 @@ export class SessionsService {
 
     const sessions = await query;
     return sessions.map(s => this.toResponse(s));
+  }
+
+  /**
+   * Escape ILIKE special characters to prevent SQL pattern injection
+   */
+  private escapeIlikePattern(input: string): string {
+    return input
+      .replace(/\\/g, '\\\\')  // Escape backslashes first
+      .replace(/%/g, '\\%')    // Escape percent signs
+      .replace(/_/g, '\\_');   // Escape underscores
   }
 
   async updateTitle(id: string, userId: string, title: string): Promise<SessionResponseDto> {
@@ -245,6 +257,12 @@ export class SessionsService {
     // Validate session is active
     if (session.status !== 'active') {
       throw new ForbiddenException(`Cannot add messages to session with status '${session.status}'`);
+    }
+
+    // Validate content is not empty or whitespace-only
+    const trimmedContent = dto.content?.trim();
+    if (!trimmedContent || trimmedContent.length === 0) {
+      throw new ForbiddenException('Message content cannot be empty or whitespace-only');
     }
 
     // Validate content length (prevent abuse)

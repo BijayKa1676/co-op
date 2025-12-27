@@ -13,6 +13,7 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiParam, ApiQuery } from '@nestjs/swagger';
 import { AuthGuard } from '@/common/guards/auth.guard';
+import { UserThrottleGuard } from '@/common/guards/user-throttle.guard';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { RateLimit, RateLimitPresets } from '@/common/decorators/rate-limit.decorator';
 import { LeadsService } from './leads.service';
@@ -27,7 +28,8 @@ import {
 @ApiTags('Outreach - Leads')
 @ApiBearerAuth()
 @Controller('outreach/leads')
-@UseGuards(AuthGuard)
+@UseGuards(AuthGuard, UserThrottleGuard)
+@RateLimit(RateLimitPresets.STANDARD) // Default: 100 req/min
 export class LeadsController {
   constructor(private readonly leadsService: LeadsService) {}
 

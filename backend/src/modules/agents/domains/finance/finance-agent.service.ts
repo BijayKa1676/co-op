@@ -81,16 +81,22 @@ export class FinanceAgentService implements BaseAgent {
     // Only fetch RAG if no user documents provided
     let ragContext = '';
     if (input.documents.length === 0 && this.ragService.isAvailable()) {
-      ragContext = await this.ragService.getContext(
-        input.prompt,
-        'finance',
-        sector,
-        country,
-        detectedJurisdictions.length > 0 ? detectedJurisdictions : undefined,
-        5,
-      );
-      if (ragContext) {
-        this.logger.debug(`RAG context fetched for finance/${sector}`);
+      try {
+        ragContext = await this.ragService.getContext(
+          input.prompt,
+          'finance',
+          sector,
+          country,
+          detectedJurisdictions.length > 0 ? detectedJurisdictions : undefined,
+          5,
+        );
+        if (ragContext) {
+          this.logger.debug(`RAG context fetched for finance/${sector}`);
+        }
+      } catch (error) {
+        // Graceful degradation - continue without RAG context
+        this.logger.warn('Failed to fetch RAG context for finance agent, continuing without it', error);
+        ragContext = '';
       }
     }
 

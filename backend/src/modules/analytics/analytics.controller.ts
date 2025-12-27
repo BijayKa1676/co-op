@@ -3,6 +3,7 @@ import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@ne
 import { AnalyticsService } from './analytics.service';
 import { AdminGuard } from '@/common/guards/admin.guard';
 import { ApiResponseDto } from '@/common/dto/api-response.dto';
+import { RateLimit, RateLimitPresets } from '@/common/decorators/rate-limit.decorator';
 
 interface DashboardStats {
   totalUsers: number;
@@ -27,6 +28,7 @@ export class AnalyticsController {
   constructor(private readonly analyticsService: AnalyticsService) {}
 
   @Get('dashboard')
+  @RateLimit(RateLimitPresets.READ)
   @ApiOperation({ summary: 'Get dashboard statistics (admin only)' })
   @ApiResponse({ status: 200, description: 'Dashboard stats' })
   async getDashboard(): Promise<ApiResponseDto<DashboardStats>> {
@@ -35,6 +37,7 @@ export class AnalyticsController {
   }
 
   @Get('events/aggregation')
+  @RateLimit(RateLimitPresets.READ)
   @ApiOperation({ summary: 'Get event aggregation by day (admin only)' })
   @ApiResponse({ status: 200, description: 'Event aggregation' })
   @ApiQuery({ name: 'days', required: false, type: Number, description: 'Number of days (default: 7)' })

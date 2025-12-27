@@ -15,14 +15,18 @@ import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagg
 import { UsersService } from './users.service';
 import { CreateUserDto, UpdateUserDto, UserResponseDto } from './dto';
 import { OnboardingDto } from './dto/onboarding.dto';
-import { AuthGuard } from '@/common/guards/auth.guard';
+import { AuthGuard, SkipAuthRateLimit } from '@/common/guards/auth.guard';
 import { AdminGuard } from '@/common/guards/admin.guard';
+import { UserThrottleGuard } from '@/common/guards/user-throttle.guard';
 import { CurrentUser, CurrentUserPayload } from '@/common/decorators/current-user.decorator';
 import { ApiResponseDto } from '@/common/dto/api-response.dto';
 import { SupabaseService } from '@/common/supabase/supabase.service';
+import { RateLimit, RateLimitPresets } from '@/common/decorators/rate-limit.decorator';
 
 @ApiTags('Users')
 @Controller('users')
+@UseGuards(UserThrottleGuard)
+@RateLimit(RateLimitPresets.STANDARD) // Default: 100 req/min
 export class UsersController {
   private readonly logger = new Logger(UsersController.name);
 
@@ -43,6 +47,8 @@ export class UsersController {
 
   @Get('me')
   @UseGuards(AuthGuard)
+  @SkipAuthRateLimit() // Called frequently on page loads, use token cache
+  @RateLimit({ limit: 200, ttl: 60, keyPrefix: 'users:me' }) // Higher limit for frequent calls
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get current user profile with startup info' })
   @ApiResponse({ status: 200, description: 'Current user profile' })
@@ -53,6 +59,8 @@ export class UsersController {
 
   @Get('me/onboarding-status')
   @UseGuards(AuthGuard)
+  @SkipAuthRateLimit() // Called on page loads
+  @RateLimit({ limit: 200, ttl: 60, keyPrefix: 'users:onboarding-status' })
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Check onboarding status' })
   @ApiResponse({ status: 200, description: 'Onboarding status' })
@@ -137,9 +145,11 @@ export class UsersController {
 
   @Post('me/logout-all')
   @UseGuards(AuthGuard)
+  @RateLimit({ limit: 3, ttl: 60, keyPrefix: 'users:logout-all' }) // Strict: 3 per minute (sensitive operation)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Logout from all devices (invalidate all tokens)' })
   @ApiResponse({ status: 200, description: 'Logged out from all devices' })
+  @ApiResponse({ status: 429, description: 'Rate limit exceeded' })
   async logoutAll(
     @CurrentUser() currentUser: CurrentUserPayload,
   ): Promise<ApiResponseDto<null>> {

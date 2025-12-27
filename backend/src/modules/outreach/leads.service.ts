@@ -6,7 +6,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
-import { eq, and, desc, ilike, or, gte } from 'drizzle-orm';
+import { eq, and, desc, ilike, or, gte, inArray } from 'drizzle-orm';
 import { DATABASE_CONNECTION } from '@/database/database.module';
 import * as schema from '@/database/schema';
 import { leads, Lead, LeadType } from '@/database/schema/outreach.schema';
@@ -215,7 +215,9 @@ export class LeadsService {
     }
 
     if (filters?.niche) {
-      conditions.push(ilike(leads.niche, `%${filters.niche}%`));
+      // Escape ILIKE special characters to prevent SQL pattern injection
+      const escapedNiche = this.escapeIlikePattern(filters.niche);
+      conditions.push(ilike(leads.niche, `%${escapedNiche}%`));
     }
 
     if (filters?.minScore !== undefined) {
@@ -223,12 +225,14 @@ export class LeadsService {
     }
 
     if (filters?.search) {
+      // Escape ILIKE special characters to prevent SQL pattern injection
+      const escapedSearch = this.escapeIlikePattern(filters.search);
       conditions.push(
         or(
-          ilike(leads.name, `%${filters.search}%`),
-          ilike(leads.companyName, `%${filters.search}%`),
-          ilike(leads.email, `%${filters.search}%`),
-          ilike(leads.handle, `%${filters.search}%`),
+          ilike(leads.name, `%${escapedSearch}%`),
+          ilike(leads.companyName, `%${escapedSearch}%`),
+          ilike(leads.email, `%${escapedSearch}%`),
+          ilike(leads.handle, `%${escapedSearch}%`),
         )!
       );
     }
@@ -240,6 +244,16 @@ export class LeadsService {
       .orderBy(desc(leads.leadScore), desc(leads.createdAt));
 
     return userLeads.map((lead) => this.toResponseDto(lead));
+  }
+
+  /**
+   * Escape ILIKE special characters to prevent SQL pattern injection
+   */
+  private escapeIlikePattern(input: string): string {
+    return input
+      .replace(/\\/g, '\\\\')  // Escape backslashes first
+      .replace(/%/g, '\\%')    // Escape percent signs
+      .replace(/_/g, '\\_');   // Escape underscores
   }
 
   /**
@@ -317,17 +331,21 @@ export class LeadsService {
   }
 
   /**
-   * Get multiple leads by IDs
+   * Get multiple leads by IDs - optimized batch query
    */
   async getLeadsByIds(userId: string, leadIds: string[]): Promise<Lead[]> {
     if (leadIds.length === 0) return [];
 
+    // Use IN clause for efficient batch query instead of filtering in memory
     const userLeads = await this.db
       .select()
       .from(leads)
-      .where(eq(leads.userId, userId));
+      .where(and(
+        eq(leads.userId, userId),
+        inArray(leads.id, leadIds),
+      ));
 
-    return userLeads.filter(l => leadIds.includes(l.id));
+    return userLeads;
   }
 
   /**

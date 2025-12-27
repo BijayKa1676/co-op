@@ -358,14 +358,16 @@ export class CampaignsService {
       .where(eq(campaignEmails.campaignId, campaignId))
       .orderBy(desc(campaignEmails.createdAt));
 
-    // Get lead info for each email
-    const results: CampaignEmailResponseDto[] = [];
-    for (const email of emails) {
-      const lead = await this.leadsService.getLeadById(email.leadId);
-      results.push(this.toEmailResponseDto(email, lead));
+    if (emails.length === 0) {
+      return [];
     }
 
-    return results;
+    // Batch fetch all leads at once to avoid N+1 query
+    const leadIds = [...new Set(emails.map(e => e.leadId))];
+    const leadsData = await this.leadsService.getLeadsByIds(userId, leadIds);
+    const leadsMap = new Map(leadsData.map(l => [l.id, l]));
+
+    return emails.map(email => this.toEmailResponseDto(email, leadsMap.get(email.leadId) ?? null));
   }
 
   /**
@@ -396,6 +398,11 @@ export class CampaignsService {
     const dailyLimit = campaign.settings?.dailyLimit ?? PILOT_EMAILS_PER_DAY;
     const toSend = pendingEmails.slice(0, dailyLimit);
 
+    // Batch fetch all leads at once to avoid N+1 query
+    const leadIds = [...new Set(toSend.map(e => e.leadId))];
+    const leadsData = await this.leadsService.getLeadsByIds(userId, leadIds);
+    const leadsMap = new Map(leadsData.map(l => [l.id, l]));
+
     let sent = 0;
     let failed = 0;
 
@@ -405,7 +412,7 @@ export class CampaignsService {
       .where(eq(campaigns.id, campaignId));
 
     for (const email of toSend) {
-      const lead = await this.leadsService.getLeadById(email.leadId);
+      const lead = leadsMap.get(email.leadId) ?? null;
       
       if (!lead) {
         await this.db

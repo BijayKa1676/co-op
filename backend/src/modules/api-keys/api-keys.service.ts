@@ -53,6 +53,12 @@ export class ApiKeysService {
       throw new BadRequestException('API key name must be 100 characters or less');
     }
 
+    // Validate scopes
+    const validScopes = ['read', 'write', 'agents', 'sessions'];
+    if (dto.scopes.some(scope => !validScopes.includes(scope))) {
+      throw new BadRequestException('Invalid scope provided');
+    }
+
     // Pilot program: Limit to 1 API key per user
     const existingKeys = await this.findByUser(userId);
     if (existingKeys.length >= 1) {
@@ -136,6 +142,11 @@ export class ApiKeysService {
   }
 
   async revoke(userId: string, keyId: string): Promise<void> {
+    // Validate keyId format to prevent injection
+    if (!keyId || !/^[a-f0-9]{16}$/.test(keyId)) {
+      throw new BadRequestException('Invalid API key ID format');
+    }
+
     const keys = await this.redis.hgetall<StoredApiKey>(`${this.USER_KEYS_PREFIX}${userId}`);
     const keyData = keys?.[keyId];
 

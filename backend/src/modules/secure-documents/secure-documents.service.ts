@@ -447,11 +447,25 @@ export class SecureDocumentsService {
     const chunks: string[] = [];
     let start = 0;
 
+    // Safety check: ensure overlap is less than chunk size to prevent infinite loop
+    const effectiveOverlap = Math.min(CHUNK_OVERLAP, CHUNK_SIZE - 1);
+
     while (start < text.length) {
       const end = Math.min(start + CHUNK_SIZE, text.length);
       chunks.push(text.slice(start, end));
-      start = end - CHUNK_OVERLAP;
-      if (start >= text.length - CHUNK_OVERLAP) break;
+      
+      // Move start forward, accounting for overlap
+      const nextStart = end - effectiveOverlap;
+      
+      // Prevent infinite loop: ensure we always make progress
+      if (nextStart <= start) {
+        start = end;
+      } else {
+        start = nextStart;
+      }
+      
+      // If we're near the end, break to avoid tiny final chunks
+      if (start >= text.length - effectiveOverlap) break;
     }
 
     // Ensure we don't have empty chunks

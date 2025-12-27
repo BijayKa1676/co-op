@@ -54,21 +54,27 @@ export class InvestorsService {
     }
 
     if (query.search) {
+      // Escape ILIKE special characters to prevent SQL pattern injection
+      const escapedSearch = this.escapeIlikePattern(query.search);
       conditions.push(
         or(
-          ilike(investors.name, `%${query.search}%`),
-          ilike(investors.description, `%${query.search}%`),
-          ilike(investors.location, `%${query.search}%`),
+          ilike(investors.name, `%${escapedSearch}%`),
+          ilike(investors.description, `%${escapedSearch}%`),
+          ilike(investors.location, `%${escapedSearch}%`),
         )!,
       );
     }
 
     if (query.sector) {
-      conditions.push(ilike(investors.sectors, `%${query.sector}%`));
+      // Escape ILIKE special characters
+      const escapedSector = this.escapeIlikePattern(query.sector);
+      conditions.push(ilike(investors.sectors, `%${escapedSector}%`));
     }
 
     if (query.region) {
-      conditions.push(ilike(investors.regions, `%${query.region}%`));
+      // Escape ILIKE special characters
+      const escapedRegion = this.escapeIlikePattern(query.region);
+      conditions.push(ilike(investors.regions, `%${escapedRegion}%`));
     }
 
     const results = await this.db
@@ -78,6 +84,16 @@ export class InvestorsService {
       .orderBy(desc(investors.isFeatured), asc(investors.name));
 
     return results.map((inv) => this.toResponseDto(inv));
+  }
+
+  /**
+   * Escape ILIKE special characters to prevent SQL pattern injection
+   */
+  private escapeIlikePattern(input: string): string {
+    return input
+      .replace(/\\/g, '\\\\')  // Escape backslashes first
+      .replace(/%/g, '\\%')    // Escape percent signs
+      .replace(/_/g, '\\_');   // Escape underscores
   }
 
   async findAllAdmin(): Promise<InvestorResponseDto[]> {

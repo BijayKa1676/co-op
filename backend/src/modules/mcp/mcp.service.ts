@@ -198,13 +198,15 @@ export class McpService {
     return result;
   }
 
-  getToolSchema(_serverId: string, toolName: string): McpToolDefinition {
-    // This would be called after tools are discovered
-    return {
-      name: toolName,
-      description: '',
-      inputSchema: { type: 'object', properties: {}, required: [] },
-      outputSchema: { type: 'object', properties: {}, required: [] },
-    };
+  async getToolSchema(serverId: string, toolName: string): Promise<McpToolDefinition | null> {
+    const tools = await this.getServerTools(serverId);
+    const tool = tools.find(t => t.name === toolName);
+    
+    if (!tool) {
+      this.logger.warn(`Tool not found: ${toolName} on server ${serverId}`);
+      return null;
+    }
+    
+    return tool;
   }
 }

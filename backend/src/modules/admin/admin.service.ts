@@ -120,6 +120,11 @@ export class AdminService {
    * Force vectorization of a specific file.
    */
   async forceVectorize(fileId: string): Promise<{ chunksCreated: number }> {
+    // Validate file ID format (UUID)
+    if (!this.isValidUuid(fileId)) {
+      throw new BadRequestException('Invalid file ID format');
+    }
+
     if (!this.ragService.isAvailable()) {
       throw new BadRequestException('RAG service not configured');
     }
@@ -203,6 +208,11 @@ export class AdminService {
    * Get embedding by ID.
    */
   async getEmbedding(id: string): Promise<EmbeddingResponseDto> {
+    // Validate file ID format (UUID)
+    if (!this.isValidUuid(id)) {
+      throw new BadRequestException('Invalid file ID format');
+    }
+
     if (!this.ragService.isAvailable()) {
       throw new NotFoundException('RAG service not configured');
     }
@@ -230,9 +240,22 @@ export class AdminService {
   }
 
   /**
+   * Validate UUID format
+   */
+  private isValidUuid(id: string): boolean {
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    return uuidRegex.test(id);
+  }
+
+  /**
    * Delete embedding and its vectors + storage file.
    */
   async deleteEmbedding(id: string): Promise<void> {
+    // Validate file ID format (UUID)
+    if (!this.isValidUuid(id)) {
+      throw new BadRequestException('Invalid file ID format');
+    }
+
     const file = await this.ragService.getFile(id);
 
     if (!file) {

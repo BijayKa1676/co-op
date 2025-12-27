@@ -82,17 +82,21 @@ export class OrchestratorService implements OnModuleInit, OnModuleDestroy {
             continue;
           }
 
-          // Restore task to pending state for retry
+          // Restore task to pending state for retry with incremented retry count
           const task = failedTask.task;
           task.status = 'pending';
           task.error = undefined;
           task.updatedAt = new Date();
           
+          // Store the incremented retry count in task metadata for tracking
+          const newRetryCount = failedTask.retryCount + 1;
+          (task as OrchestratorTask & { retryCount?: number }).retryCount = newRetryCount;
+          
           await this.redis.set(`${TASK_PREFIX}${task.id}`, task, TASK_TTL_SECONDS);
           await this.redis.lrem(TASK_DLQ_KEY, 1, item);
           processed++;
           
-          this.logger.log(`Restored task ${task.id} from DLQ (retry ${failedTask.retryCount + 1}/${TASK_MAX_RETRIES})`);
+          this.logger.log(`Restored task ${task.id} from DLQ (retry ${newRetryCount}/${TASK_MAX_RETRIES})`);
         } catch {
           // Leave in DLQ for next retry
         }
@@ -109,13 +113,16 @@ export class OrchestratorService implements OnModuleInit, OnModuleDestroy {
   /**
    * Queue failed task to dead letter queue for retry
    */
-  async queueFailedTask(task: OrchestratorTask, error: string, retryCount = 0): Promise<void> {
+  async queueFailedTask(task: OrchestratorTask, error: string, retryCount?: number): Promise<void> {
     try {
+      // Use retry count from task metadata if available, otherwise use provided value or 0
+      const taskRetryCount = (task as OrchestratorTask & { retryCount?: number }).retryCount ?? retryCount ?? 0;
+      
       const failedTask: FailedTask = {
         task,
         error,
         failedAt: Date.now(),
-        retryCount,
+        retryCount: taskRetryCount,
       };
       
       const queueLength = await this.redis.lpush(TASK_DLQ_KEY, JSON.stringify(failedTask));

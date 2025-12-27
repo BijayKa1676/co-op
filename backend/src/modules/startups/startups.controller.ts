@@ -12,18 +12,22 @@ import { StartupsService } from './startups.service';
 import { StartupResponseDto } from './dto';
 import { AuthGuard } from '@/common/guards/auth.guard';
 import { AdminGuard } from '@/common/guards/admin.guard';
+import { UserThrottleGuard } from '@/common/guards/user-throttle.guard';
 import { CurrentUser, CurrentUserPayload } from '@/common/decorators/current-user.decorator';
 import { ApiResponseDto } from '@/common/dto/api-response.dto';
+import { RateLimit, RateLimitPresets } from '@/common/decorators/rate-limit.decorator';
 
 @ApiTags('Startups')
 @Controller('startups')
-@UseGuards(AuthGuard)
+@UseGuards(AuthGuard, UserThrottleGuard)
 @ApiBearerAuth()
+@RateLimit(RateLimitPresets.STANDARD) // Default: 100 req/min
 export class StartupsController {
   constructor(private readonly startupsService: StartupsService) {}
 
   @Get()
   @UseGuards(AdminGuard)
+  @RateLimit(RateLimitPresets.READ)
   @ApiOperation({ summary: 'List all startups (admin only)' })
   @ApiResponse({ status: 200, description: 'Startups list' })
   async findAll(): Promise<ApiResponseDto<StartupResponseDto[]>> {
@@ -32,6 +36,7 @@ export class StartupsController {
   }
 
   @Get('me')
+  @RateLimit(RateLimitPresets.READ)
   @ApiOperation({ summary: 'Get current user startup - use GET /users/me instead' })
   @ApiResponse({ status: 403, description: 'Use GET /users/me to get your startup info' })
   getMyStartup(
@@ -42,6 +47,7 @@ export class StartupsController {
   }
 
   @Get(':id')
+  @RateLimit(RateLimitPresets.READ)
   @ApiOperation({ summary: 'Get startup by ID (own startup or admin)' })
   @ApiResponse({ status: 200, description: 'Startup found' })
   @ApiResponse({ status: 403, description: 'Access denied' })
@@ -60,6 +66,7 @@ export class StartupsController {
 
   @Delete(':id')
   @UseGuards(AdminGuard)
+  @RateLimit({ limit: 10, ttl: 60, keyPrefix: 'startups:delete' }) // 10 deletes per minute
   @ApiOperation({ summary: 'Delete startup (admin only)' })
   @ApiResponse({ status: 200, description: 'Startup deleted' })
   async delete(@Param('id', ParseUUIDPipe) id: string): Promise<ApiResponseDto<null>> {

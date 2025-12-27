@@ -126,6 +126,15 @@
 - [x] Encryption key required in production
 - [x] SSE reconnection with exponential backoff
 - [x] Embedding timeout protection (30s)
+- [x] Notion API timeout protection (30s)
+- [x] DLQ retry count tracking fix
+
+### Bug Fixes (v1.3.1)
+- [x] Orchestrator DLQ retry count now properly incremented
+- [x] Campaigns N+1 query fixed (batch lead fetching)
+- [x] Secure documents chunk text infinite loop prevention
+- [x] Notion service timeout protection added
+- [x] MCP getToolSchema returns actual tool data
 
 ### Agent Improvements
 - [x] Legal: Jurisdiction selector (region + specific regulations)

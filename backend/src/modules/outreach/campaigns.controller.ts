@@ -12,6 +12,7 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiParam } from '@nestjs/swagger';
 import { AuthGuard } from '@/common/guards/auth.guard';
+import { UserThrottleGuard } from '@/common/guards/user-throttle.guard';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import { RateLimit, RateLimitPresets } from '@/common/decorators/rate-limit.decorator';
 import { CampaignsService } from './campaigns.service';
@@ -29,7 +30,8 @@ import {
 @ApiTags('Outreach - Campaigns')
 @ApiBearerAuth()
 @Controller('outreach/campaigns')
-@UseGuards(AuthGuard)
+@UseGuards(AuthGuard, UserThrottleGuard)
+@RateLimit(RateLimitPresets.STANDARD) // Default: 100 req/min
 export class CampaignsController {
   constructor(private readonly campaignsService: CampaignsService) {}
 

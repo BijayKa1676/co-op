@@ -20,6 +20,7 @@ import { UploadPdfDto, ListEmbeddingsQueryDto, EmbeddingResponseDto } from './dt
 import { AdminGuard } from '@/common/guards/admin.guard';
 import { ApiResponseDto } from '@/common/dto/api-response.dto';
 import { PaginatedResult } from '@/common/dto/pagination.dto';
+import { RateLimit } from '@/common/decorators/rate-limit.decorator';
 
 interface UploadedFileType {
   buffer: Buffer;
@@ -36,6 +37,7 @@ export class AdminController {
   constructor(private readonly adminService: AdminService) {}
 
   @Post('embeddings/upload')
+  @RateLimit({ limit: 10, ttl: 60, keyPrefix: 'admin:upload' }) // 10 uploads per minute
   @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 50 * 1024 * 1024 } }))
   @ApiConsumes('multipart/form-data')
   @ApiOperation({ summary: 'Upload PDF for RAG embedding (lazy vectorization)' })
@@ -63,6 +65,7 @@ export class AdminController {
   }
 
   @Get('embeddings')
+  @RateLimit({ limit: 100, ttl: 60, keyPrefix: 'admin:list' }) // 100 reads per minute
   @ApiOperation({ summary: 'List all embeddings with optional domain/sector filter' })
   @ApiResponse({ status: 200, description: 'Embeddings list' })
   async listEmbeddings(
@@ -73,6 +76,7 @@ export class AdminController {
   }
 
   @Get('embeddings/:id')
+  @RateLimit({ limit: 100, ttl: 60, keyPrefix: 'admin:get' })
   @ApiOperation({ summary: 'Get embedding by ID' })
   @ApiResponse({ status: 200, description: 'Embedding found' })
   @ApiResponse({ status: 404, description: 'Embedding not found' })
@@ -82,6 +86,7 @@ export class AdminController {
   }
 
   @Delete('embeddings/:id')
+  @RateLimit({ limit: 30, ttl: 60, keyPrefix: 'admin:delete' }) // 30 deletes per minute
   @ApiOperation({ summary: 'Delete embedding and its vectors' })
   @ApiResponse({ status: 200, description: 'Embedding deleted' })
   async deleteEmbedding(@Param('id', ParseUUIDPipe) id: string): Promise<ApiResponseDto<null>> {
@@ -90,6 +95,7 @@ export class AdminController {
   }
 
   @Post('embeddings/:id/vectorize')
+  @RateLimit({ limit: 10, ttl: 60, keyPrefix: 'admin:vectorize' }) // 10 vectorizations per minute (expensive)
   @ApiOperation({ summary: 'Force vectorization of a specific file' })
   @ApiResponse({ status: 200, description: 'File vectorized' })
   async forceVectorize(
@@ -100,6 +106,7 @@ export class AdminController {
   }
 
   @Post('embeddings/cleanup')
+  @RateLimit({ limit: 5, ttl: 60, keyPrefix: 'admin:cleanup' }) // 5 cleanups per minute (expensive)
   @ApiOperation({ summary: 'Cleanup expired vectors (not accessed in X days)' })
   @ApiQuery({ name: 'days', required: false, type: Number, description: 'Days of inactivity (default: 30)' })
   @ApiResponse({ status: 200, description: 'Cleanup completed' })

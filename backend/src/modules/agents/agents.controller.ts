@@ -21,7 +21,7 @@ import {
   SSEDoneEvent,
   TaskState,
 } from './dto/task-status.dto';
-import { AuthGuard } from '@/common/guards/auth.guard';
+import { AuthGuard, SkipAuthRateLimit } from '@/common/guards/auth.guard';
 import { UserThrottleGuard } from '@/common/guards/user-throttle.guard';
 import { CurrentUser, CurrentUserPayload } from '@/common/decorators/current-user.decorator';
 import { ApiResponseDto } from '@/common/dto/api-response.dto';
@@ -68,6 +68,7 @@ export class AgentsController {
   }
 
   @Get('tasks/:taskId')
+  @SkipAuthRateLimit() // Task status is polled frequently during agent execution
   @RateLimit({ limit: 300, ttl: 60, keyPrefix: 'agents:task-status' }) // High limit for polling (300/min)
   @ApiOperation({ summary: 'Get task status' })
   @ApiResponse({ status: 200, description: 'Task status', type: TaskStatusDto })
@@ -107,6 +108,8 @@ export class AgentsController {
   }
 
   @Get('stream/:taskId')
+  @SkipAuthRateLimit() // SSE connections are long-lived, don't rate limit auth
+  @RateLimit({ limit: 10, ttl: 60, keyPrefix: 'agents:stream-legacy' }) // Limit new SSE connections
   @ApiOperation({ summary: 'Stream agent responses (SSE)' })
   @ApiResponse({ status: 200, description: 'SSE stream' })
   stream(@Param('taskId', ParseUUIDPipe) taskId: string, @Res() res: Response): void {

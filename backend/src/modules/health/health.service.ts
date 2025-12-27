@@ -121,6 +121,7 @@ export class HealthService {
       const response = await fetch(`${supabaseUrl}/rest/v1/`, {
         method: 'HEAD',
         headers: { 'apikey': this.configService.get<string>('SUPABASE_ANON_KEY') ?? '' },
+        signal: AbortSignal.timeout(5000), // 5 second timeout
       });
       if (response.ok || response.status === 400) {
         return { status: ServiceStatus.HEALTHY, latencyMs: Date.now() - start, error: '' };

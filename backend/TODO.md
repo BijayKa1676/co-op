@@ -166,3 +166,19 @@
 - ✅ Error message sanitization
 - ✅ Encryption key required in production
 - ✅ SHA-256 cache keys (upgraded from MD5)
+- ✅ Notion API timeout protection (30s)
+- ✅ MCP tool discovery timeout (30s)
+- ✅ Auth token caching (30s) to reduce Supabase calls
+- ✅ Failed auth rate limiting (10 failed attempts/min per IP)
+- ✅ SSE token via query param (EventSource limitation)
+
+### Bug Fixes (v1.3.3)
+- ✅ Auth rate limit rework - only count FAILED attempts, not all attempts
+- ✅ Token caching to avoid re-verifying same token repeatedly
+- ✅ SSE endpoints accept token via query parameter
+- ✅ Frontend passes token via query param for SSE connections
+- ✅ Users controller now has proper rate limiting
+- ✅ Orchestrator DLQ retry count properly incremented on restore
+- ✅ Campaigns N+1 query fixed (batch lead fetching in getEmails/sendCampaign)
+- ✅ Secure documents chunkText infinite loop prevention
+- ✅ MCP getToolSchema returns actual tool data from cache
