@@ -579,15 +579,15 @@ export default function CampaignDetailPage() {
       {/* Email Detail/Edit Dialog */}
       <Dialog open={!!selectedEmail} onOpenChange={(open) => !open && handleCloseEmail()}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
-          <DialogHeader className="shrink-0">
-            <div className="flex items-center justify-between gap-2">
+          <DialogHeader className="shrink-0 pr-8">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2">
               <DialogTitle className="text-lg font-serif">
                 {isEditing ? 'Edit Email' : 'Email Details'}
               </DialogTitle>
               {selectedEmail && (
                 <Badge 
                   variant="outline" 
-                  className={cn('text-xs capitalize', EMAIL_STATUS_COLORS[selectedEmail.status])}
+                  className={cn('text-xs capitalize w-fit', EMAIL_STATUS_COLORS[selectedEmail.status])}
                 >
                   {selectedEmail.status}
                 </Badge>

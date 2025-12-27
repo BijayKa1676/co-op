@@ -13,7 +13,6 @@ import {
   DownloadSimple,
   EnvelopeSimple,
   CircleNotch,
-  X,
 } from '@phosphor-icons/react';
 import { api } from '@/lib/api/client';
 import type { Session, Message } from '@/lib/api/types';
@@ -22,6 +21,13 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { formatRelativeTime, cn } from '@/lib/utils';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { toast } from 'sonner';
 
 export default function SessionDetailPage() {
@@ -247,61 +253,48 @@ export default function SessionDetailPage() {
       </motion.div>
 
       {/* Email Modal */}
-      {showEmailModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="bg-card border border-border rounded-lg shadow-lg w-full max-w-md mx-4 p-6"
-          >
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-serif text-lg font-medium">Email Session Summary</h3>
-              <button
-                onClick={() => setShowEmailModal(false)}
-                className="text-muted-foreground hover:text-foreground transition-colors"
-              >
-                <X weight="bold" className="w-5 h-5" />
-              </button>
-            </div>
-            <p className="text-sm text-muted-foreground mb-4">
+      <Dialog open={showEmailModal} onOpenChange={setShowEmailModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Email Session Summary</DialogTitle>
+            <DialogDescription>
               Send a formatted summary of this session to your email.
-            </p>
-            <form onSubmit={handleSendEmail}>
-              <Input
-                type="email"
-                placeholder="Enter email address"
-                value={emailAddress}
-                onChange={(e) => setEmailAddress(e.target.value)}
-                className="mb-4"
-                required
-              />
-              <div className="flex justify-end gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setShowEmailModal(false)}
-                  disabled={isSendingEmail}
-                >
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={!emailAddress.trim() || isSendingEmail}>
-                  {isSendingEmail ? (
-                    <>
-                      <CircleNotch weight="bold" className="w-4 h-4 animate-spin mr-2" />
-                      Sending...
-                    </>
-                  ) : (
-                    <>
-                      <EnvelopeSimple weight="bold" className="w-4 h-4 mr-2" />
-                      Send Email
-                    </>
-                  )}
-                </Button>
-              </div>
-            </form>
-          </motion.div>
-        </div>
-      )}
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleSendEmail} className="space-y-4">
+            <Input
+              type="email"
+              placeholder="Enter email address"
+              value={emailAddress}
+              onChange={(e) => setEmailAddress(e.target.value)}
+              required
+            />
+            <div className="flex justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setShowEmailModal(false)}
+                disabled={isSendingEmail}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={!emailAddress.trim() || isSendingEmail}>
+                {isSendingEmail ? (
+                  <>
+                    <CircleNotch weight="bold" className="w-4 h-4 animate-spin mr-2" />
+                    Sending...
+                  </>
+                ) : (
+                  <>
+                    <EnvelopeSimple weight="bold" className="w-4 h-4 mr-2" />
+                    Send Email
+                  </>
+                )}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

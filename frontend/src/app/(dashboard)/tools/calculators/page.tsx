@@ -398,22 +398,22 @@ function ResultsDisplay({ results }: { results: CalculatorResult[] }) {
     <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-4 border-t border-border/40"
+      className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 pt-4 border-t border-border/40"
     >
       {results.map((result, i) => (
         <div
           key={i}
           className={cn(
-            'p-4 rounded-lg',
+            'p-3 sm:p-4 rounded-lg',
             result.isHighlight ? 'bg-primary/10 border border-primary/20' : 'bg-muted/30'
           )}
         >
-          <p className={cn('text-2xl font-semibold', result.isHighlight && 'text-primary')}>
+          <p className={cn('text-lg sm:text-2xl font-semibold truncate', result.isHighlight && 'text-primary')}>
             {result.value}
           </p>
-          <p className="text-sm text-muted-foreground">{result.label}</p>
+          <p className="text-xs sm:text-sm text-muted-foreground">{result.label}</p>
           {result.description && (
-            <p className="text-xs text-muted-foreground/70 mt-1">{result.description}</p>
+            <p className="text-[10px] sm:text-xs text-muted-foreground/70 mt-1">{result.description}</p>
           )}
         </div>
       ))}

@@ -50,10 +50,16 @@ export default function LoginPage() {
     setIsLoading(true);
     const supabase = createClient();
 
+    // Check if we're in a mobile app WebView
+    const isMobileApp = typeof window !== 'undefined' && 
+      document.documentElement.classList.contains('mobile-app');
+
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
+        redirectTo: isMobileApp 
+          ? `${window.location.origin}/auth/callback?mobile=true`
+          : `${window.location.origin}/auth/callback`,
       },
     });
 

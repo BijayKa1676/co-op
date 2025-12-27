@@ -600,7 +600,7 @@ export default function OutreachPage() {
               {/* Lead List */}
               <div className="lg:col-span-3">
                 <ScrollArea className="h-[500px] lg:h-[600px]">
-                  <div className="space-y-2 pr-4">
+                  <div className="space-y-2 pr-2">
                     <AnimatePresence>
                       {filteredLeads.map((lead, index) => (
                         <motion.div key={lead.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.02 }}>
@@ -612,46 +612,50 @@ export default function OutreachPage() {
                             onClick={() => handleLeadClick(lead)}
                           >
                             <CardContent className="p-3 sm:p-4">
-                              <div className="flex items-start justify-between gap-3">
-                                <div className="flex items-start gap-3 min-w-0 flex-1">
-                                  <div className={cn(
-                                    "w-9 h-9 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center shrink-0",
-                                    lead.leadType === 'person' ? "bg-blue-500/10" : "bg-purple-500/10"
-                                  )}>
-                                    {lead.leadType === 'person' ? <UserIcon /> : <BuildingIcon />}
+                              <div className="flex items-center gap-3">
+                                <div className={cn(
+                                  "w-9 h-9 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center shrink-0",
+                                  lead.leadType === 'person' ? "bg-blue-500/10" : "bg-purple-500/10"
+                                )}>
+                                  {lead.leadType === 'person' ? <UserIcon /> : <BuildingIcon />}
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <h3 className="font-medium text-sm truncate">{lead.displayName}</h3>
+                                    <Badge variant="outline" className={cn('text-[10px]', STATUS_COLORS[lead.status])}>{lead.status}</Badge>
                                   </div>
-                                  <div className="min-w-0 flex-1">
-                                    <div className="flex items-center gap-2 flex-wrap">
-                                      <h3 className="font-medium text-sm truncate">{lead.displayName}</h3>
-                                      <Badge variant="outline" className={cn('text-[10px]', STATUS_COLORS[lead.status])}>{lead.status}</Badge>
-                                    </div>
-                                    <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground mt-1">
-                                      {lead.leadType === 'person' ? (
-                                        <>
-                                          {lead.platform && <span className="capitalize">{lead.platform}</span>}
-                                          {lead.followers && <span>• {formatFollowers(lead.followers)}</span>}
-                                        </>
-                                      ) : (
-                                        <>
-                                          {lead.industry && <span>{lead.industry}</span>}
-                                          {lead.companySize && <span>• {lead.companySize}</span>}
-                                        </>
-                                      )}
-                                      {lead.location && <span>• {lead.location}</span>}
-                                    </div>
+                                  <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground mt-1">
+                                    {lead.leadType === 'person' ? (
+                                      <>
+                                        {lead.platform && <span className="capitalize">{lead.platform}</span>}
+                                        {lead.followers && <span>• {formatFollowers(lead.followers)}</span>}
+                                      </>
+                                    ) : (
+                                      <>
+                                        {lead.industry && <span>{lead.industry}</span>}
+                                        {lead.companySize && <span>• {lead.companySize}</span>}
+                                      </>
+                                    )}
+                                    {lead.location && <span>• {lead.location}</span>}
                                   </div>
                                 </div>
-                                <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
-                                  <Button 
-                                    variant="ghost" 
-                                    size="icon" 
-                                    className={cn("h-7 w-7", selectedLeads.has(lead.id) && "text-primary")} 
-                                    onClick={(e) => toggleLeadSelection(e, lead.id)}
+                                <div 
+                                  className="shrink-0 ml-auto"
+                                  onClick={(e) => toggleLeadSelection(e, lead.id)}
+                                >
+                                  <div 
+                                    className={cn(
+                                      "w-5 h-5 rounded border-2 flex items-center justify-center transition-colors",
+                                      selectedLeads.has(lead.id) 
+                                        ? "bg-primary border-primary text-primary-foreground" 
+                                        : "border-muted-foreground/40"
+                                    )}
+                                    role="checkbox"
+                                    aria-checked={selectedLeads.has(lead.id)}
                                     aria-label={selectedLeads.has(lead.id) ? "Deselect lead" : "Select lead"}
-                                    aria-pressed={selectedLeads.has(lead.id)}
                                   >
-                                    {selectedLeads.has(lead.id) ? <CheckIcon /> : <div className="w-4 h-4 rounded border border-muted-foreground/30" />}
-                                  </Button>
+                                    {selectedLeads.has(lead.id) && <CheckIcon />}
+                                  </div>
                                 </div>
                               </div>
                             </CardContent>

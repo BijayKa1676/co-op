@@ -893,6 +893,38 @@ html.mobile-app .max-w-6xl {
 }
 
 /* ============================================
+   DEVELOPERS PAGE - Mobile Code Block Fixes
+   ============================================ */
+
+/* Ensure code blocks don't overflow on mobile */
+@media (max-width: 640px) {
+  /* Code block container */
+  pre {
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    font-size: 10px !important;
+  }
+  
+  pre code {
+    font-size: 10px !important;
+    word-break: break-all;
+  }
+  
+  /* Tabs content area */
+  [role="tabpanel"] {
+    min-width: 0;
+    overflow: hidden;
+  }
+  
+  /* Card content in tabs */
+  [role="tabpanel"] [class*="CardContent"] {
+    min-width: 0;
+    overflow: hidden;
+  }
+}
+
+/* ============================================
    SCROLL AREA IMPROVEMENTS
    ============================================ */
 

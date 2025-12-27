@@ -318,24 +318,24 @@ export default function NewCampaignPage() {
               {/* Campaign Mode */}
               <div className="space-y-2">
                 <Label>Email Generation Mode</Label>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <Card 
                     className={cn(
-                      "cursor-pointer transition-all p-4",
+                      "cursor-pointer transition-all p-3 sm:p-4",
                       form.mode === 'single_template' 
                         ? "border-primary ring-1 ring-primary" 
                         : "border-border/40 hover:border-primary/30"
                     )}
                     onClick={() => setForm(prev => ({ ...prev, mode: 'single_template' }))}
                   >
-                    <h4 className="font-medium mb-1">Single Template</h4>
+                    <h4 className="font-medium mb-1 text-sm sm:text-base">Single Template</h4>
                     <p className="text-xs text-muted-foreground">
                       Write one template with variables like {'{{name}}'}, send to all leads
                     </p>
                   </Card>
                   <Card 
                     className={cn(
-                      "cursor-pointer transition-all p-4",
+                      "cursor-pointer transition-all p-3 sm:p-4",
                       form.mode === 'ai_personalized' 
                         ? "border-primary ring-1 ring-primary" 
                         : "border-border/40 hover:border-primary/30"
@@ -344,7 +344,7 @@ export default function NewCampaignPage() {
                   >
                     <div className="flex items-center gap-1 mb-1">
                       <SparkleIcon />
-                      <h4 className="font-medium">AI Personalized</h4>
+                      <h4 className="font-medium text-sm sm:text-base">AI Personalized</h4>
                     </div>
                     <p className="text-xs text-muted-foreground">
                       AI writes unique emails for each lead based on their profile
@@ -442,7 +442,7 @@ Best,
                     />
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                     <div className="space-y-2">
                       <Label>Tone</Label>
                       <Select
@@ -473,28 +473,29 @@ Best,
               )}
 
               {/* Settings */}
-              <div className="flex items-center justify-between pt-4 border-t">
-                <div className="flex items-center gap-6">
+              <div className="pt-4 border-t">
+                <Label className="text-xs text-muted-foreground mb-3 block">Email Settings</Label>
+                <div className="flex flex-wrap items-center gap-4 sm:gap-6">
                   <div className="flex items-center gap-2">
                     <Switch
                       checked={form.trackOpens}
                       onCheckedChange={(v) => setForm(prev => ({ ...prev, trackOpens: v }))}
                     />
-                    <Label className="text-sm">Track opens</Label>
+                    <Label className="text-xs sm:text-sm">Track opens</Label>
                   </div>
                   <div className="flex items-center gap-2">
                     <Switch
                       checked={form.trackClicks}
                       onCheckedChange={(v) => setForm(prev => ({ ...prev, trackClicks: v }))}
                     />
-                    <Label className="text-sm">Track clicks</Label>
+                    <Label className="text-xs sm:text-sm">Track clicks</Label>
                   </div>
                   <div className="flex items-center gap-2">
                     <Switch
                       checked={form.includeUnsubscribeLink}
                       onCheckedChange={(v) => setForm(prev => ({ ...prev, includeUnsubscribeLink: v }))}
                     />
-                    <Label className="text-sm">Unsubscribe link</Label>
+                    <Label className="text-xs sm:text-sm">Unsubscribe</Label>
                   </div>
                 </div>
               </div>
@@ -667,22 +668,22 @@ Best,
               <CardTitle className="text-lg">Review Campaign</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm text-muted-foreground">Campaign Name</p>
-                  <p className="font-medium">{form.name}</p>
+              <div className="grid grid-cols-2 gap-3 sm:gap-4">
+                <div className="p-2.5 rounded-lg bg-muted/50">
+                  <p className="text-[10px] sm:text-xs text-muted-foreground uppercase">Campaign Name</p>
+                  <p className="font-medium text-sm sm:text-base truncate">{form.name}</p>
                 </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Recipients</p>
-                  <p className="font-medium">{selectedLeads.size} {form.targetLeadType === 'person' ? 'people' : 'companies'}</p>
+                <div className="p-2.5 rounded-lg bg-muted/50">
+                  <p className="text-[10px] sm:text-xs text-muted-foreground uppercase">Recipients</p>
+                  <p className="font-medium text-sm sm:text-base">{selectedLeads.size} {form.targetLeadType === 'person' ? 'people' : 'companies'}</p>
                 </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Mode</p>
-                  <p className="font-medium">{form.mode === 'single_template' ? 'Single Template' : 'AI Personalized'}</p>
+                <div className="p-2.5 rounded-lg bg-muted/50">
+                  <p className="text-[10px] sm:text-xs text-muted-foreground uppercase">Mode</p>
+                  <p className="font-medium text-sm sm:text-base">{form.mode === 'single_template' ? 'Single Template' : 'AI Personalized'}</p>
                 </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Tracking</p>
-                  <p className="font-medium">
+                <div className="p-2.5 rounded-lg bg-muted/50">
+                  <p className="text-[10px] sm:text-xs text-muted-foreground uppercase">Tracking</p>
+                  <p className="font-medium text-sm sm:text-base">
                     {[form.trackOpens && 'Opens', form.trackClicks && 'Clicks'].filter(Boolean).join(', ') || 'None'}
                   </p>
                 </div>

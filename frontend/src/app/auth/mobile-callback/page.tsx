@@ -20,6 +20,7 @@ type CallbackState = 'loading' | 'error' | 'success';
  * - Existing session conflicts
  * - Proper onboarding status check via API
  * - Race conditions with session propagation
+ * - Cookie sync for SSR middleware
  */
 export default function MobileCallbackPage() {
   const router = useRouter();
@@ -81,7 +82,7 @@ export default function MobileCallbackPage() {
           await supabase.auth.signOut({ scope: 'local' });
         }
 
-        // Set the new session
+        // Set the new session - this stores in localStorage AND sets cookies via @supabase/ssr
         const { data, error: sessionError } = await supabase.auth.setSession({
           access_token,
           refresh_token,
@@ -112,6 +113,14 @@ export default function MobileCallbackPage() {
         // Clear the URL hash immediately for security
         window.history.replaceState(null, '', '/auth/mobile-callback');
 
+        // Force a token refresh to ensure cookies are properly set
+        // This is critical for the SSR middleware to recognize the session
+        const { error: refreshError } = await supabase.auth.refreshSession();
+        if (refreshError) {
+          console.warn('Token refresh warning (non-fatal):', refreshError.message);
+          // Don't fail on refresh error - the session might still work
+        }
+
         // Check onboarding status via API (more reliable than user_metadata)
         let needsOnboarding = true;
         try {
@@ -126,9 +135,9 @@ export default function MobileCallbackPage() {
 
         setState('success');
 
-        // Wait for session to fully propagate before redirect
-        // Using a slightly longer delay for mobile WebView context
-        await new Promise(resolve => setTimeout(resolve, 300));
+        // Wait for session/cookies to fully propagate before redirect
+        // Longer delay for mobile WebView context where cookie sync can be slower
+        await new Promise(resolve => setTimeout(resolve, 500));
 
         // Final session verification before redirect
         const { data: finalCheck } = await supabase.auth.getSession();
@@ -138,11 +147,12 @@ export default function MobileCallbackPage() {
           return;
         }
 
-        // Redirect based on onboarding status
+        // Use window.location for a full page navigation to ensure cookies are sent
+        // router.replace() does client-side navigation which might not pick up new cookies
         if (needsOnboarding) {
-          router.replace('/onboarding');
+          window.location.href = '/onboarding';
         } else {
-          router.replace('/dashboard');
+          window.location.href = '/dashboard';
         }
       } catch (err) {
         console.error('Mobile callback error:', err);

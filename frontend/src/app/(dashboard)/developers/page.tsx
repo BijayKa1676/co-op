@@ -138,8 +138,9 @@ export default function DevelopersPage() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2 }}
+        className="min-w-0 w-full"
       >
-        <Tabs defaultValue="rest" className="space-y-4 sm:space-y-6">
+        <Tabs defaultValue="rest" className="space-y-4 sm:space-y-6 w-full">
           <TabsList className="w-full grid grid-cols-3 h-10">
             <TabsTrigger value="rest" className="gap-1.5 text-xs sm:text-sm px-1 sm:px-4">
               <Code weight="regular" className="w-4 h-4 hidden sm:block" />
@@ -156,15 +157,15 @@ export default function DevelopersPage() {
           </TabsList>
 
           {/* REST API Tab */}
-          <TabsContent value="rest" className="space-y-4 sm:space-y-6">
-            <Card className="border-border/40 overflow-hidden">
+          <TabsContent value="rest" className="space-y-4 sm:space-y-6 min-w-0">
+            <Card className="border-border/40 overflow-hidden min-w-0">
               <CardHeader className="p-3 sm:p-6 pb-2 sm:pb-4">
                 <CardTitle className="font-serif text-base sm:text-xl">REST API</CardTitle>
                 <CardDescription className="text-xs sm:text-sm">
                   Full REST API access. Authenticate with Bearer token or API key.
                 </CardDescription>
               </CardHeader>
-              <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0 space-y-4 sm:space-y-6 overflow-hidden">
+              <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0 space-y-4 sm:space-y-6 overflow-hidden min-w-0">
                 <div>
                   <h4 className="font-medium text-xs sm:text-sm mb-2 sm:mb-3">Base URL</h4>
                   <CodeBlock code={API_URL} />
@@ -218,7 +219,7 @@ curl -X GET ${API_URL}/agents/tasks/<taskId> \\
 curl -N ${API_URL}/agents/stream/<taskId>`} />
                 </div>
 
-                <div>
+                <div className="min-w-0">
                   <h4 className="font-medium text-xs sm:text-sm mb-2 sm:mb-3">Key Endpoints</h4>
                   <div className="space-y-1.5 sm:space-y-2 text-xs sm:text-sm">
                     {[
@@ -229,11 +230,11 @@ curl -N ${API_URL}/agents/stream/<taskId>`} />
                       { method: 'POST', path: '/sessions', desc: 'Create session' },
                       { method: 'POST', path: '/api-keys', desc: 'Create key' },
                     ].map((ep) => (
-                      <div key={ep.path} className="flex items-center gap-2 p-1.5 sm:p-2 rounded bg-muted/30 overflow-hidden">
-                        <Badge variant={ep.method === 'GET' ? 'secondary' : 'default'} className="text-[8px] sm:text-[10px] w-10 sm:w-12 justify-center shrink-0">
+                      <div key={ep.path} className="flex items-center gap-1.5 sm:gap-2 p-1.5 sm:p-2 rounded bg-muted/30 overflow-hidden min-w-0">
+                        <Badge variant={ep.method === 'GET' ? 'secondary' : 'default'} className="text-[8px] sm:text-[10px] w-9 sm:w-12 justify-center shrink-0 px-1">
                           {ep.method}
                         </Badge>
-                        <code className="text-[9px] sm:text-xs flex-1 truncate min-w-0">{ep.path}</code>
+                        <code className="text-[8px] sm:text-xs flex-1 truncate min-w-0">{ep.path}</code>
                         <span className="text-[10px] sm:text-xs text-muted-foreground hidden sm:block shrink-0">{ep.desc}</span>
                       </div>
                     ))}
@@ -244,15 +245,15 @@ curl -N ${API_URL}/agents/stream/<taskId>`} />
           </TabsContent>
 
           {/* MCP Tab */}
-          <TabsContent value="mcp" className="space-y-4 sm:space-y-6">
-            <Card className="border-border/40 overflow-hidden">
+          <TabsContent value="mcp" className="space-y-4 sm:space-y-6 min-w-0">
+            <Card className="border-border/40 overflow-hidden min-w-0">
               <CardHeader className="p-3 sm:p-6 pb-2 sm:pb-4">
                 <CardTitle className="font-serif text-base sm:text-xl">MCP Protocol</CardTitle>
                 <CardDescription className="text-xs sm:text-sm">
                   Use in Claude Desktop, Cursor, Kiro, and MCP clients.
                 </CardDescription>
               </CardHeader>
-              <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0 space-y-4 sm:space-y-6 overflow-hidden">
+              <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0 space-y-4 sm:space-y-6 overflow-hidden min-w-0">
                 <div className="p-2.5 sm:p-4 rounded-lg bg-primary/5 border border-primary/20">
                   <p className="text-[10px] sm:text-sm">
                     <strong>MCP</strong> lets AI assistants use external tools. Co-Op exposes agents as MCP tools.
@@ -338,15 +339,15 @@ curl -N ${API_URL}/agents/stream/<taskId>`} />
           </TabsContent>
 
           {/* A2A Tab */}
-          <TabsContent value="a2a" className="space-y-4 sm:space-y-6">
-            <Card className="border-border/40 overflow-hidden">
+          <TabsContent value="a2a" className="space-y-4 sm:space-y-6 min-w-0">
+            <Card className="border-border/40 overflow-hidden min-w-0">
               <CardHeader className="p-3 sm:p-6 pb-2 sm:pb-4">
                 <CardTitle className="font-serif text-base sm:text-xl">A2A Protocol</CardTitle>
                 <CardDescription className="text-xs sm:text-sm">
                   Multi-agent queries with cross-critique consensus.
                 </CardDescription>
               </CardHeader>
-              <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0 space-y-4 sm:space-y-6 overflow-hidden">
+              <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0 space-y-4 sm:space-y-6 overflow-hidden min-w-0">
                 <div className="p-2.5 sm:p-4 rounded-lg bg-primary/5 border border-primary/20">
                   <p className="text-[10px] sm:text-sm">
                     <strong>A2A</strong> enables agents to collaborate, cross-critique, and synthesize consensus answers.
@@ -393,7 +394,7 @@ curl -N ${API_URL}/agents/stream/<taskId>`} />
   }'`} />
                 </div>
 
-                <div>
+                <div className="min-w-0">
                   <h4 className="font-medium text-xs sm:text-sm mb-2 sm:mb-3">Agent Capabilities</h4>
                   <div className="grid grid-cols-2 gap-2 sm:gap-3">
                     {[
@@ -402,11 +403,11 @@ curl -N ${API_URL}/agents/stream/<taskId>`} />
                       { agent: 'investor', actions: ['find_vcs', 'match'] },
                       { agent: 'competitor', actions: ['market', 'compare'] },
                     ].map((item) => (
-                      <div key={item.agent} className="p-2 sm:p-3 rounded-lg border border-border/40">
+                      <div key={item.agent} className="p-2 sm:p-3 rounded-lg border border-border/40 min-w-0 overflow-hidden">
                         <p className="font-medium text-[10px] sm:text-sm capitalize mb-1 sm:mb-2">{item.agent}</p>
                         <div className="flex flex-wrap gap-1">
                           {item.actions.map((action) => (
-                            <Badge key={action} variant="outline" className="text-[8px] sm:text-[10px]">
+                            <Badge key={action} variant="outline" className="text-[7px] sm:text-[10px] px-1 sm:px-2">
                               {action}
                             </Badge>
                           ))}
