@@ -1,10 +1,10 @@
 /**
  * WebView Screen
- * Main WebView wrapper with OAuth handling, theme detection, and deep linking
+ * WebView wrapper with OAuth handling and theme detection
  */
 
-import React, { useRef, useState, useCallback, useMemo } from 'react';
-import { View, StyleSheet, Linking } from 'react-native';
+import React, { useRef, useState, useCallback, useMemo, useEffect } from 'react';
+import { View, StyleSheet, Linking, AppState } from 'react-native';
 import { WebView } from 'react-native-webview';
 import type { WebViewNavigation, WebViewMessageEvent } from 'react-native-webview';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -28,50 +28,39 @@ export function WebViewScreen({ onError }: WebViewScreenProps): React.JSX.Elemen
 
   useBackHandler(webViewRef, canGoBack);
 
-  // Handle deep links (OAuth callbacks)
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextAppState) => {
+      if (nextAppState === 'background' && webViewRef.current) {
+        webViewRef.current.clearCache?.(false);
+      }
+    });
+    return () => subscription.remove();
+  }, []);
+
   const handleDeepLink = useCallback((url: string) => {
     const webUrl = deepLinkToWebUrl(url);
     if (webUrl) {
       setTargetUrl(webUrl);
-      // Force WebView reload with new URL
       setWebViewKey(prev => prev + 1);
     }
   }, []);
 
   useDeepLink(handleDeepLink);
 
-  // Injected JavaScript for safe area padding and theme detection
-  const injectedScript = useMemo(() => `
-    (function() {
-      'use strict';
-      
-      // Add safe area padding
-      var style = document.createElement('style');
-      style.id = 'mobile-app-styles';
-      style.textContent = 'body { padding-top: ${insets.top}px !important; }';
-      document.head.appendChild(style);
-      
-      // Theme detection
-      function detectTheme() {
-        var isDark = document.documentElement.classList.contains('dark');
-        window.ReactNativeWebView.postMessage(JSON.stringify({ 
-          type: 'theme', 
-          isDark: isDark
-        }));
-      }
-      
-      // Initial detection with delay for styles to load
-      setTimeout(detectTheme, ${THEME_DETECTION_DELAY_MS});
-      
-      // Watch for theme changes
-      var observer = new MutationObserver(detectTheme);
-      observer.observe(document.documentElement, { 
-        attributes: true, 
-        attributeFilter: ['class'] 
-      });
-    })();
-    true;
-  `, [insets.top]);
+  const injectedScript = useMemo(() => {
+    const top = insets.top;
+    const delay = THEME_DETECTION_DELAY_MS;
+    // Performance CSS + theme detection
+    return `(function(){
+      var s=document.createElement("style");
+      s.textContent="body{padding-top:${top}px!important;-webkit-overflow-scrolling:touch!important}*{-webkit-tap-highlight-color:transparent}main,.overflow-auto,.overflow-y-auto{transform:translateZ(0)}";
+      document.head.appendChild(s);
+      function d(){window.ReactNativeWebView.postMessage(JSON.stringify({type:"theme",isDark:document.documentElement.classList.contains("dark")}));}
+      setTimeout(d,${delay});
+      new MutationObserver(d).observe(document.documentElement,{attributes:true,attributeFilter:["class"]});
+      document.addEventListener("touchstart",function(){},{passive:true});
+    })();true;`;
+  }, [insets.top]);
 
   const handleNavigationStateChange = useCallback((navState: WebViewNavigation) => {
     setCanGoBack(navState.canGoBack);
@@ -84,29 +73,20 @@ export function WebViewScreen({ onError }: WebViewScreenProps): React.JSX.Elemen
         setIsDarkMode(data.isDark);
       }
     } catch {
-      // Silently ignore malformed messages
+      // Ignore
     }
   }, []);
 
-  // Security: Intercept navigation requests
   const handleShouldStartLoadWithRequest = useCallback((request: { url: string }): boolean => {
     const { url } = request;
-    
-    // Open OAuth URLs in external browser
     if (shouldOpenExternally(url)) {
-      Linking.openURL(url).catch(() => {
-        // Silently fail if can't open URL
-      });
-      return false;
-    }
-    
-    // Security: Only allow navigation to approved domains
-    if (!isAllowedUrl(url)) {
-      // Open unknown URLs in external browser
       Linking.openURL(url).catch(() => {});
       return false;
     }
-    
+    if (!isAllowedUrl(url)) {
+      Linking.openURL(url).catch(() => {});
+      return false;
+    }
     return true;
   }, []);
 
@@ -128,22 +108,24 @@ export function WebViewScreen({ onError }: WebViewScreenProps): React.JSX.Elemen
         onHttpError={onError}
         onShouldStartLoadWithRequest={handleShouldStartLoadWithRequest}
         injectedJavaScript={injectedScript}
-        // Core settings
-        javaScriptEnabled={true}
-        domStorageEnabled={true}
-        // Cookie settings for auth persistence
-        sharedCookiesEnabled={true}
-        thirdPartyCookiesEnabled={true}
-        // UX enhancements
-        allowsBackForwardNavigationGestures={true}
-        pullToRefreshEnabled={true}
-        allowsInlineMediaPlayback={true}
-        mediaPlaybackRequiresUserAction={false}
+        // Core
+        javaScriptEnabled
+        domStorageEnabled
+        // Auth persistence
+        sharedCookiesEnabled
+        thirdPartyCookiesEnabled
+        // UX
+        allowsBackForwardNavigationGestures
+        pullToRefreshEnabled
+        allowsInlineMediaPlayback
+        // Performance
+        cacheEnabled
+        startInLoadingState={false}
+        // Scroll
+        showsHorizontalScrollIndicator={false}
+        showsVerticalScrollIndicator
         // Security
         javaScriptCanOpenWindowsAutomatically={false}
-        // Performance
-        cacheEnabled={true}
-        incognito={false}
       />
     </View>
   );
@@ -152,8 +134,10 @@ export function WebViewScreen({ onError }: WebViewScreenProps): React.JSX.Elemen
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#0f1012',
   },
   webview: {
     flex: 1,
+    backgroundColor: 'transparent',
   },
 });

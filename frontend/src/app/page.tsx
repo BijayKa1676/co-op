@@ -24,6 +24,13 @@ import {
   Brain,
   Export,
   BookmarkSimple,
+  Bell,
+  MagnifyingGlass,
+  Calculator,
+  FileText,
+  Envelope,
+  DeviceMobile,
+  NotePencil,
 } from '@phosphor-icons/react';
 import { useUIStore } from '@/lib/store';
 import { createClient } from '@/lib/supabase/client';
@@ -42,9 +49,15 @@ const agents = [
 const features = [
   { icon: Brain, title: 'LLM Council', description: 'Multiple AI models cross-validate every response for accuracy' },
   { icon: Lightning, title: 'A2A Protocol', description: 'Agent-to-Agent communication for multi-perspective insights' },
-  { icon: ShieldCheck, title: 'Enterprise Security', description: 'AES-256 encryption, rate limiting, audit logging' },
+  { icon: Bell, title: 'Competitor Alerts', description: 'Real-time monitoring with email notifications for market changes' },
+  { icon: MagnifyingGlass, title: 'Investor Database', description: 'Search 20+ VCs by stage, sector, and region' },
+  { icon: Envelope, title: 'Customer Outreach', description: 'AI-powered lead discovery and personalized email campaigns' },
+  { icon: Calculator, title: 'Financial Calculators', description: 'Runway, burn rate, valuation, and unit economics tools' },
+  { icon: FileText, title: 'Secure Documents', description: 'AES-256 encrypted document storage with RAG integration' },
+  { icon: NotePencil, title: 'Notion Export', description: 'Export AI responses directly to your Notion workspace' },
+  { icon: ShieldCheck, title: 'Enterprise Security', description: 'End-to-end encryption, rate limiting, audit logging' },
   { icon: Export, title: 'Export & Share', description: 'Export sessions to Markdown, JSON, or email summaries' },
-  { icon: BookmarkSimple, title: 'Bookmarks', description: 'Save important responses for quick reference' },
+  { icon: DeviceMobile, title: 'Mobile App', description: 'Native iOS and Android apps with full feature parity' },
   { icon: Code, title: 'Developer APIs', description: 'REST API, MCP Protocol, and webhook integrations' },
 ];
 
@@ -55,12 +68,14 @@ const pricingPlans = [
     description: 'Try Co-Op during our pilot phase',
     features: [
       { text: '3 AI requests/month', included: true },
-      { text: 'All 4 AI agents', included: true },
-      { text: 'Multi-agent A2A mode', included: true },
-      { text: 'Session history & export', included: true },
-      { text: 'Bookmarks system', included: true },
-      { text: '1 API key (3 calls/month)', included: true },
-      { text: '1 Webhook (10 triggers/day)', included: true },
+      { text: 'All 4 AI agents + A2A mode', included: true },
+      { text: 'Competitor alerts (3 max)', included: true },
+      { text: 'Investor database access', included: true },
+      { text: 'Financial calculators', included: true },
+      { text: 'Secure document storage', included: true },
+      { text: 'Session export & bookmarks', included: true },
+      { text: 'API & webhook access', included: true },
+      { text: 'Outreach (5 leads/month)', included: true },
       { text: 'Priority support', included: false },
     ],
     cta: 'Start Free',
@@ -74,13 +89,13 @@ const pricingPlans = [
     description: 'Deploy on your own infrastructure',
     features: [
       { text: 'Unlimited requests', included: true },
-      { text: 'All 4 AI agents', included: true },
+      { text: 'All features unlocked', included: true },
       { text: 'Full source code', included: true },
       { text: 'Bring your own API keys', included: true },
       { text: 'Complete data control', included: true },
+      { text: 'Unlimited outreach', included: true },
       { text: 'Community support', included: true },
       { text: 'Managed infrastructure', included: false },
-      { text: 'Priority support', included: false },
     ],
     cta: 'View on GitHub',
     href: 'https://github.com/Afnanksalal/co-op',
@@ -92,10 +107,10 @@ const pricingPlans = [
     description: 'Fully managed experience',
     features: [
       { text: 'Unlimited requests', included: true },
-      { text: 'All 4 AI agents', included: true },
+      { text: 'All features unlocked', included: true },
       { text: 'Priority processing', included: true },
       { text: 'Advanced analytics', included: true },
-      { text: 'API access', included: true },
+      { text: 'Unlimited outreach', included: true },
       { text: 'Priority support', included: true },
       { text: 'Custom integrations', included: true },
       { text: 'Team collaboration', included: true },
@@ -108,10 +123,10 @@ const pricingPlans = [
 ];
 
 const roadmapItems = [
-  { phase: 'Now', title: 'Pilot Launch', items: ['3 free AI requests/month', '4 AI agents + A2A mode', 'Session export & bookmarks', 'API & webhook access'] },
+  { phase: 'Now', title: 'Full Platform', items: ['4 AI agents + A2A mode', 'Competitor alerts & investor DB', 'Customer outreach & campaigns', 'Notion export & secure docs'] },
   { phase: 'Q1 2026', title: 'Team Features', items: ['Multiple founders per startup', 'Team collaboration', 'Shared sessions', 'Role-based access'] },
-  { phase: 'Q2 2026', title: 'Idea Stage', items: ['Idea validation flow', 'Market research agent', 'Business model canvas', 'Competitor discovery'] },
-  { phase: 'Q3 2026', title: 'Enterprise', items: ['SSO integration', 'Custom AI training', 'On-premise deployment', 'SLA guarantees'] },
+  { phase: 'Q2 2026', title: 'Integrations', items: ['Slack notifications', 'CRM sync (HubSpot, Salesforce)', 'Calendar follow-ups', 'Google Drive sync'] },
+  { phase: 'Q3 2026', title: 'Enterprise', items: ['SSO integration', 'Custom AI training', 'On-premise deployment', 'White-label options'] },
 ];
 
 export default function HomePage() {
@@ -262,11 +277,11 @@ export default function HomePage() {
           >
             <h2 className="font-serif text-3xl md:text-4xl font-medium tracking-tight mb-4">Platform Features</h2>
             <p className="text-muted-foreground max-w-xl mx-auto">
-              Built for accuracy, security, and developer experience.
+              Everything you need to research, plan, and grow your startup.
             </p>
           </motion.div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
             {features.map((feature, index) => (
               <motion.div
                 key={feature.title}
@@ -321,7 +336,7 @@ export default function HomePage() {
                 You&apos;ve built before. Skip the basics and get straight to strategic decisions with our full agent suite.
               </p>
               <ul className="space-y-3 mb-6">
-                {['Advanced financial modeling', 'Complex legal structures', 'Investor relationship strategies', 'Competitive intelligence'].map((item) => (
+                {['Advanced financial modeling & calculators', 'Complex legal structures & compliance', 'Investor database & relationship strategies', 'Competitor monitoring & market alerts'].map((item) => (
                   <li key={item} className="flex items-center gap-2 text-sm">
                     <CheckCircle weight="fill" className="w-4 h-4 text-green-500" />
                     {item}
@@ -346,14 +361,14 @@ export default function HomePage() {
                 </div>
                 <div>
                   <h3 className="font-serif text-xl font-medium">Idea Stage</h3>
-                  <p className="text-sm text-muted-foreground">Validate your concept with AI</p>
+                  <p className="text-sm text-muted-foreground">Validate and launch your concept</p>
                 </div>
               </div>
               <p className="text-muted-foreground mb-6">
-                Have an idea but haven&apos;t started? Our A2A (Agent-to-Agent) protocol helps validate and refine your concept.
+                Have an idea but haven&apos;t started? Our A2A protocol and outreach tools help you validate, research, and launch.
               </p>
               <ul className="space-y-3 mb-6">
-                {['Idea validation & refinement', 'Market opportunity analysis', 'Business model exploration', 'Multi-agent brainstorming (A2A)'].map((item) => (
+                {['Multi-agent brainstorming (A2A)', 'Market opportunity analysis', 'Lead discovery & customer outreach', 'Secure document storage for research'].map((item) => (
                   <li key={item} className="flex items-center gap-2 text-sm">
                     <CheckCircle weight="fill" className="w-4 h-4 text-green-500" />
                     {item}

@@ -1,21 +1,28 @@
 /**
  * Loading Screen
- * Branded loading state shown during initial connection check
+ * Lightweight loading state optimized for fast rendering
  */
 
-import React from 'react';
-import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
+import React, { memo } from 'react';
+import { View, Text, ActivityIndicator, StyleSheet, Platform } from 'react-native';
 import { COLORS } from '../constants';
 
-export function LoadingScreen(): React.JSX.Element {
+function LoadingScreenComponent(): React.JSX.Element {
   return (
     <View style={styles.container}>
       <Text style={styles.logo}>Co-Op</Text>
-      <ActivityIndicator size="large" color={COLORS.dark.foreground} style={styles.spinner} />
+      <ActivityIndicator 
+        size="large" 
+        color={COLORS.dark.foreground} 
+        style={styles.spinner}
+      />
       <Text style={styles.text}>Loading...</Text>
     </View>
   );
 }
+
+// Memoize to prevent unnecessary re-renders
+export const LoadingScreen = memo(LoadingScreenComponent);
 
 const styles = StyleSheet.create({
   container: {
@@ -31,6 +38,11 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: COLORS.dark.foreground,
     marginBottom: 32,
+    // GPU acceleration for text
+    ...Platform.select({
+      ios: { fontFamily: 'System' },
+      android: { fontFamily: 'sans-serif-medium' },
+    }),
   },
   spinner: {
     marginBottom: 16,

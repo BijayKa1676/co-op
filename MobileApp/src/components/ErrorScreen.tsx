@@ -1,10 +1,10 @@
 /**
  * Error Screen
- * Displays offline/error states with retry functionality
+ * Optimized error/offline state with retry functionality
  */
 
-import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import React, { memo, useCallback } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Platform, Pressable } from 'react-native';
 import { COLORS } from '../constants';
 
 interface ErrorScreenProps {
@@ -13,8 +13,12 @@ interface ErrorScreenProps {
   onRetry: () => void;
 }
 
-export function ErrorScreen({ type, message, onRetry }: ErrorScreenProps): React.JSX.Element {
+function ErrorScreenComponent({ type, message, onRetry }: ErrorScreenProps): React.JSX.Element {
   const isOffline = type === 'offline';
+
+  const handlePress = useCallback(() => {
+    onRetry();
+  }, [onRetry]);
 
   return (
     <View style={styles.container}>
@@ -27,18 +31,24 @@ export function ErrorScreen({ type, message, onRetry }: ErrorScreenProps): React
           ? 'Check your internet connection and try again.'
           : "We couldn't load the page. Please try again.")}
       </Text>
-      <TouchableOpacity 
-        style={styles.button} 
-        onPress={onRetry} 
-        activeOpacity={0.8}
+      <Pressable 
+        style={({ pressed }) => [
+          styles.button,
+          pressed && styles.buttonPressed
+        ]}
+        onPress={handlePress}
         accessibilityRole="button"
         accessibilityLabel="Retry connection"
+        android_ripple={{ color: 'rgba(0,0,0,0.2)', borderless: false }}
       >
         <Text style={styles.buttonText}>Try Again</Text>
-      </TouchableOpacity>
+      </Pressable>
     </View>
   );
 }
+
+// Memoize to prevent unnecessary re-renders
+export const ErrorScreen = memo(ErrorScreenComponent);
 
 const styles = StyleSheet.create({
   container: {
@@ -59,6 +69,10 @@ const styles = StyleSheet.create({
     color: COLORS.dark.foreground,
     marginBottom: 12,
     textAlign: 'center',
+    ...Platform.select({
+      ios: { fontFamily: 'System' },
+      android: { fontFamily: 'sans-serif-medium' },
+    }),
   },
   message: {
     fontSize: 16,
@@ -74,6 +88,10 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     minWidth: 160,
     alignItems: 'center',
+  },
+  buttonPressed: {
+    opacity: 0.8,
+    transform: [{ scale: 0.98 }],
   },
   buttonText: {
     color: COLORS.dark.background,

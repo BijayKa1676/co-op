@@ -8,6 +8,7 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "scheme": "coop",
+    "jsEngine": "hermes",
     "splash": {
       "image": "./assets/logo.png",
       "resizeMode": "contain",
@@ -20,12 +21,15 @@
         "usesNonExemptEncryption": false
       },
       "infoPlist": {
-        "LSApplicationQueriesSchemes": ["https", "http"]
+        "LSApplicationQueriesSchemes": ["https", "http"],
+        "UIViewControllerBasedStatusBarAppearance": true
       },
       "associatedDomains": [
         "applinks:co-op-dev.vercel.app",
         "applinks:co-op.vercel.app"
-      ]
+      ],
+      "requireFullScreen": false,
+      "userInterfaceStyle": "automatic"
     },
     "android": {
       "package": "com.coop.app",
@@ -34,6 +38,8 @@
         "backgroundColor": "#0f1012"
       },
       "edgeToEdgeEnabled": true,
+      "allowBackup": false,
+      "softwareKeyboardLayoutMode": "pan",
       "intentFilters": [
         {
           "action": "VIEW",
@@ -56,7 +62,12 @@
     },
     "androidStatusBar": {
       "translucent": true,
-      "backgroundColor": "transparent"
+      "backgroundColor": "#00000000",
+      "barStyle": "light-content"
+    },
+    "androidNavigationBar": {
+      "visible": "sticky-immersive",
+      "backgroundColor": "#0f1012"
     },
     "web": {
       "favicon": "./assets/logo.png"
@@ -64,8 +75,9 @@
     "plugins": [],
     "extra": {
       "eas": {
-        "projectId": "your-project-id"
+        "projectId": "7a5031d4-4c0f-4614-b8f3-1167ffdaf5ec"
       }
-    }
+    },
+    "owner": "afnanksalal"
   }
 }
