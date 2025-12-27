@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Envelope, Lock, ArrowRight, GoogleLogo } from '@phosphor-icons/react';
+import { Envelope, Lock, ArrowRight, GoogleLogo, CircleNotch } from '@phosphor-icons/react';
 import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,7 +12,7 @@ import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { LandingBackground } from '@/components/ui/background';
 
-export default function LoginPage() {
+function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [isLoading, setIsLoading] = useState(false);
@@ -20,7 +20,6 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
-  // Check if already logged in
   useEffect(() => {
     const checkSession = async () => {
       const supabase = createClient();
@@ -32,7 +31,6 @@ export default function LoginPage() {
     };
     checkSession();
 
-    // Listen for auth state changes (handles OAuth callback)
     const supabase = createClient();
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_IN' && session) {
@@ -50,9 +48,11 @@ export default function LoginPage() {
     setIsLoading(true);
     const supabase = createClient();
 
-    // Check if we're in a mobile app WebView
     const isMobileApp = typeof window !== 'undefined' && 
-      document.documentElement.classList.contains('mobile-app');
+      (document.documentElement.classList.contains('mobile-app') ||
+       navigator.userAgent.includes('CoOpMobile'));
+
+    console.log('[Auth] Starting Google OAuth, isMobileApp:', isMobileApp);
 
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
@@ -75,7 +75,6 @@ export default function LoginPage() {
     const supabase = createClient();
 
     if (isSignUp) {
-      // Sign up - with email confirmation disabled, user is auto-confirmed
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -87,16 +86,13 @@ export default function LoginPage() {
         return;
       }
 
-      // Check if user was created and session exists (email confirmation disabled)
       if (data.session) {
         toast.success('Account created successfully!');
         router.push('/onboarding');
       } else if (data.user && !data.session) {
-        // Email confirmation is still enabled - show message
         toast.success('Check your email for the confirmation link');
       }
     } else {
-      // Sign in
       const { error } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -117,7 +113,6 @@ export default function LoginPage() {
     <div className="min-h-screen bg-background flex relative">
       <LandingBackground />
 
-      {/* Left side - Branding */}
       <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden border-r border-border/40">
         <div className="relative z-10 flex flex-col justify-center px-16">
           <Link href="/" className="mb-16">
@@ -160,7 +155,6 @@ export default function LoginPage() {
         </div>
       </div>
 
-      {/* Right side - Auth Form */}
       <div className="flex-1 flex items-center justify-center p-8">
         <motion.div
           initial={{ opacity: 0, scale: 0.98 }}
@@ -184,7 +178,6 @@ export default function LoginPage() {
           </div>
 
           <div className="space-y-6">
-            {/* Google Sign In */}
             <Button
               variant="outline"
               className="w-full h-11"
@@ -204,7 +197,6 @@ export default function LoginPage() {
               </div>
             </div>
 
-            {/* Email Sign In */}
             <form onSubmit={handleEmailAuth} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
@@ -259,5 +251,17 @@ export default function LoginPage() {
         </motion.div>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <CircleNotch weight="bold" className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    }>
+      <LoginContent />
+    </Suspense>
   );
 }

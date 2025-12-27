@@ -39,7 +39,9 @@ export function WebViewScreen({ onError }: WebViewScreenProps): React.JSX.Elemen
   }, []);
 
   const handleDeepLink = useCallback((url: string) => {
+    console.log('[WebView] Received deep link:', url);
     const webUrl = deepLinkToWebUrl(url);
+    console.log('[WebView] Converted to web URL:', webUrl);
     if (webUrl) {
       setTargetUrl(webUrl);
       setWebViewKey(prev => prev + 1);

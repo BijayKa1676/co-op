@@ -14,8 +14,13 @@ export function useDeepLink(onDeepLink: (url: string) => void): void {
   const handleUrl = useCallback((url: string | null) => {
     if (!url) return;
     
+    console.log('[DeepLink] Received URL:', url);
+    
     // Prevent processing the same URL twice (can happen with app state changes)
-    if (lastProcessedUrl.current === url) return;
+    if (lastProcessedUrl.current === url) {
+      console.log('[DeepLink] URL already processed, skipping');
+      return;
+    }
     lastProcessedUrl.current = url;
     
     // Reset after a short delay to allow re-processing if user tries again

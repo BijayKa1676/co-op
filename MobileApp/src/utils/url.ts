@@ -11,6 +11,17 @@ import { OAUTH_DOMAINS, ALLOWED_DOMAINS, APP_SCHEME, WEB_URL } from '../constant
 export function shouldOpenExternally(url: string): boolean {
   try {
     const urlObj = new URL(url);
+    
+    // Don't open our own auth pages externally
+    if (ALLOWED_DOMAINS.some(domain => urlObj.hostname.includes(domain))) {
+      // But DO open the callback with mobile=true in external browser
+      // because it needs to exchange the code on the server
+      if (urlObj.pathname === '/auth/callback' && urlObj.searchParams.get('mobile') === 'true') {
+        return false; // Let it load in WebView, server will redirect
+      }
+      return false;
+    }
+    
     return OAUTH_DOMAINS.some(domain => urlObj.hostname.includes(domain));
   } catch {
     return false;

@@ -11,25 +11,17 @@ type CallbackState = 'loading' | 'error' | 'success';
 /**
  * Mobile OAuth Callback Page
  * 
- * This page receives OAuth tokens via URL fragment from the mobile app deep link
- * and sets the Supabase session in the browser/WebView context.
- * 
- * Edge cases handled:
- * - Expired tokens
- * - Network errors
- * - Existing session conflicts
- * - Proper onboarding status check via API
- * - Race conditions with session propagation
- * - Cookie sync for SSR middleware
+ * Receives OAuth tokens via URL fragment from mobile app deep link
+ * and establishes the Supabase session in the WebView context.
  */
 export default function MobileCallbackPage() {
   const router = useRouter();
   const [state, setState] = useState<CallbackState>('loading');
   const [error, setError] = useState<string | null>(null);
+  const [debugInfo, setDebugInfo] = useState<string>('');
   const hasProcessed = useRef(false);
 
   useEffect(() => {
-    // Prevent double processing (React strict mode)
     if (hasProcessed.current) return;
     hasProcessed.current = true;
 
@@ -37,19 +29,27 @@ export default function MobileCallbackPage() {
       const supabase = createClient();
       
       try {
-        // Get tokens from URL fragment (hash)
+        // Get tokens from URL fragment
         const hash = window.location.hash.substring(1);
+        const fullUrl = window.location.href;
         
-        // Handle error params in hash (e.g., from OAuth denial)
+        console.log('[MobileCallback] Processing callback');
+        console.log('[MobileCallback] Full URL:', fullUrl);
+        console.log('[MobileCallback] Hash:', hash);
+        setDebugInfo(`URL: ${fullUrl.substring(0, 100)}...`);
+        
+        // Handle error in hash
         if (hash.includes('error=')) {
           const params = new URLSearchParams(hash);
           const errorMsg = params.get('error_description') || params.get('error') || 'Authentication failed';
+          console.error('[MobileCallback] Error in hash:', errorMsg);
           setError(errorMsg);
           setState('error');
           return;
         }
         
         if (!hash) {
+          console.error('[MobileCallback] No hash fragment found');
           setError('No authentication data received. Please try signing in again.');
           setState('error');
           return;
@@ -60,109 +60,99 @@ export default function MobileCallbackPage() {
         const refresh_token = params.get('refresh_token');
         const expires_at = params.get('expires_at');
 
+        console.log('[MobileCallback] Tokens found:', {
+          hasAccessToken: !!access_token,
+          hasRefreshToken: !!refresh_token,
+          expiresAt: expires_at,
+        });
+
         if (!access_token || !refresh_token) {
+          console.error('[MobileCallback] Missing tokens');
           setError('Invalid authentication data. Please try signing in again.');
           setState('error');
           return;
         }
 
-        // Check if token is already expired (edge case: slow redirect)
+        // Check token expiry
         if (expires_at) {
           const expiresAtMs = parseInt(expires_at) * 1000;
           if (Date.now() > expiresAtMs) {
+            console.error('[MobileCallback] Token expired');
             setError('Session expired. Please sign in again.');
             setState('error');
             return;
           }
         }
 
-        // Clear any existing session first to avoid conflicts
+        // Clear existing session
         const { data: existingSession } = await supabase.auth.getSession();
         if (existingSession?.session) {
+          console.log('[MobileCallback] Clearing existing session');
           await supabase.auth.signOut({ scope: 'local' });
         }
 
-        // Set the new session - this stores in localStorage AND sets cookies via @supabase/ssr
+        // Set the new session
+        console.log('[MobileCallback] Setting new session...');
         const { data, error: sessionError } = await supabase.auth.setSession({
           access_token,
           refresh_token,
         });
 
         if (sessionError) {
-          console.error('Failed to set session:', sessionError);
-          
-          // Handle specific error cases
-          if (sessionError.message.includes('expired') || sessionError.message.includes('invalid')) {
-            setError('Session expired or invalid. Please sign in again.');
-          } else if (sessionError.message.includes('network') || sessionError.message.includes('fetch')) {
-            setError('Network error. Please check your connection and try again.');
-          } else {
-            setError(sessionError.message);
-          }
+          console.error('[MobileCallback] Session error:', sessionError);
+          setError(sessionError.message);
           setState('error');
           return;
         }
 
-        // Verify session was actually set
         if (!data.session || !data.user) {
+          console.error('[MobileCallback] No session/user in response');
           setError('Failed to establish session. Please try again.');
           setState('error');
           return;
         }
 
-        // Clear the URL hash immediately for security
+        console.log('[MobileCallback] Session set successfully, user:', data.user.email);
+
+        // Clear URL hash for security
         window.history.replaceState(null, '', '/auth/mobile-callback');
 
-        // Force a token refresh to ensure cookies are properly set
-        // This is critical for the SSR middleware to recognize the session
-        const { error: refreshError } = await supabase.auth.refreshSession();
-        if (refreshError) {
-          console.warn('Token refresh warning (non-fatal):', refreshError.message);
-          // Don't fail on refresh error - the session might still work
+        // Verify session is stored
+        const { data: verifySession } = await supabase.auth.getSession();
+        console.log('[MobileCallback] Session verification:', !!verifySession.session);
+
+        if (!verifySession.session) {
+          console.error('[MobileCallback] Session not persisted');
+          setError('Session was not saved. Please try again.');
+          setState('error');
+          return;
         }
 
-        // Check onboarding status via API (more reliable than user_metadata)
+        // Check onboarding status
         let needsOnboarding = true;
         try {
           const status = await api.getOnboardingStatus();
           needsOnboarding = !status.completed;
+          console.log('[MobileCallback] Onboarding status:', status);
         } catch (apiError) {
-          // If API fails, fall back to user metadata check
-          console.warn('Failed to check onboarding via API, using metadata:', apiError);
+          console.warn('[MobileCallback] API check failed, using metadata');
           const userMeta = data.user.user_metadata || {};
           needsOnboarding = !userMeta.onboarding_completed;
         }
 
         setState('success');
 
-        // Wait for session/cookies to fully propagate before redirect
-        // Longer delay for mobile WebView context where cookie sync can be slower
-        await new Promise(resolve => setTimeout(resolve, 500));
+        // Small delay then redirect
+        await new Promise(resolve => setTimeout(resolve, 300));
 
-        // Final session verification before redirect
-        const { data: finalCheck } = await supabase.auth.getSession();
-        if (!finalCheck.session) {
-          setError('Session was not persisted. Please try again.');
-          setState('error');
-          return;
-        }
-
-        // Use window.location for a full page navigation to ensure cookies are sent
-        // router.replace() does client-side navigation which might not pick up new cookies
-        if (needsOnboarding) {
-          window.location.href = '/onboarding';
-        } else {
-          window.location.href = '/dashboard';
-        }
-      } catch (err) {
-        console.error('Mobile callback error:', err);
+        const destination = needsOnboarding ? '/onboarding' : '/dashboard';
+        console.log('[MobileCallback] Redirecting to:', destination);
         
-        // Handle network/fetch errors
-        if (err instanceof TypeError && err.message.includes('fetch')) {
-          setError('Network error. Please check your connection and try again.');
-        } else {
-          setError('Authentication failed. Please try again.');
-        }
+        // Use window.location for full navigation to ensure cookies are sent
+        window.location.href = destination;
+      } catch (err) {
+        console.error('[MobileCallback] Unexpected error:', err);
+        setError('Authentication failed. Please try again.');
         setState('error');
       }
     };
@@ -179,9 +169,10 @@ export default function MobileCallbackPage() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </div>
-          <p className="text-destructive mb-4">{error}</p>
+          <p className="text-destructive mb-2">{error}</p>
+          <p className="text-xs text-muted-foreground mb-4">{debugInfo}</p>
           <button
-            onClick={() => router.push('/login')}
+            onClick={() => window.location.href = '/login'}
             className="text-primary hover:underline font-medium"
           >
             Return to login
@@ -198,6 +189,7 @@ export default function MobileCallbackPage() {
         <p className="text-muted-foreground">
           {state === 'success' ? 'Redirecting...' : 'Completing sign in...'}
         </p>
+        <p className="text-xs text-muted-foreground mt-2">{debugInfo}</p>
       </div>
     </div>
   );

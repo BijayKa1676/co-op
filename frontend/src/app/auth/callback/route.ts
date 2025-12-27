@@ -1,16 +1,14 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { NextResponse } from 'next/server';
-import { cookies, headers } from 'next/headers';
+import { cookies } from 'next/headers';
 
 // Mobile app scheme for deep linking
 const MOBILE_APP_SCHEME = 'coop';
 
 /**
  * Detect if request is from mobile app (only when explicitly set)
- * We no longer auto-detect mobile browsers to avoid breaking web OAuth on mobile devices
  */
 function shouldRedirectToMobileApp(searchParams: URLSearchParams): boolean {
-  // Only redirect to mobile app if explicitly requested via param
   return searchParams.get('mobile') === 'true';
 }
 
@@ -19,17 +17,17 @@ export async function GET(request: Request) {
   const code = searchParams.get('code');
   const next = searchParams.get('next') ?? '/dashboard';
   
-  // Only redirect to mobile app if explicitly requested
   const shouldRedirectToApp = shouldRedirectToMobileApp(searchParams);
   
-  // Handle OAuth error responses (e.g., user denied access)
+  // Handle OAuth error responses
   const errorParam = searchParams.get('error');
   const errorDescription = searchParams.get('error_description');
   if (errorParam) {
     const errorMsg = errorDescription || errorParam;
     
     if (shouldRedirectToApp) {
-      return NextResponse.redirect(`${MOBILE_APP_SCHEME}://auth/error?message=${encodeURIComponent(errorMsg)}`);
+      // For mobile: redirect to a page that will trigger the deep link
+      return NextResponse.redirect(`${origin}/auth/mobile-redirect?error=${encodeURIComponent(errorMsg)}`);
     }
     
     return NextResponse.redirect(`${origin}/login?error=${encodeURIComponent(errorMsg)}`);
@@ -38,7 +36,6 @@ export async function GET(request: Request) {
   if (code) {
     const cookieStore = await cookies();
     
-    // Create Supabase client with proper cookie handling for the response
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -62,18 +59,17 @@ export async function GET(request: Request) {
       const { session } = data;
       
       if (shouldRedirectToApp) {
-        // For mobile app: Pass tokens via URL fragment
+        // For mobile: redirect to a page that will handle the deep link
         const tokenParams = new URLSearchParams({
           access_token: session.access_token,
           refresh_token: session.refresh_token,
           expires_at: String(session.expires_at || ''),
-          token_type: session.token_type || 'bearer',
         });
         
-        return NextResponse.redirect(`${MOBILE_APP_SCHEME}://auth/callback#${tokenParams.toString()}`);
+        return NextResponse.redirect(`${origin}/auth/mobile-redirect?${tokenParams.toString()}`);
       }
       
-      // For web: Redirect to dashboard (cookies are already set by Supabase client)
+      // For web: Redirect to dashboard
       return NextResponse.redirect(`${origin}${next}`);
     }
     
@@ -81,17 +77,15 @@ export async function GET(request: Request) {
       console.error('Auth callback error:', error.message);
       
       if (shouldRedirectToApp) {
-        const errorMsg = error.message || 'Failed to exchange code for session';
-        return NextResponse.redirect(`${MOBILE_APP_SCHEME}://auth/error?message=${encodeURIComponent(errorMsg)}`);
+        return NextResponse.redirect(`${origin}/auth/mobile-redirect?error=${encodeURIComponent(error.message)}`);
       }
       
       return NextResponse.redirect(`${origin}/login?error=${encodeURIComponent(error.message || 'auth_failed')}`);
     }
   }
 
-  // Return to login on error
   if (shouldRedirectToApp) {
-    return NextResponse.redirect(`${MOBILE_APP_SCHEME}://login?error=auth_failed`);
+    return NextResponse.redirect(`${origin}/auth/mobile-redirect?error=auth_failed`);
   }
   
   return NextResponse.redirect(`${origin}/login?error=auth_failed`);
