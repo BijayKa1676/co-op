@@ -553,12 +553,6 @@ html.mobile-app .chat-container > div:nth-child(2) {
     max-width: 100%;
     overflow-x: auto;
   }
-  
-  /* Better dialog sizing on mobile */
-  [role="dialog"] {
-    max-width: calc(100vw - 2rem) !important;
-    margin: 1rem;
-  }
 }
 
 /* Ensure consistent spacing in mobile app */
@@ -586,6 +580,16 @@ html.mobile-app .space-y-8 > * + * {
 }
 
 /* ============================================
+   TABS COMPONENT - Proper stacking context
+   ============================================ */
+
+/* Ensure tabs content has proper stacking */
+[role="tabpanel"] {
+  position: relative;
+  z-index: 1;
+}
+
+/* ============================================
    MOBILE CONTAINER CONSISTENCY
    Ensures all dashboard pages have uniform spacing
    ============================================ */
@@ -597,7 +601,8 @@ html.mobile-app .space-y-8 > * + * {
   .max-w-5xl,
   .max-w-6xl {
     max-width: 100%;
-    /* Remove any conflicting padding - layout handles it */
+    margin-left: auto;
+    margin-right: auto;
   }
   
   /* Ensure grids have proper gaps on mobile */
@@ -616,6 +621,27 @@ html.mobile-app .space-y-8 > * + * {
   
   .space-y-8 > * + * {
     margin-top: 1.25rem;
+  }
+}
+
+/* ============================================
+   UNIFORM MOBILE CENTERING
+   All cards, dialogs, and content centered with equal margins
+   ============================================ */
+
+/* Ensure all cards are properly contained */
+@media (max-width: 640px) {
+  /* Cards should have uniform appearance */
+  [class*="Card"],
+  .rounded-xl.border {
+    margin-left: 0;
+    margin-right: 0;
+  }
+  
+  /* Ensure content doesn't overflow */
+  .overflow-hidden,
+  .overflow-x-auto {
+    max-width: 100%;
   }
 }
 
@@ -670,23 +696,25 @@ body {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
   }
-  
-  /* Ensure dialogs have proper max-height */
-  [role="dialog"] {
-    max-height: 90vh;
-  }
 }
 
-/* Ensure dialogs are properly positioned on mobile */
+/* ============================================
+   DIALOG & POPUP CENTERING
+   Ensures all dialogs are perfectly centered on all screens
+   ============================================ */
+
+/* Dialog centering - uniform 16px margins on each side */
+[role="dialog"][data-state="open"] {
+  /* Ensure dialog is centered with equal margins */
+  margin: 0 auto;
+  max-height: 90vh;
+}
+
+/* Ensure dialog content scrolls properly */
 @media (max-width: 640px) {
   [role="dialog"] > div {
-    max-height: calc(100vh - 4rem);
+    max-height: calc(90vh - 2rem);
     overflow-y: auto;
-  }
-  
-  /* Better sheet positioning */
-  [data-state="open"][role="dialog"] {
-    animation: slideUp 0.2s ease-out;
   }
 }
 
