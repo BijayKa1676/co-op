@@ -404,7 +404,7 @@ export default function AgentPage() {
   };
 
   return (
-    <div className="h-[calc(100vh-4rem)] flex flex-col max-w-4xl mx-auto">
+    <div className="chat-container flex flex-col max-w-4xl mx-auto">
       {/* Header - fixed at top */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}

@@ -416,3 +416,177 @@ html.menu-open body {
     opacity: 0.8;
   }
 }
+
+
+/* ============================================
+   MOBILE APP (WebView) SAFE AREA STYLES
+   Applied when running inside Co-Op mobile app
+   ============================================ */
+
+/* Mobile app detection - class added by layout.tsx script */
+html.mobile-app {
+  /* CSS custom properties for safe area - will be set by WebView injection */
+  --safe-area-top: env(safe-area-inset-top, 48px);
+  --safe-area-bottom: env(safe-area-inset-bottom, 24px);
+}
+
+html.mobile-app body {
+  /* Apply safe area padding to body for ALL pages */
+  padding-top: var(--safe-area-top) !important;
+  padding-bottom: var(--safe-area-bottom) !important;
+  
+  /* Smooth scrolling and touch optimizations */
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+/* Ensure main content areas respect safe area */
+html.mobile-app main {
+  min-height: calc(100vh - var(--safe-area-top) - var(--safe-area-bottom));
+}
+
+/* Fix header positioning in mobile app */
+html.mobile-app header {
+  top: var(--safe-area-top) !important;
+}
+
+/* Fix fixed/sticky elements */
+html.mobile-app .fixed-top,
+html.mobile-app [class*="fixed"][class*="top-0"] {
+  top: var(--safe-area-top) !important;
+}
+
+html.mobile-app .fixed-bottom,
+html.mobile-app [class*="fixed"][class*="bottom-0"] {
+  bottom: var(--safe-area-bottom) !important;
+}
+
+/* Mobile app specific input handling */
+html.mobile-app input,
+html.mobile-app textarea,
+html.mobile-app select {
+  font-size: 16px !important; /* Prevent iOS zoom */
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+/* Hide scrollbars in mobile app but keep functionality */
+html.mobile-app ::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
+}
+
+html.mobile-app * {
+  scrollbar-width: none;
+}
+
+/* Better touch targets in mobile app */
+html.mobile-app button,
+html.mobile-app a,
+html.mobile-app [role="button"] {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Disable text selection on interactive elements */
+html.mobile-app button,
+html.mobile-app [role="button"] {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* ============================================
+   CHAT CONTAINER - Dynamic height for all devices
+   ============================================ */
+
+/* Default chat container height - desktop */
+.chat-container {
+  height: calc(100vh - 4rem);
+}
+
+/* Mobile (with header) - account for mobile header (56px / 3.5rem) + padding */
+@media (max-width: 767px) {
+  .chat-container {
+    height: calc(100vh - 3.5rem - 2rem); /* viewport - header - padding */
+  }
+}
+
+/* Mobile app specific - account for safe areas */
+html.mobile-app .chat-container {
+  height: calc(100vh - var(--safe-area-top) - var(--safe-area-bottom) - 3.5rem - 1rem);
+  /* Ensure input stays visible */
+  display: flex;
+  flex-direction: column;
+}
+
+/* Ensure the messages area scrolls, not the whole page */
+html.mobile-app .chat-container > div:nth-child(2) {
+  flex: 1;
+  min-height: 0; /* Important for flex children to scroll */
+  overflow-y: auto;
+}
+
+/* Prevent outer scroll in mobile app - content should fit viewport */
+html.mobile-app main {
+  overflow: hidden;
+}
+
+html.mobile-app main > div {
+  height: 100%;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ============================================
+   RESPONSIVE UTILITIES FOR DASHBOARD PAGES
+   ============================================ */
+
+/* Ensure cards don't overflow on mobile */
+@media (max-width: 640px) {
+  .max-w-4xl,
+  .max-w-5xl {
+    padding-left: 0;
+    padding-right: 0;
+  }
+  
+  /* Better card padding on mobile */
+  [class*="CardContent"] {
+    padding: 0.75rem;
+  }
+  
+  /* Ensure code blocks don't overflow */
+  pre, code {
+    max-width: 100%;
+    overflow-x: auto;
+  }
+  
+  /* Better dialog sizing on mobile */
+  [role="dialog"] {
+    max-width: calc(100vw - 2rem) !important;
+    margin: 1rem;
+  }
+}
+
+/* Ensure consistent spacing in mobile app */
+html.mobile-app .space-y-6 > * + * {
+  margin-top: 1rem;
+}
+
+html.mobile-app .space-y-8 > * + * {
+  margin-top: 1.25rem;
+}
+
+/* Better grid layouts on mobile */
+@media (max-width: 640px) {
+  .grid-cols-2 {
+    gap: 0.5rem;
+  }
+  
+  .grid-cols-3 {
+    gap: 0.375rem;
+  }
+  
+  .grid-cols-4 {
+    gap: 0.375rem;
+  }
+}

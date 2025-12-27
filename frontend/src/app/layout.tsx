@@ -140,6 +140,7 @@ export const viewport: Viewport = {
 import { ThemeProvider } from '@/components/theme-provider';
 
 // Script to prevent flash of wrong theme - runs before React hydration
+// Also handles mobile app safe area detection
 const themeScript = `
   (function() {
     try {
@@ -149,6 +150,11 @@ const themeScript = `
       if (isDark) document.documentElement.classList.add('dark');
     } catch (e) {
       document.documentElement.classList.add('dark');
+    }
+    
+    // Detect mobile app WebView and apply safe area padding
+    if (window.ReactNativeWebView || navigator.userAgent.includes('CoOpMobile')) {
+      document.documentElement.classList.add('mobile-app');
     }
   })();
 `;

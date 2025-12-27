@@ -8,6 +8,7 @@ export const IS_DEV = __DEV__;
 
 // URLs
 export const WEB_URL = 'https://co-op-dev.vercel.app';
+export const API_URL = 'https://co-op-backend.onrender.com';
 export const APP_SCHEME = 'coop';
 
 // Theme Colors (matching web app's design system)
@@ -41,9 +42,14 @@ export const OAUTH_DOMAINS = [
 export const ALLOWED_DOMAINS = [
   'co-op-dev.vercel.app',
   'co-op.vercel.app',
+  'co-op-backend.onrender.com',
   'localhost',
 ] as const;
 
 // Timeouts
 export const CONNECTION_TIMEOUT_MS = 10000;
 export const THEME_DETECTION_DELAY_MS = 100;
+
+// File upload limits (matching backend)
+export const MAX_FILE_SIZE_MB = 10;
+export const ALLOWED_FILE_TYPES = ['application/pdf'] as const;

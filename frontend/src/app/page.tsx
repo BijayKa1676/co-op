@@ -131,6 +131,7 @@ const roadmapItems = [
 
 export default function HomePage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isChecking, setIsChecking] = useState(true);
   const { theme, setTheme } = useUIStore();
 
   useEffect(() => {
@@ -140,6 +141,17 @@ export default function HomePage() {
         data: { session },
       } = await supabase.auth.getSession();
       setIsAuthenticated(!!session);
+      setIsChecking(false);
+      
+      // Auto-redirect to dashboard if logged in (for mobile app)
+      if (session && typeof window !== 'undefined') {
+        // Check if we're in a mobile WebView context
+        const isMobileApp = window.navigator.userAgent.includes('Mobile') || 
+                           (window as unknown as { ReactNativeWebView?: unknown }).ReactNativeWebView;
+        if (isMobileApp) {
+          window.location.href = '/dashboard';
+        }
+      }
     };
     checkSession();
   }, []);

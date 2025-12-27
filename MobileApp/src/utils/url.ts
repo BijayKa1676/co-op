@@ -23,6 +23,17 @@ export function shouldOpenExternally(url: string): boolean {
 export function isAllowedUrl(url: string): boolean {
   try {
     const urlObj = new URL(url);
+    
+    // Allow blob URLs for file downloads
+    if (urlObj.protocol === 'blob:') {
+      return true;
+    }
+    
+    // Allow data URLs for inline content
+    if (urlObj.protocol === 'data:') {
+      return true;
+    }
+    
     return ALLOWED_DOMAINS.some(domain => urlObj.hostname.includes(domain));
   } catch {
     return false;
@@ -37,6 +48,10 @@ export function deepLinkToWebUrl(deepLink: string): string | null {
     // Handle coop:// scheme
     if (deepLink.startsWith(`${APP_SCHEME}://`)) {
       const path = deepLink.replace(`${APP_SCHEME}://`, '');
+      // Handle auth error deep links
+      if (path.startsWith('auth/error')) {
+        return `${WEB_URL}/login?error=auth_failed`;
+      }
       return `${WEB_URL}/${path}`;
     }
     
@@ -60,5 +75,19 @@ export function getUrlPath(url: string): string {
     return urlObj.pathname + urlObj.search + urlObj.hash;
   } catch {
     return '/';
+  }
+}
+
+/**
+ * Check if URL is a file download
+ */
+export function isDownloadUrl(url: string): boolean {
+  try {
+    const urlObj = new URL(url);
+    const path = urlObj.pathname.toLowerCase();
+    const downloadExtensions = ['.pdf', '.doc', '.docx', '.xls', '.xlsx', '.csv', '.json', '.md', '.txt'];
+    return downloadExtensions.some(ext => path.endsWith(ext));
+  } catch {
+    return false;
   }
 }

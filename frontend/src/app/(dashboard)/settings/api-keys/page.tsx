@@ -129,16 +129,16 @@ export default function ApiKeysPage() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="max-w-4xl mx-auto space-y-4 sm:space-y-6 md:space-y-8">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="flex flex-col sm:flex-row sm:items-start justify-between gap-4"
+        className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 sm:gap-4"
       >
-        <div>
-          <h1 className="font-serif text-2xl sm:text-3xl font-medium tracking-tight mb-1 sm:mb-2">API Keys</h1>
-          <p className="text-sm sm:text-base text-muted-foreground">Manage your API keys for programmatic access</p>
-          <p className="text-xs text-muted-foreground/70 mt-1">Pilot: 1 key, 3 requests/month</p>
+        <div className="min-w-0">
+          <h1 className="font-serif text-xl sm:text-2xl md:text-3xl font-medium tracking-tight mb-0.5 sm:mb-1">API Keys</h1>
+          <p className="text-xs sm:text-sm text-muted-foreground">Manage your API keys for programmatic access</p>
+          <p className="text-[10px] sm:text-xs text-muted-foreground/70 mt-0.5 sm:mt-1">Pilot: 1 key, 3 requests/month</p>
         </div>
         <Dialog open={showDialog} onOpenChange={setShowDialog}>
           <DialogTrigger asChild>

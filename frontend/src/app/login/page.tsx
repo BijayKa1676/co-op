@@ -31,6 +31,19 @@ export default function LoginPage() {
       }
     };
     checkSession();
+
+    // Listen for auth state changes (handles OAuth callback)
+    const supabase = createClient();
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' && session) {
+        const next = searchParams.get('next') || '/dashboard';
+        router.push(next);
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, [router, searchParams]);
 
   const handleGoogleSignIn = async () => {

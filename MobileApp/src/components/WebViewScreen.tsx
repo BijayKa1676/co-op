@@ -1,10 +1,10 @@
 /**
  * WebView Screen
- * WebView wrapper with OAuth handling and theme detection
+ * WebView wrapper with OAuth handling, theme detection, and full web ecosystem support
  */
 
 import React, { useRef, useState, useCallback, useMemo, useEffect } from 'react';
-import { View, StyleSheet, Linking, AppState } from 'react-native';
+import { StyleSheet, Linking, AppState, Platform, KeyboardAvoidingView } from 'react-native';
 import { WebView } from 'react-native-webview';
 import type { WebViewNavigation, WebViewMessageEvent } from 'react-native-webview';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -25,6 +25,7 @@ export function WebViewScreen({ onError }: WebViewScreenProps): React.JSX.Elemen
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [webViewKey, setWebViewKey] = useState(0);
   const [targetUrl, setTargetUrl] = useState(WEB_URL);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
 
   useBackHandler(webViewRef, canGoBack);
 
@@ -47,51 +48,189 @@ export function WebViewScreen({ onError }: WebViewScreenProps): React.JSX.Elemen
 
   useDeepLink(handleDeepLink);
 
-  const injectedScript = useMemo(() => {
+  // CSS injection - runs BEFORE content loads on EVERY page
+  const injectedCSSScript = useMemo(() => {
     const top = insets.top;
-    const delay = THEME_DETECTION_DELAY_MS;
-    // Performance CSS + theme detection
+    const bottom = insets.bottom;
+    
     return `(function(){
-      var s=document.createElement("style");
-      s.textContent="body{padding-top:${top}px!important;-webkit-overflow-scrolling:touch!important}*{-webkit-tap-highlight-color:transparent}main,.overflow-auto,.overflow-y-auto{transform:translateZ(0)}";
-      document.head.appendChild(s);
-      function d(){window.ReactNativeWebView.postMessage(JSON.stringify({type:"theme",isDark:document.documentElement.classList.contains("dark")}));}
-      setTimeout(d,${delay});
-      new MutationObserver(d).observe(document.documentElement,{attributes:true,attributeFilter:["class"]});
-      document.addEventListener("touchstart",function(){},{passive:true});
+      // Set CSS custom properties for safe area (works with frontend globals.css)
+      document.documentElement.style.setProperty('--safe-area-top', '${top}px');
+      document.documentElement.style.setProperty('--safe-area-bottom', '${bottom}px');
+      
+      // Add mobile-app class if not already present
+      if (!document.documentElement.classList.contains('mobile-app')) {
+        document.documentElement.classList.add('mobile-app');
+      }
+      
+      // Also inject a style tag as backup for immediate effect
+      var existingStyle = document.getElementById('coop-mobile-safe-area');
+      if (!existingStyle) {
+        var s = document.createElement('style');
+        s.id = 'coop-mobile-safe-area';
+        s.textContent = \`
+          html.mobile-app body {
+            padding-top: ${top}px !important;
+            padding-bottom: ${bottom}px !important;
+          }
+        \`;
+        if (document.head) {
+          document.head.appendChild(s);
+        } else {
+          document.addEventListener('DOMContentLoaded', function() {
+            document.head.appendChild(s);
+          });
+        }
+      }
     })();true;`;
-  }, [insets.top]);
+  }, [insets.top, insets.bottom]);
 
-  const handleNavigationStateChange = useCallback((navState: WebViewNavigation) => {
-    setCanGoBack(navState.canGoBack);
+  // Post-load script - runs AFTER content loads
+  const injectedPostLoadScript = useMemo(() => {
+    const delay = THEME_DETECTION_DELAY_MS;
+    
+    return `(function(){
+      // Prevent duplicate injection
+      if(window.__COOP_POSTLOAD_INJECTED__) return;
+      window.__COOP_POSTLOAD_INJECTED__ = true;
+      
+      // === THEME DETECTION ===
+      function detectTheme(){
+        window.ReactNativeWebView.postMessage(JSON.stringify({
+          type:"theme",
+          isDark:document.documentElement.classList.contains("dark")
+        }));
+      }
+      setTimeout(detectTheme, ${delay});
+      new MutationObserver(detectTheme).observe(document.documentElement, {
+        attributes: true,
+        attributeFilter: ["class"]
+      });
+      
+      // === PASSIVE TOUCH LISTENERS ===
+      document.addEventListener("touchstart", function(){}, {passive:true});
+      document.addEventListener("touchmove", function(){}, {passive:true});
+      
+      // === AUTH CHECK & REDIRECT (home page only) ===
+      if(window.location.pathname === "/" || window.location.pathname === ""){
+        setTimeout(function(){
+          var keys = Object.keys(localStorage);
+          for(var i=0; i<keys.length; i++){
+            if(keys[i].includes("supabase") && keys[i].includes("auth")){
+              try{
+                var data = JSON.parse(localStorage.getItem(keys[i]));
+                if(data && data.access_token){
+                  window.location.href = "/dashboard";
+                  return;
+                }
+              }catch(e){}
+            }
+          }
+        }, 500);
+      }
+      
+      // === NETWORK STATUS ===
+      function reportNetworkStatus(){
+        window.ReactNativeWebView.postMessage(JSON.stringify({
+          type:"network",
+          online:navigator.onLine
+        }));
+      }
+      window.addEventListener("online", reportNetworkStatus);
+      window.addEventListener("offline", reportNetworkStatus);
+      
+      // === KEYBOARD HANDLING ===
+      var lastHeight = window.innerHeight;
+      window.addEventListener("resize", function(){
+        var newHeight = window.innerHeight;
+        if(newHeight < lastHeight - 100){
+          setTimeout(function(){
+            var el = document.activeElement;
+            if(el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA")){
+              el.scrollIntoView({behavior:"smooth", block:"center"});
+            }
+          }, 100);
+        }
+        lastHeight = newHeight;
+      });
+      
+      // === ERROR INTERCEPTION ===
+      var originalConsoleError = console.error;
+      console.error = function(){
+        originalConsoleError.apply(console, arguments);
+        if(arguments[0] && typeof arguments[0] === "string" && arguments[0].includes("API Error")){
+          window.ReactNativeWebView.postMessage(JSON.stringify({
+            type:"error",
+            message:arguments[0]
+          }));
+        }
+      };
+    })();true;`;
   }, []);
 
   const handleMessage = useCallback((event: WebViewMessageEvent) => {
     try {
       const data = JSON.parse(event.nativeEvent.data);
-      if (data.type === 'theme' && typeof data.isDark === 'boolean') {
-        setIsDarkMode(data.isDark);
+      switch (data.type) {
+        case 'theme':
+          if (typeof data.isDark === 'boolean') {
+            setIsDarkMode(data.isDark);
+          }
+          break;
+        case 'network':
+          // Could show native network indicator
+          break;
+        case 'error':
+          // Could show native toast
+          break;
       }
     } catch {
-      // Ignore
+      // Ignore parse errors
     }
   }, []);
 
   const handleShouldStartLoadWithRequest = useCallback((request: { url: string }): boolean => {
     const { url } = request;
+    
+    // Handle OAuth providers - open in system browser
     if (shouldOpenExternally(url)) {
       Linking.openURL(url).catch(() => {});
       return false;
     }
+    
+    // Block non-allowed domains for security
     if (!isAllowedUrl(url)) {
       Linking.openURL(url).catch(() => {});
       return false;
     }
+    
     return true;
   }, []);
 
+  // Re-inject CSS on each page load/navigation
+  const handleLoadEnd = useCallback(() => {
+    // Always re-inject to handle SPA navigation
+    webViewRef.current?.injectJavaScript(injectedCSSScript);
+  }, [injectedCSSScript]);
+
+  // Handle navigation state change (for SPA client-side routing)
+  const handleNavigationStateChange = useCallback((navState: WebViewNavigation) => {
+    setCanGoBack(navState.canGoBack);
+    
+    if (isInitialLoad && navState.url) {
+      setIsInitialLoad(false);
+    }
+    
+    // Re-inject CSS on every navigation (handles SPA routing)
+    webViewRef.current?.injectJavaScript(injectedCSSScript);
+  }, [isInitialLoad, injectedCSSScript]);
+
   return (
-    <View style={styles.container}>
+    <KeyboardAvoidingView 
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={0}
+    >
       <StatusBar 
         style={isDarkMode ? 'light' : 'dark'} 
         translucent 
@@ -107,27 +246,69 @@ export function WebViewScreen({ onError }: WebViewScreenProps): React.JSX.Elemen
         onError={onError}
         onHttpError={onError}
         onShouldStartLoadWithRequest={handleShouldStartLoadWithRequest}
-        injectedJavaScript={injectedScript}
-        // Core
+        onLoadEnd={handleLoadEnd}
+        
+        // CSS injection - runs before content loads
+        injectedJavaScriptBeforeContentLoaded={injectedCSSScript}
+        injectedJavaScriptBeforeContentLoadedForMainFrameOnly
+        
+        // Post-load script - runs after content loads
+        injectedJavaScript={injectedPostLoadScript}
+        injectedJavaScriptForMainFrameOnly
+        
+        // === CORE ===
         javaScriptEnabled
         domStorageEnabled
-        // Auth persistence
+        
+        // === AUTH & COOKIES ===
         sharedCookiesEnabled
         thirdPartyCookiesEnabled
-        // UX
+        
+        // === FILE UPLOAD ===
+        allowFileAccess
+        allowFileAccessFromFileURLs={false}
+        allowUniversalAccessFromFileURLs={false}
+        
+        // === MEDIA ===
+        allowsInlineMediaPlayback
+        mediaPlaybackRequiresUserAction={false}
+        
+        // === UX ===
         allowsBackForwardNavigationGestures
         pullToRefreshEnabled
-        allowsInlineMediaPlayback
-        // Performance
+        automaticallyAdjustContentInsets={false}
+        contentInsetAdjustmentBehavior="never"
+        
+        // === PERFORMANCE ===
         cacheEnabled
+        cacheMode="LOAD_DEFAULT"
         startInLoadingState={false}
-        // Scroll
+        
+        // === SCROLLING ===
         showsHorizontalScrollIndicator={false}
         showsVerticalScrollIndicator
-        // Security
+        scrollEnabled
+        bounces
+        overScrollMode="always"
+        nestedScrollEnabled
+        
+        // === SECURITY ===
         javaScriptCanOpenWindowsAutomatically={false}
+        mixedContentMode="compatibility"
+        
+        // === ANDROID SPECIFIC ===
+        androidLayerType="hardware"
+        setBuiltInZoomControls={false}
+        setDisplayZoomControls={false}
+        
+        // === TEXT INPUT ===
+        keyboardDisplayRequiresUserAction={false}
+        hideKeyboardAccessoryView={false}
+        
+        // === USER AGENT ===
+        applicationNameForUserAgent="CoOpMobile/1.0"
       />
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 

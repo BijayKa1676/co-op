@@ -792,7 +792,7 @@ export default function ChatPage() {
   };
 
   return (
-    <div className="h-[calc(100vh-4rem)] flex flex-col max-w-4xl mx-auto">
+    <div className="chat-container flex flex-col max-w-4xl mx-auto">
       {/* Header - Agent Selector */}
       <div className="flex flex-col gap-3 pb-3 sm:pb-4 border-b border-border/40 shrink-0">
         <div className="flex items-center gap-2 sm:gap-3 overflow-x-auto scrollbar-hide">

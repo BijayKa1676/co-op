@@ -22,7 +22,10 @@
       },
       "infoPlist": {
         "LSApplicationQueriesSchemes": ["https", "http"],
-        "UIViewControllerBasedStatusBarAppearance": true
+        "UIViewControllerBasedStatusBarAppearance": true,
+        "NSPhotoLibraryUsageDescription": "Upload documents to chat",
+        "NSCameraUsageDescription": "Scan documents to upload",
+        "NSMicrophoneUsageDescription": "Voice input for chat"
       },
       "associatedDomains": [
         "applinks:co-op-dev.vercel.app",
@@ -40,6 +43,13 @@
       "edgeToEdgeEnabled": true,
       "allowBackup": false,
       "softwareKeyboardLayoutMode": "pan",
+      "permissions": [
+        "android.permission.INTERNET",
+        "android.permission.ACCESS_NETWORK_STATE",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.CAMERA"
+      ],
       "intentFilters": [
         {
           "action": "VIEW",

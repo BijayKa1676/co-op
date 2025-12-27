@@ -52,42 +52,42 @@ export default function CalculatorsPage() {
   const router = useRouter();
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
+    <div className="max-w-4xl mx-auto space-y-4 sm:space-y-6">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="flex items-center gap-4"
+        className="flex items-center gap-3 sm:gap-4"
       >
-        <Button variant="ghost" size="icon" onClick={() => router.back()}>
+        <Button variant="ghost" size="icon" onClick={() => router.back()} className="h-9 w-9 sm:h-10 sm:w-10 shrink-0">
           <ArrowLeftIcon />
         </Button>
-        <div>
-          <h1 className="font-serif text-2xl sm:text-3xl font-medium tracking-tight">
+        <div className="min-w-0">
+          <h1 className="font-serif text-xl sm:text-2xl md:text-3xl font-medium tracking-tight">
             Financial Calculators
           </h1>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-xs sm:text-sm text-muted-foreground truncate">
             Essential tools for startup financial planning
           </p>
         </div>
       </motion.div>
 
-      <Tabs defaultValue="runway" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="runway" className="text-xs sm:text-sm">
-            <CoinsIcon className="w-4 h-4 mr-1.5 hidden sm:inline" />
+      <Tabs defaultValue="runway" className="space-y-4 sm:space-y-6">
+        <TabsList className="grid w-full grid-cols-4 h-9 sm:h-10">
+          <TabsTrigger value="runway" className="text-[10px] sm:text-sm px-1 sm:px-3">
+            <CoinsIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4 sm:mr-1.5 hidden sm:inline" />
             Runway
           </TabsTrigger>
-          <TabsTrigger value="burnrate" className="text-xs sm:text-sm">
-            <TrendUpIcon className="w-4 h-4 mr-1.5 hidden sm:inline" />
-            Burn Rate
+          <TabsTrigger value="burnrate" className="text-[10px] sm:text-sm px-1 sm:px-3">
+            <TrendUpIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4 sm:mr-1.5 hidden sm:inline" />
+            Burn
           </TabsTrigger>
-          <TabsTrigger value="valuation" className="text-xs sm:text-sm">
-            <ChartLineUpIcon className="w-4 h-4 mr-1.5 hidden sm:inline" />
-            Valuation
+          <TabsTrigger value="valuation" className="text-[10px] sm:text-sm px-1 sm:px-3">
+            <ChartLineUpIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4 sm:mr-1.5 hidden sm:inline" />
+            Value
           </TabsTrigger>
-          <TabsTrigger value="uniteconomics" className="text-xs sm:text-sm">
-            <CalculatorIcon className="w-4 h-4 mr-1.5 hidden sm:inline" />
-            Unit Econ
+          <TabsTrigger value="uniteconomics" className="text-[10px] sm:text-sm px-1 sm:px-3">
+            <CalculatorIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4 sm:mr-1.5 hidden sm:inline" />
+            Unit
           </TabsTrigger>
         </TabsList>
 
