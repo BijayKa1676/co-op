@@ -910,18 +910,6 @@ html.mobile-app .max-w-6xl {
     font-size: 10px !important;
     word-break: break-all;
   }
-  
-  /* Tabs content area */
-  [role="tabpanel"] {
-    min-width: 0;
-    overflow: hidden;
-  }
-  
-  /* Card content in tabs */
-  [role="tabpanel"] [class*="CardContent"] {
-    min-width: 0;
-    overflow: hidden;
-  }
 }
 
 /* ============================================

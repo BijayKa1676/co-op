@@ -599,7 +599,7 @@ export default function OutreachPage() {
             <div className="grid lg:grid-cols-5 gap-4">
               {/* Lead List */}
               <div className="lg:col-span-3">
-                <ScrollArea className="h-[500px] lg:h-[600px]">
+                <ScrollArea className="h-[400px] sm:h-[500px] lg:h-[600px]">
                   <div className="space-y-2 pr-2">
                     <AnimatePresence>
                       {filteredLeads.map((lead, index) => (

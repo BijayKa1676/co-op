@@ -77,7 +77,7 @@ const agents = [
 
 export default function DevelopersPage() {
   return (
-    <div className="max-w-4xl mx-auto space-y-4 sm:space-y-6 pb-6 sm:pb-12 overflow-hidden">
+    <div className="max-w-4xl mx-auto space-y-4 sm:space-y-6 pb-6 sm:pb-12">
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
         <h1 className="font-serif text-xl sm:text-2xl md:text-3xl font-medium tracking-tight mb-0.5 sm:mb-1">Developer Docs</h1>
         <p className="text-muted-foreground text-xs sm:text-sm">
