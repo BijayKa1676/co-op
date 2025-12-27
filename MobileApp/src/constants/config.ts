@@ -1,0 +1,49 @@
+/**
+ * App Configuration
+ * Centralized configuration for the Co-Op mobile app
+ */
+
+// Environment
+export const IS_DEV = __DEV__;
+
+// URLs
+export const WEB_URL = 'https://co-op-dev.vercel.app';
+export const APP_SCHEME = 'coop';
+
+// Theme Colors (matching web app's design system)
+export const COLORS = {
+  // Dark theme
+  dark: {
+    background: '#0f1012',
+    foreground: '#f2f2f2',
+    card: '#141619',
+    muted: '#1e2124',
+    mutedForeground: '#8b8d91',
+    border: '#282b30',
+  },
+  // Light theme
+  light: {
+    background: '#ffffff',
+    foreground: '#1a1c1e',
+    card: '#ffffff',
+    muted: '#f5f5f5',
+    mutedForeground: '#6b7280',
+    border: '#e5e7eb',
+  },
+} as const;
+
+// OAuth providers that must open in system browser
+export const OAUTH_DOMAINS = [
+  'accounts.google.com',
+] as const;
+
+// Security: Allowed domains for WebView navigation
+export const ALLOWED_DOMAINS = [
+  'co-op-dev.vercel.app',
+  'co-op.vercel.app',
+  'localhost',
+] as const;
+
+// Timeouts
+export const CONNECTION_TIMEOUT_MS = 10000;
+export const THEME_DETECTION_DELAY_MS = 100;

@@ -21,13 +21,14 @@ This document provides a comprehensive overview of the Co-Op platform architectu
 
 ## System Overview
 
-Co-Op is a multi-service AI advisory platform consisting of three main components:
+Co-Op is a multi-service AI advisory platform consisting of four main components:
 
 | Service | Technology | Purpose | Deployment |
 |---------|------------|---------|------------|
 | **Frontend** | Next.js 15 | Web application | Vercel |
 | **Backend** | NestJS 11 | API server, LLM orchestration | Render |
 | **RAG Service** | FastAPI | Vector search for documents | Koyeb |
+| **Mobile App** | Expo SDK 54 | Native iOS/Android app | App Store / Play Store |
 
 ### Core Principles
 
@@ -46,20 +47,24 @@ Co-Op is a multi-service AI advisory platform consisting of three main component
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                              USER INTERFACE                                 │
 │                                                                             │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐        │
-│  │   Landing   │  │  Dashboard  │  │    Chat     │  │  Settings   │        │
-│  │    Page     │  │             │  │  Interface  │  │             │        │
-│  └─────────────┘  └─────────────┘  └─────────────┘  └─────────────┘        │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐        │
-│  │  Sessions   │  │  Bookmarks  │  │   Usage     │  │   Admin     │        │
-│  │   History   │  │             │  │  Analytics  │  │   Panel     │        │
-│  └─────────────┘  └─────────────┘  └─────────────┘  └─────────────┘        │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐        │
-│  │  Customer   │  │   Secure    │  │  Investors  │  │   Alerts    │        │
-│  │  Outreach   │  │  Documents  │  │  Database   │  │  Monitoring │        │
-│  └─────────────┘  └─────────────┘  └─────────────┘  └─────────────┘        │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │                        WEB (Next.js 15)                             │   │
+│  │  ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐       │   │
+│  │  │ Landing │ │Dashboard│ │  Chat   │ │Sessions │ │Settings │       │   │
+│  │  └─────────┘ └─────────┘ └─────────┘ └─────────┘ └─────────┘       │   │
+│  │  ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐       │   │
+│  │  │Bookmarks│ │ Usage   │ │Outreach │ │Investors│ │ Alerts  │       │   │
+│  │  └─────────┘ └─────────┘ └─────────┘ └─────────┘ └─────────┘       │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
 │                                                                             │
-│                         Next.js 15 (Vercel)                                 │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │                     MOBILE (Expo SDK 54)                            │   │
+│  │  ┌─────────────────────────────────────────────────────────────┐   │   │
+│  │  │  WebView Wrapper │ OAuth │ Deep Links │ Offline │ Theme Sync│   │   │
+│  │  └─────────────────────────────────────────────────────────────┘   │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+│                                                                             │
+│                    Vercel (Web) + App Store/Play Store (Mobile)             │
 └─────────────────────────────────────────────────────────────────────────────┘
                                     │
                                     │ HTTPS
@@ -253,6 +258,31 @@ Key Features:
 - TTL-based vector cleanup
 - Gemini text-embedding-004 (768 dimensions)
 - Optional context compression via HuggingFace Inference API (no local models)
+
+### Mobile App (Expo SDK 54)
+
+| Component | Purpose |
+|-----------|---------|
+| `App.tsx` | Entry point with SafeAreaProvider |
+| `src/screens/MainScreen.tsx` | Orchestrates app screens |
+| `src/components/WebViewScreen.tsx` | Main WebView with OAuth handling |
+| `src/components/LoadingScreen.tsx` | Branded loading state |
+| `src/components/ErrorScreen.tsx` | Offline/error states |
+| `src/hooks/useConnection.ts` | Network state management |
+| `src/hooks/useBackHandler.ts` | Android back button handling |
+| `src/hooks/useDeepLink.ts` | Deep link handling |
+| `src/constants/config.ts` | URLs, colors, allowed domains |
+| `src/utils/url.ts` | URL validation, deep link parsing |
+
+Key Features:
+- WebView wrapper for Co-Op web app
+- OAuth via system browser (Google)
+- Deep linking (`coop://` scheme + universal links)
+- Theme sync with website (light/dark mode)
+- Offline detection with retry UI
+- Android hardware back button support
+- Edge-to-edge display with safe area padding injection
+- URL allowlisting for security
 
 
 ---

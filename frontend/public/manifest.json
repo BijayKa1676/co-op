@@ -1,28 +1,28 @@
 {
   "name": "Co-Op - AI Advisory Board for Startups",
   "short_name": "Co-Op",
-  "description": "Your AI-powered advisory board. Get expert guidance on legal compliance, financial planning, investor relations, and competitive analysis - all powered by specialized AI agents.",
+  "description": "Free AI-powered advisory board for startups. Get expert guidance on legal compliance, financial modeling, investor matching, and competitor analysis from multiple AI models.",
   "start_url": "/dashboard",
   "display": "standalone",
-  "background_color": "#09090b",
-  "theme_color": "#09090b",
+  "background_color": "#0f1012",
+  "theme_color": "#0f1012",
   "orientation": "any",
   "scope": "/",
-  "id": "/",
+  "id": "co-op-ai",
   "lang": "en",
   "dir": "ltr",
   "icons": [
     {
-      "src": "/icon-192.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "/icon-512.png",
+      "src": "/logo.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "/logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ],
   "categories": ["business", "productivity", "finance", "utilities"],
@@ -34,28 +34,28 @@
       "short_name": "Chat",
       "description": "Start a new conversation with AI agents",
       "url": "/chat",
-      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+      "icons": [{ "src": "/logo.png", "sizes": "512x512" }]
     },
     {
       "name": "Dashboard",
       "short_name": "Home",
       "description": "View your startup dashboard",
       "url": "/dashboard",
-      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+      "icons": [{ "src": "/logo.png", "sizes": "512x512" }]
     },
     {
       "name": "Sessions",
       "short_name": "History",
       "description": "View your conversation history",
       "url": "/sessions",
-      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+      "icons": [{ "src": "/logo.png", "sizes": "512x512" }]
     },
     {
       "name": "Investor Database",
       "short_name": "Investors",
       "description": "Browse investor database",
       "url": "/tools/investors",
-      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+      "icons": [{ "src": "/logo.png", "sizes": "512x512" }]
     }
   ],
   "share_target": {
@@ -74,6 +74,5 @@
     "client_mode": "navigate-existing"
   },
   "related_applications": [],
-  "iarc_rating_id": "",
   "protocol_handlers": []
 }

@@ -31,6 +31,7 @@
 - [x] PWA improvements (shortcuts, share target)
 - [x] Consistent mobile UI/UX across all dashboard pages
 - [x] Responsive typography and spacing system
+- [x] Native mobile app (Expo SDK 54, iOS/Android)
 
 ## Agent Improvements - COMPLETED ✓
 
@@ -57,6 +58,18 @@
 - [x] Auto-expiry with configurable TTL
 - [x] Semantic search via Upstash Vector
 - [x] RAG integration for AI conversations
+
+## Mobile App - COMPLETED ✓
+
+- [x] React Native app with Expo SDK 54
+- [x] WebView wrapper for Co-Op web app
+- [x] OAuth support via system browser (Google)
+- [x] Deep linking (`coop://` scheme + universal links)
+- [x] Theme sync with website (light/dark mode)
+- [x] Offline detection with retry UI
+- [x] Android hardware back button support
+- [x] Edge-to-edge display with safe area padding injection
+- [x] URL allowlisting for security
 
 ## Low Priority / Future
 

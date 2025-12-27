@@ -2,6 +2,7 @@
   <img src="https://img.shields.io/badge/Next.js-15-black?logo=next.js" alt="Next.js">
   <img src="https://img.shields.io/badge/NestJS-11-red?logo=nestjs" alt="NestJS">
   <img src="https://img.shields.io/badge/Python-3.11-blue?logo=python" alt="Python">
+  <img src="https://img.shields.io/badge/Expo-54-000020?logo=expo" alt="Expo">
   <img src="https://img.shields.io/badge/TypeScript-5-blue?logo=typescript" alt="TypeScript">
   <img src="https://img.shields.io/badge/License-MIT-green" alt="License">
   <img src="https://img.shields.io/badge/PRs-Welcome-brightgreen" alt="PRs Welcome">
@@ -49,6 +50,7 @@ Co-Op is an open-source AI advisory platform that provides startup founders with
 | **Bookmarks** | Save and organize AI responses |
 | **Usage Analytics** | Personal usage dashboard |
 | **PWA Support** | Installable with shortcuts |
+| **Mobile App** | Native iOS/Android app (Expo) |
 | **Financial Tools** | Runway, burn rate, valuation calculators |
 | **Investor Database** | 20+ real investors with admin management |
 | **Competitor Alerts** | Real-time monitoring with email notifications |
@@ -175,6 +177,13 @@ co-op/
 │   │   └── lib/             # API client, hooks, stores
 │   └── README.md
 │
+├── MobileApp/               # React Native mobile app (Expo SDK 54)
+│   ├── src/
+│   │   ├── components/      # WebView, Loading, Error screens
+│   │   ├── hooks/           # Connection, back handler, deep link
+│   │   └── constants/       # App configuration
+│   └── README.md
+│
 ├── RAG/                     # Python vector search service
 │   ├── app/                 # FastAPI application
 │   └── README.md
@@ -236,6 +245,15 @@ cp .env.example .env
 
 pip install -r requirements.txt
 uvicorn app.main:app --reload --port 8000
+```
+
+### 5. Mobile App (Optional)
+
+```bash
+cd MobileApp
+npm install
+npm start
+# Scan QR code with Expo Go app
 ```
 
 ---

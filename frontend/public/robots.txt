@@ -1,0 +1,14 @@
+# Co-Op AI Advisory Platform
+# https://co-op-dev.vercel.app
+
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /auth/
+Disallow: /_next/
+
+# Sitemaps
+Sitemap: https://co-op-dev.vercel.app/sitemap.xml
+
+# Crawl-delay for polite crawling
+Crawl-delay: 1

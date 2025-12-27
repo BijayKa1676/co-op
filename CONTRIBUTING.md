@@ -48,6 +48,14 @@ By participating in this project, you agree to maintain a respectful and inclusi
    uvicorn app.main:app --reload --port 8000
    ```
 
+5. **Set up Mobile App (optional)**
+   ```bash
+   cd MobileApp
+   npm install
+   npm start
+   # Scan QR code with Expo Go app
+   ```
+
 ## Development Workflow
 
 ### Branch Naming
