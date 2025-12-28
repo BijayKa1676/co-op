@@ -1,50 +1,24 @@
 import { createBrowserClient } from '@supabase/ssr';
 
-// Singleton instance to prevent multiple clients with different storage
-let supabaseClient: ReturnType<typeof createBrowserClient> | null = null;
-
 /**
- * Create a Supabase client with user-isolated storage
+ * Create a Supabase client
  * 
- * SECURITY: Uses a unique storage key per user session to prevent
- * session mixing between different users on the same device.
- * This is critical for mobile WebView where localStorage can persist
- * across different user sessions.
+ * SECURITY: Session integrity is validated separately via validateSessionIntegrity()
+ * to detect session mixing between different users on the same device.
  */
 export function createClient() {
-  // Return existing client if already created (singleton pattern)
-  if (supabaseClient) {
-    return supabaseClient;
-  }
-
-  supabaseClient = createBrowserClient(
+  return createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      auth: {
-        // Use a consistent storage key - Supabase handles user isolation via JWT
-        storageKey: 'coop-auth-session',
-        // Detect session in URL for OAuth callbacks
-        detectSessionInUrl: true,
-        // Auto refresh tokens before expiry
-        autoRefreshToken: true,
-        // Persist session in localStorage
-        persistSession: true,
-        // Flow type for OAuth
-        flowType: 'pkce',
-      },
-    }
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   );
-
-  return supabaseClient;
 }
 
 /**
  * Clear the Supabase client instance (for logout)
- * This ensures a fresh client is created on next login
+ * No-op since we don't use singleton pattern anymore
  */
 export function clearSupabaseClient() {
-  supabaseClient = null;
+  // No-op - kept for API compatibility
 }
 
 /**
@@ -52,6 +26,8 @@ export function clearSupabaseClient() {
  * Call this after page load to detect session hijacking
  */
 export async function validateSessionIntegrity(): Promise<boolean> {
+  if (typeof window === 'undefined') return true;
+  
   const client = createClient();
   
   try {
@@ -101,7 +77,6 @@ export function clearAllAuthStorage() {
       key.includes('sb-') ||
       key.includes('pkce') ||
       key.includes('code_verifier') ||
-      key.includes('coop-auth') ||
       key.includes('coop-current-user')
     )) {
       keysToRemove.push(key);
@@ -109,10 +84,5 @@ export function clearAllAuthStorage() {
   }
   
   keysToRemove.forEach(key => localStorage.removeItem(key));
-  
-  // Also clear session storage
   sessionStorage.clear();
-  
-  // Clear the singleton
-  supabaseClient = null;
 }
