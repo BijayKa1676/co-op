@@ -71,7 +71,7 @@ export default function SettingsPage() {
     try {
       const result = await api.purgeAllDocuments();
       setDocuments([]);
-      toast.success(`Deleted ${result.documentsDeleted} documents and ${result.chunksDeleted} chunks`);
+      toast.success(`Deleted ${result.documentsDeleted} documents`);
     } catch {
       toast.error('Failed to purge documents');
     }
