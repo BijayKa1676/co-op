@@ -405,7 +405,7 @@ export default function OnboardingPage() {
       founderRole: formData.founderRole || 'founder',
       companyName: formData.companyName!,
       description: formData.description!,
-      industry: selectedSector, // Sync industry with sector
+      industry: selectedSector as OnboardingData['industry'], // Cast - sector/industry overlap
       sector: selectedSector,
       businessModel: formData.businessModel || 'b2b',
       stage: userType === 'idea' ? 'idea' : (formData.stage || 'mvp'),
