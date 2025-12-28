@@ -433,11 +433,13 @@ export default function AdminPage() {
   };
 
   return (
-    <div className="max-w-5xl mx-auto space-y-4 sm:space-y-6 overflow-hidden">
+    <div className="max-w-5xl mx-auto space-y-4 sm:space-y-6">
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
         <h1 className="font-serif text-xl sm:text-2xl md:text-3xl font-medium tracking-tight mb-1">Admin Dashboard</h1>
         <p className="text-xs sm:text-sm text-muted-foreground">Manage RAG, MCP servers, and investors</p>
       </motion.div>
+
+      <div className="p-4 bg-red-500 text-white">TEST - If you see this, the issue is with Tabs</div>
 
       <Tabs defaultValue="rag" className="space-y-4 sm:space-y-6">
         <TabsList className="grid w-full grid-cols-3">

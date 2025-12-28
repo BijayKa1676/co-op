@@ -141,6 +141,7 @@ export function useRequireAdmin() {
         const { data: { session } } = await supabase.auth.getSession();
 
         if (!session) {
+          setState({ isLoading: false, isAdmin: false, user: null });
           router.push('/login');
           return;
         }
@@ -148,12 +149,14 @@ export function useRequireAdmin() {
         const userData = await api.getMe();
         
         if (userData.role !== 'admin') {
+          setState({ isLoading: false, isAdmin: false, user: userData });
           router.push('/dashboard');
           return;
         }
         
         setState({ isLoading: false, isAdmin: true, user: userData });
       } catch {
+        setState({ isLoading: false, isAdmin: false, user: null });
         router.push('/login');
       }
     };

@@ -377,21 +377,32 @@ export class SecureDocumentsService {
 
   private async extractText(file: Express.Multer.File): Promise<string> {
     try {
+      // pdf-parse v2.x uses PDFParse class with LoadParameters
       // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const pdfParse = require('pdf-parse/lib/pdf-parse');
-      const data = await pdfParse(file.buffer);
+      const { PDFParse } = require('pdf-parse');
       
-      if (!data.text || data.text.trim().length < 10) {
+      // Create parser with buffer data
+      const parser = new PDFParse({ data: file.buffer });
+      
+      // Extract text from all pages
+      const result = await parser.getText();
+      const text = result.text;
+      
+      // Cleanup parser resources
+      await parser.destroy();
+      
+      if (!text || text.trim().length < 10) {
         throw new BadRequestException(
           `Could not extract text from "${file.originalname}". The PDF may be empty or contain only images/scans.`
         );
       }
       
-      this.logger.log(`PDF extracted: ${file.originalname} (${data.numpages} pages, ${data.text.length} chars)`);
-      return data.text;
+      this.logger.log(`PDF extracted: ${file.originalname} (${result.total} pages, ${text.length} chars)`);
+      return text;
     } catch (error) {
       if (error instanceof BadRequestException) throw error;
-      this.logger.error(`PDF extraction failed for ${file.originalname}`, error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.logger.error(`PDF extraction failed for ${file.originalname}: ${errorMessage}`, error);
       throw new BadRequestException(
         `Failed to process "${file.originalname}". The PDF may be corrupted or password-protected.`
       );
