@@ -2,31 +2,25 @@
 
 import { useEffect, useState, Suspense, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { createBrowserClient } from '@supabase/ssr';
+import { createClient } from '@supabase/supabase-js';
 
 /**
- * Mobile OAuth Login Page
+ * Mobile OAuth Login Page - Using Implicit Flow
  * 
- * This page handles Google OAuth for the mobile app. The PKCE flow requires
- * the code verifier to be in the same browser context where OAuth was initiated.
- * 
- * CRITICAL: This entire flow runs in the system browser (not WebView) to ensure
- * the PKCE code verifier persists between OAuth initiation and code exchange.
+ * This page handles Google OAuth for the mobile app using the IMPLICIT flow
+ * instead of PKCE. The implicit flow returns tokens directly in the URL hash,
+ * avoiding the need to persist a code verifier in localStorage (which can fail
+ * in Chrome Custom Tabs on Android).
  * 
  * Flow:
  * 1. User taps "Continue with Google" in WebView
  * 2. WebView detects /auth/mobile-login and opens it in system browser
- * 3. This page clears any stale PKCE data, then initiates OAuth
+ * 3. This page initiates OAuth with implicit flow
  * 4. Google shows account picker → user authenticates
- * 5. Google redirects back to this page with ?code=...
- * 6. This page exchanges code for session (PKCE verifier in same browser context)
- * 7. On success, triggers deep link coop://auth/callback?tokens...
- * 8. App receives deep link → WebView loads /auth/mobile-callback to set session
+ * 5. Supabase redirects back with tokens in URL hash (#access_token=...&refresh_token=...)
+ * 6. This page extracts tokens and triggers deep link coop://auth/callback?tokens...
+ * 7. App receives deep link → WebView loads /auth/mobile-callback to set session
  */
-
-// Storage key used by Supabase for PKCE
-const STORAGE_KEY_PREFIX = 'sb-';
-const CODE_VERIFIER_STORAGE_KEY = '-auth-token-code-verifier';
 
 function LoadingSpinner() {
   return <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />;
@@ -35,7 +29,7 @@ function LoadingSpinner() {
 function MobileLoginContent() {
   const searchParams = useSearchParams();
   const [error, setError] = useState<string | null>(null);
-  const [status, setStatus] = useState<'init' | 'clearing' | 'redirecting' | 'exchanging' | 'success'>('init');
+  const [status, setStatus] = useState<'init' | 'redirecting' | 'processing' | 'success'>('init');
   const processedRef = useRef(false);
 
   useEffect(() => {
@@ -43,11 +37,10 @@ function MobileLoginContent() {
     processedRef.current = true;
 
     const handleAuth = async () => {
-      const code = searchParams.get('code');
+      // Check for error in URL params
       const errorParam = searchParams.get('error');
       const errorDesc = searchParams.get('error_description');
-
-      // Handle OAuth errors from Google
+      
       if (errorParam) {
         const msg = errorDesc || errorParam;
         setError(msg);
@@ -55,38 +48,63 @@ function MobileLoginContent() {
         return;
       }
 
-      // Create Supabase client
-      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-      const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-      const supabase = createBrowserClient(supabaseUrl, supabaseKey);
-
-      // Extract project ref from URL for storage key
-      const projectRef = supabaseUrl.match(/https:\/\/([^.]+)\./)?.[1] || '';
-      const codeVerifierKey = `${STORAGE_KEY_PREFIX}${projectRef}${CODE_VERIFIER_STORAGE_KEY}`;
-
-      // Step 2: We have a code from Google - exchange it for session
-      if (code) {
-        setStatus('exchanging');
+      // Check for tokens in URL hash (implicit flow returns tokens in hash)
+      const hash = window.location.hash.substring(1);
+      if (hash) {
+        setStatus('processing');
+        console.log('[MobileLogin] Processing hash fragment');
         
-        // Debug: Check if code verifier exists
-        const storedVerifier = localStorage.getItem(codeVerifierKey);
-        console.log('[MobileLogin] Code exchange starting');
-        console.log('[MobileLogin] Code verifier exists:', !!storedVerifier);
-        console.log('[MobileLogin] Code verifier key:', codeVerifierKey);
+        const hashParams = new URLSearchParams(hash);
+        const accessToken = hashParams.get('access_token');
+        const refreshToken = hashParams.get('refresh_token');
+        const expiresAt = hashParams.get('expires_at');
+        const errorInHash = hashParams.get('error');
+        const errorDescInHash = hashParams.get('error_description');
         
-        if (!storedVerifier) {
-          // No code verifier - this means the OAuth was initiated in a different context
-          // or localStorage was cleared. We need to restart the flow.
-          console.error('[MobileLogin] No code verifier found - restarting OAuth flow');
-          setError('Session expired. Please try again.');
-          
-          // Clear the URL and restart
-          window.history.replaceState(null, '', '/auth/mobile-login');
-          setTimeout(() => {
-            window.location.reload();
-          }, 2000);
+        if (errorInHash) {
+          const msg = errorDescInHash || errorInHash;
+          setError(msg);
+          triggerDeepLink(`coop://auth/error?message=${encodeURIComponent(msg)}`);
           return;
         }
+        
+        if (accessToken) {
+          setStatus('success');
+          console.log('[MobileLogin] Tokens found in hash, triggering deep link');
+          
+          const params = new URLSearchParams({
+            access_token: accessToken,
+            refresh_token: refreshToken || '',
+            expires_at: expiresAt || '',
+          });
+          
+          // Clear the hash for security
+          window.history.replaceState(null, '', window.location.pathname);
+          
+          triggerDeepLink(`coop://auth/callback?${params.toString()}`);
+          return;
+        }
+      }
+
+      // Check for PKCE code (fallback for web flow)
+      const code = searchParams.get('code');
+      if (code) {
+        setStatus('processing');
+        console.log('[MobileLogin] PKCE code found, attempting exchange');
+        
+        // Try to exchange the code - this might fail if code verifier is missing
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+        const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+        
+        // Use createClient with implicit flow type
+        const supabase = createClient(supabaseUrl, supabaseKey, {
+          auth: {
+            flowType: 'pkce',
+            autoRefreshToken: false,
+            persistSession: true,
+            detectSessionInUrl: false,
+          }
+        });
         
         try {
           const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
@@ -100,7 +118,7 @@ function MobileLoginContent() {
 
           if (data.session) {
             setStatus('success');
-            console.log('[MobileLogin] Session obtained successfully');
+            console.log('[MobileLogin] Session obtained via PKCE');
             
             const params = new URLSearchParams({
               access_token: data.session.access_token,
@@ -108,43 +126,35 @@ function MobileLoginContent() {
               expires_at: String(data.session.expires_at || ''),
             });
             
-            // Clean up - clear the code verifier after successful exchange
-            localStorage.removeItem(codeVerifierKey);
-            
             triggerDeepLink(`coop://auth/callback?${params.toString()}`);
             return;
           }
-
-          setError('No session returned');
-          triggerDeepLink('coop://auth/error?message=no_session');
         } catch (err) {
           console.error('[MobileLogin] Exchange error:', err);
-          setError('Failed to complete authentication');
-          triggerDeepLink('coop://auth/error?message=exchange_failed');
         }
+        
+        // If PKCE failed, redirect to error
+        setError('Authentication failed. Please try again.');
+        triggerDeepLink('coop://auth/error?message=pkce_failed');
         return;
       }
 
-      // Step 1: No code - initiate OAuth flow
-      // First, clear any stale PKCE data to prevent conflicts
-      setStatus('clearing');
-      
-      // Clear all Supabase auth-related data to ensure fresh PKCE flow
-      const keysToRemove: string[] = [];
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key && key.startsWith(STORAGE_KEY_PREFIX) && 
-            (key.includes('auth-token') || key.includes('code-verifier'))) {
-          keysToRemove.push(key);
-        }
-      }
-      keysToRemove.forEach(key => {
-        console.log('[MobileLogin] Clearing stale key:', key);
-        localStorage.removeItem(key);
-      });
-      
+      // No tokens or code - initiate OAuth with implicit flow
       setStatus('redirecting');
-      console.log('[MobileLogin] Starting OAuth flow');
+      console.log('[MobileLogin] Starting OAuth with implicit flow');
+      
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+      const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+      
+      // Create client with implicit flow to avoid PKCE issues
+      const supabase = createClient(supabaseUrl, supabaseKey, {
+        auth: {
+          flowType: 'implicit',
+          autoRefreshToken: false,
+          persistSession: false,
+          detectSessionInUrl: false,
+        }
+      });
       
       const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
         provider: 'google',
@@ -160,14 +170,9 @@ function MobileLoginContent() {
       if (oauthError) {
         console.error('[MobileLogin] OAuth error:', oauthError.message);
         setError(oauthError.message);
+        triggerDeepLink(`coop://auth/error?message=${encodeURIComponent(oauthError.message)}`);
         return;
       }
-
-      // Debug: Verify code verifier was stored
-      setTimeout(() => {
-        const verifier = localStorage.getItem(codeVerifierKey);
-        console.log('[MobileLogin] Code verifier stored:', !!verifier);
-      }, 100);
 
       if (data.url) {
         console.log('[MobileLogin] Redirecting to Google');
@@ -180,10 +185,9 @@ function MobileLoginContent() {
 
   const triggerDeepLink = (url: string) => {
     console.log('[MobileLogin] Triggering deep link:', url);
-    // Use a longer delay to ensure the page has finished processing
     setTimeout(() => {
       window.location.href = url;
-    }, 800);
+    }, 500);
   };
 
   if (error) {
@@ -213,9 +217,8 @@ function MobileLoginContent() {
         </div>
         <p className="text-muted-foreground">
           {status === 'init' && 'Initializing...'}
-          {status === 'clearing' && 'Preparing...'}
           {status === 'redirecting' && 'Connecting to Google...'}
-          {status === 'exchanging' && 'Completing sign in...'}
+          {status === 'processing' && 'Completing sign in...'}
           {status === 'success' && 'Opening app...'}
         </p>
       </div>
