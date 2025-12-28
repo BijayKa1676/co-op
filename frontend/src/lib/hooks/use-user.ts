@@ -34,6 +34,19 @@ export function useUser() {
   const signOut = useCallback(async () => {
     const supabase = createClient();
     await supabase.auth.signOut();
+    
+    // Clear stale PKCE data from localStorage to prevent auth errors on next login
+    if (typeof window !== 'undefined') {
+      const keysToRemove: string[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && (key.includes('supabase') || key.includes('pkce') || key.includes('code_verifier'))) {
+          keysToRemove.push(key);
+        }
+      }
+      keysToRemove.forEach(key => localStorage.removeItem(key));
+    }
+    
     clear();
     router.push('/');
   }, [router, clear]);
