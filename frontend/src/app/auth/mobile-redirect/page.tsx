@@ -2,10 +2,13 @@
 
 import { useEffect, Suspense, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 
-function LoadingSpinner() {
-  return <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />;
-}
+/**
+ * Mobile Redirect Page
+ * 
+ * Fallback handler for OAuth redirects. Extracts tokens and triggers deep link.
+ */
 
 function MobileRedirectContent() {
   const searchParams = useSearchParams();
@@ -71,18 +74,22 @@ function MobileRedirectContent() {
 
   if (showManual && deepLink) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <div className="text-center max-w-sm">
-          <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
-            <svg className="w-6 h-6 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6">
+        <Link href="/" className="mb-8">
+          <span className="font-serif text-2xl font-semibold tracking-tight">Co-Op</span>
+        </Link>
+        
+        <div className="w-full max-w-sm text-center">
+          <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-5">
+            <svg className="w-7 h-7 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
             </svg>
           </div>
-          <h2 className="text-lg font-medium mb-2">Open in App</h2>
+          <h2 className="font-serif text-xl font-medium mb-2">Open in App</h2>
           <p className="text-muted-foreground text-sm mb-6">Tap the button below to return to the app</p>
           <button
             onClick={() => window.location.href = deepLink}
-            className="w-full bg-primary text-primary-foreground rounded-lg py-3 px-4 font-medium hover:bg-primary/90 transition-colors"
+            className="w-full bg-primary text-primary-foreground rounded-lg py-3 px-4 text-sm font-medium hover:bg-primary/90 transition-colors"
           >
             Open Co-Op App
           </button>
@@ -92,12 +99,14 @@ function MobileRedirectContent() {
   }
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center">
-      <div className="text-center">
-        <div className="mx-auto mb-4">
-          <LoadingSpinner />
-        </div>
-        <p className="text-muted-foreground">Completing sign in...</p>
+    <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6">
+      <Link href="/" className="mb-8">
+        <span className="font-serif text-2xl font-semibold tracking-tight">Co-Op</span>
+      </Link>
+      
+      <div className="w-full max-w-sm text-center">
+        <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-5" />
+        <p className="text-muted-foreground text-sm">Completing sign in...</p>
       </div>
     </div>
   );
@@ -106,8 +115,9 @@ function MobileRedirectContent() {
 export default function MobileRedirectPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <LoadingSpinner />
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6">
+        <span className="font-serif text-2xl font-semibold tracking-tight mb-8">Co-Op</span>
+        <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
       </div>
     }>
       <MobileRedirectContent />

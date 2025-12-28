@@ -33,14 +33,20 @@ export function useUser() {
 
   const signOut = useCallback(async () => {
     const supabase = createClient();
+    
+    // Check if in mobile app
+    const isMobileApp = typeof window !== 'undefined' && 
+      (document.documentElement.classList.contains('mobile-app') ||
+       navigator.userAgent.includes('CoOpMobile'));
+    
     await supabase.auth.signOut();
     
-    // Clear stale PKCE data from localStorage to prevent auth errors on next login
+    // Clear all Supabase-related localStorage
     if (typeof window !== 'undefined') {
       const keysToRemove: string[] = [];
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
-        if (key && (key.includes('supabase') || key.includes('pkce') || key.includes('code_verifier'))) {
+        if (key && (key.includes('supabase') || key.includes('sb-') || key.includes('pkce') || key.includes('code_verifier'))) {
           keysToRemove.push(key);
         }
       }
@@ -48,7 +54,13 @@ export function useUser() {
     }
     
     clear();
-    router.push('/');
+    
+    if (isMobileApp) {
+      // For mobile: Open logout page in system browser to clear browser session
+      window.location.href = `${window.location.origin}/auth/mobile-logout`;
+    } else {
+      router.push('/');
+    }
   }, [router, clear]);
 
   const refreshUser = useCallback(async () => {

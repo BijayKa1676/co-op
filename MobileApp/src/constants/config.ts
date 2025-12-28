@@ -29,6 +29,7 @@ export const OAUTH_DOMAINS = [
 
 export const EXTERNAL_AUTH_PATHS = [
   '/auth/mobile-login',
+  '/auth/mobile-logout',
 ] as const;
 
 export const ALLOWED_DOMAINS = [

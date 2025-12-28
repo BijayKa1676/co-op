@@ -44,29 +44,28 @@ export function deepLinkToWebUrl(deepLink: string): string | null {
     if (!deepLink.startsWith(`${APP_SCHEME}://`)) return null;
     
     const afterScheme = deepLink.substring(`${APP_SCHEME}://`.length);
-    console.log('[URL] Converting deep link:', deepLink);
-    console.log('[URL] After scheme:', afterScheme);
     
-    // Handle successful auth callback - pass tokens to mobile-callback page
+    // Handle successful auth callback
     if (afterScheme.startsWith('auth/callback')) {
       const queryIndex = deepLink.indexOf('?');
       if (queryIndex !== -1) {
-        const result = `${WEB_URL}/auth/mobile-callback${deepLink.substring(queryIndex)}`;
-        console.log('[URL] Auth callback result:', result);
-        return result;
+        return `${WEB_URL}/auth/mobile-callback${deepLink.substring(queryIndex)}`;
       }
       return `${WEB_URL}/auth/mobile-callback`;
     }
     
-    // Handle auth errors - redirect to login with error message
+    // Handle auth errors
     if (afterScheme.startsWith('auth/error')) {
       const queryIndex = deepLink.indexOf('?');
       if (queryIndex !== -1) {
-        const result = `${WEB_URL}/login${deepLink.substring(queryIndex)}`;
-        console.log('[URL] Auth error result:', result);
-        return result;
+        return `${WEB_URL}/login${deepLink.substring(queryIndex)}`;
       }
       return `${WEB_URL}/login?error=auth_failed`;
+    }
+    
+    // Handle logout complete - go to login page
+    if (afterScheme.startsWith('logout/complete')) {
+      return `${WEB_URL}/login`;
     }
     
     const pathOnly = afterScheme.split('#')[0].split('?')[0];

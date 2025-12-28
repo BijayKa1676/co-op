@@ -3,18 +3,14 @@
 import { useEffect, useState, useRef, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import Link from 'next/link';
 
 /**
  * Mobile Auth Callback Page
  * 
- * This page runs inside the WebView after receiving a deep link from the
- * system browser. It receives the access/refresh tokens and sets them
- * in the WebView's localStorage, then redirects to the dashboard.
+ * Runs inside WebView after receiving deep link from system browser.
+ * Sets session in WebView's localStorage and redirects to dashboard.
  */
-
-function LoadingSpinner() {
-  return <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />;
-}
 
 function MobileCallbackContent() {
   const searchParams = useSearchParams();
@@ -26,7 +22,6 @@ function MobileCallbackContent() {
     processedRef.current = true;
 
     const handleCallback = async () => {
-      // Check for error messages
       const errorMsg = searchParams.get('error') || 
                        searchParams.get('error_description') || 
                        searchParams.get('message');
@@ -36,7 +31,6 @@ function MobileCallbackContent() {
         return;
       }
 
-      // Get tokens from URL params
       const accessToken = searchParams.get('access_token');
       const refreshToken = searchParams.get('refresh_token');
 
@@ -59,18 +53,14 @@ function MobileCallbackContent() {
         }
 
         if (data.session) {
-          // Clear URL params for security
           window.history.replaceState(null, '', '/auth/mobile-callback');
-          
-          // Redirect based on onboarding status
           const needsOnboarding = !data.session.user.user_metadata?.onboarding_completed;
           window.location.href = needsOnboarding ? '/onboarding' : '/dashboard';
           return;
         }
 
         setError('Failed to create session');
-      } catch (err) {
-        console.error('[MobileCallback]', err);
+      } catch {
         setError('Authentication failed');
       }
     };
@@ -80,17 +70,22 @@ function MobileCallbackContent() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <div className="text-center max-w-sm">
-          <div className="w-12 h-12 rounded-full bg-destructive/10 flex items-center justify-center mx-auto mb-4">
-            <svg className="w-6 h-6 text-destructive" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6">
+        <Link href="/" className="mb-8">
+          <span className="font-serif text-2xl font-semibold tracking-tight">Co-Op</span>
+        </Link>
+        
+        <div className="w-full max-w-sm text-center">
+          <div className="w-14 h-14 rounded-full bg-destructive/10 flex items-center justify-center mx-auto mb-5">
+            <svg className="w-7 h-7 text-destructive" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </div>
-          <p className="text-destructive mb-4">{error}</p>
+          <h2 className="font-serif text-xl font-medium mb-2">Authentication Failed</h2>
+          <p className="text-muted-foreground text-sm mb-6">{error}</p>
           <button 
             onClick={() => window.location.href = '/login'} 
-            className="text-primary hover:underline font-medium"
+            className="text-sm text-primary hover:underline"
           >
             Return to login
           </button>
@@ -100,12 +95,14 @@ function MobileCallbackContent() {
   }
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center">
-      <div className="text-center">
-        <div className="mx-auto mb-4">
-          <LoadingSpinner />
-        </div>
-        <p className="text-muted-foreground">Completing sign in...</p>
+    <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6">
+      <Link href="/" className="mb-8">
+        <span className="font-serif text-2xl font-semibold tracking-tight">Co-Op</span>
+      </Link>
+      
+      <div className="w-full max-w-sm text-center">
+        <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-5" />
+        <p className="text-muted-foreground text-sm">Completing sign in...</p>
       </div>
     </div>
   );
@@ -114,8 +111,9 @@ function MobileCallbackContent() {
 export default function MobileCallbackPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <LoadingSpinner />
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6">
+        <span className="font-serif text-2xl font-semibold tracking-tight mb-8">Co-Op</span>
+        <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
       </div>
     }>
       <MobileCallbackContent />
