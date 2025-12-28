@@ -25,7 +25,8 @@ export async function GET(request: Request) {
     const errorMsg = errorDescription || errorParam;
     
     if (isMobile) {
-      return NextResponse.redirect(`${MOBILE_APP_SCHEME}://auth/error?message=${encodeURIComponent(errorMsg)}`);
+      // For mobile: redirect to mobile-redirect page which will handle the deep link
+      return NextResponse.redirect(`${origin}/auth/mobile-redirect?error=${encodeURIComponent(errorMsg)}`);
     }
     
     return NextResponse.redirect(`${origin}/login?error=${encodeURIComponent(errorMsg)}`);
@@ -57,14 +58,15 @@ export async function GET(request: Request) {
       const { session } = data;
       
       if (isMobile) {
-        // For mobile: Pass tokens via deep link
+        // For mobile: redirect to mobile-redirect page with tokens
+        // This page will trigger the deep link back to the app
         const tokenParams = new URLSearchParams({
           access_token: session.access_token,
           refresh_token: session.refresh_token,
           expires_at: String(session.expires_at || ''),
         });
         
-        return NextResponse.redirect(`${MOBILE_APP_SCHEME}://auth/callback#${tokenParams.toString()}`);
+        return NextResponse.redirect(`${origin}/auth/mobile-redirect?${tokenParams.toString()}`);
       }
       
       // For web: Redirect to dashboard
@@ -75,7 +77,7 @@ export async function GET(request: Request) {
       console.error('Auth callback error:', error.message);
       
       if (isMobile) {
-        return NextResponse.redirect(`${MOBILE_APP_SCHEME}://auth/error?message=${encodeURIComponent(error.message)}`);
+        return NextResponse.redirect(`${origin}/auth/mobile-redirect?error=${encodeURIComponent(error.message)}`);
       }
       
       return NextResponse.redirect(`${origin}/login?error=${encodeURIComponent(error.message || 'auth_failed')}`);
@@ -83,7 +85,7 @@ export async function GET(request: Request) {
   }
 
   if (isMobile) {
-    return NextResponse.redirect(`${MOBILE_APP_SCHEME}://auth/error?message=no_code`);
+    return NextResponse.redirect(`${origin}/auth/mobile-redirect?error=no_code`);
   }
   
   return NextResponse.redirect(`${origin}/login?error=auth_failed`);

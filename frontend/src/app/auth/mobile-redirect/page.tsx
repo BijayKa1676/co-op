@@ -2,7 +2,7 @@
 
 import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { CircleNotch } from '@phosphor-icons/react';
+import { Spinner } from '@phosphor-icons/react';
 
 function MobileRedirectContent() {
   const searchParams = useSearchParams();
@@ -20,12 +20,13 @@ function MobileRedirectContent() {
     if (error) {
       url = `coop://auth/error?message=${encodeURIComponent(error)}`;
     } else if (accessToken && refreshToken) {
+      // Pass tokens via query params for reliable parsing
       const params = new URLSearchParams({
         access_token: accessToken,
         refresh_token: refreshToken,
         expires_at: expiresAt || '',
       });
-      url = `coop://auth/callback#${params.toString()}`;
+      url = `coop://auth/callback?${params.toString()}`;
     } else {
       url = 'coop://auth/error?message=auth_failed';
     }
@@ -55,7 +56,7 @@ function MobileRedirectContent() {
       <div className="text-center max-w-sm">
         {!showManualButton ? (
           <>
-            <CircleNotch weight="bold" className="w-8 h-8 animate-spin text-primary mx-auto mb-4" />
+            <Spinner weight="bold" className="w-8 h-8 animate-spin text-primary mx-auto mb-4" />
             <p className="text-muted-foreground">Opening Co-Op app...</p>
           </>
         ) : (
@@ -89,13 +90,13 @@ function MobileRedirectContent() {
  * Mobile Redirect Page
  * 
  * This page receives tokens from the server callback and redirects to the mobile app
- * via deep link.
+ * via deep link. The app will then navigate to mobile-callback to establish the session.
  */
 export default function MobileRedirectPage() {
   return (
     <Suspense fallback={
       <div className="min-h-screen bg-background flex items-center justify-center">
-        <CircleNotch weight="bold" className="w-8 h-8 animate-spin text-primary" />
+        <Spinner weight="bold" className="w-8 h-8 animate-spin text-primary" />
       </div>
     }>
       <MobileRedirectContent />

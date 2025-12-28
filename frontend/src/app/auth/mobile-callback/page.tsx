@@ -1,19 +1,21 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { api } from '@/lib/api/client';
-import { CircleNotch } from '@phosphor-icons/react';
+import { Spinner } from '@phosphor-icons/react';
 
 type CallbackState = 'loading' | 'error' | 'success';
 
 /**
  * Mobile OAuth Callback Page
  * 
- * Handles OAuth callback for mobile app. Receives tokens via URL fragment
- * (implicit flow) and establishes the Supabase session.
+ * Handles OAuth callback for mobile app. Receives tokens via query params
+ * and establishes the Supabase session in the WebView's localStorage.
  */
-export default function MobileCallbackPage() {
+function MobileCallbackContent() {
+  const searchParams = useSearchParams();
   const [state, setState] = useState<CallbackState>('loading');
   const [error, setError] = useState<string | null>(null);
   const hasProcessed = useRef(false);
@@ -26,21 +28,11 @@ export default function MobileCallbackPage() {
       const supabase = createClient();
       
       try {
-        // Get the full URL including hash
-        const fullUrl = window.location.href;
-        const hash = window.location.hash.substring(1);
-        
         console.log('[MobileCallback] Processing callback');
-        console.log('[MobileCallback] URL:', fullUrl.substring(0, 100));
+        console.log('[MobileCallback] URL:', window.location.href.substring(0, 100));
         
-        // Check for error in hash or query params
-        const hashParams = new URLSearchParams(hash);
-        const queryParams = new URLSearchParams(window.location.search);
-        
-        const errorMsg = hashParams.get('error_description') || 
-                        hashParams.get('error') || 
-                        queryParams.get('error_description') ||
-                        queryParams.get('error');
+        // Check for error in query params
+        const errorMsg = searchParams.get('error_description') || searchParams.get('error');
         
         if (errorMsg) {
           console.error('[MobileCallback] Error:', errorMsg);
@@ -49,34 +41,20 @@ export default function MobileCallbackPage() {
           return;
         }
 
-        // Try to get tokens from hash (implicit flow)
-        let accessToken = hashParams.get('access_token');
-        let refreshToken = hashParams.get('refresh_token');
+        // Get tokens from query params
+        const accessToken = searchParams.get('access_token');
+        const refreshToken = searchParams.get('refresh_token');
         
-        // If no tokens in hash, Supabase might have already processed them
-        // Check if we have a session
+        // If no tokens in params, check if we already have a session
         if (!accessToken) {
-          console.log('[MobileCallback] No tokens in hash, checking session...');
-          
-          // Give Supabase a moment to process the hash
-          await new Promise(resolve => setTimeout(resolve, 500));
+          console.log('[MobileCallback] No tokens in params, checking existing session...');
           
           const { data: sessionData } = await supabase.auth.getSession();
           
           if (sessionData.session) {
-            console.log('[MobileCallback] Session found!');
+            console.log('[MobileCallback] Existing session found!');
             setState('success');
-            
-            // Check onboarding
-            let needsOnboarding = true;
-            try {
-              const status = await api.getOnboardingStatus();
-              needsOnboarding = !status.completed;
-            } catch {
-              needsOnboarding = !sessionData.session.user.user_metadata?.onboarding_completed;
-            }
-            
-            window.location.href = needsOnboarding ? '/onboarding' : '/dashboard';
+            await redirectToDashboard(sessionData.session);
             return;
           }
           
@@ -88,7 +66,7 @@ export default function MobileCallbackPage() {
 
         console.log('[MobileCallback] Setting session with tokens');
         
-        // Set the session manually
+        // Set the session manually - this persists to localStorage
         const { data, error: sessionError } = await supabase.auth.setSession({
           access_token: accessToken,
           refresh_token: refreshToken || '',
@@ -110,23 +88,11 @@ export default function MobileCallbackPage() {
 
         console.log('[MobileCallback] Session created successfully');
         
-        // Clear URL hash
+        // Clear URL params for security
         window.history.replaceState(null, '', '/auth/mobile-callback');
 
-        // Check onboarding
-        let needsOnboarding = true;
-        try {
-          const status = await api.getOnboardingStatus();
-          needsOnboarding = !status.completed;
-        } catch {
-          needsOnboarding = !data.session.user.user_metadata?.onboarding_completed;
-        }
-
         setState('success');
-        
-        // Redirect
-        await new Promise(resolve => setTimeout(resolve, 300));
-        window.location.href = needsOnboarding ? '/onboarding' : '/dashboard';
+        await redirectToDashboard(data.session);
         
       } catch (err) {
         console.error('[MobileCallback] Error:', err);
@@ -135,8 +101,25 @@ export default function MobileCallbackPage() {
       }
     };
 
+    const redirectToDashboard = async (session: { user: { user_metadata?: { onboarding_completed?: boolean } } }) => {
+      // Check onboarding status
+      let needsOnboarding = true;
+      try {
+        const status = await api.getOnboardingStatus();
+        needsOnboarding = !status.completed;
+      } catch {
+        needsOnboarding = !session.user.user_metadata?.onboarding_completed;
+      }
+
+      // Small delay to ensure session is persisted
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      // Navigate to appropriate page
+      window.location.href = needsOnboarding ? '/onboarding' : '/dashboard';
+    };
+
     handleCallback();
-  }, []);
+  }, [searchParams]);
 
   if (state === 'error') {
     return (
@@ -162,11 +145,23 @@ export default function MobileCallbackPage() {
   return (
     <div className="min-h-screen bg-background flex items-center justify-center">
       <div className="text-center">
-        <CircleNotch weight="bold" className="w-8 h-8 animate-spin text-primary mx-auto mb-4" />
+        <Spinner weight="bold" className="w-8 h-8 animate-spin text-primary mx-auto mb-4" />
         <p className="text-muted-foreground">
-          {state === 'success' ? 'Redirecting...' : 'Completing sign in...'}
+          {state === 'success' ? 'Redirecting to dashboard...' : 'Completing sign in...'}
         </p>
       </div>
     </div>
+  );
+}
+
+export default function MobileCallbackPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Spinner weight="bold" className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    }>
+      <MobileCallbackContent />
+    </Suspense>
   );
 }

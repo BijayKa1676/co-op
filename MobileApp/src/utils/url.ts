@@ -53,7 +53,7 @@ export function isAllowedUrl(url: string): boolean {
 }
 
 /**
- * Parse auth tokens from deep link URL fragment
+ * Parse auth tokens from deep link URL
  */
 export function parseAuthTokensFromDeepLink(deepLink: string): {
   access_token?: string;
@@ -69,34 +69,61 @@ export function parseAuthTokensFromDeepLink(deepLink: string): {
       return null;
     }
     
+    // Try query params first (new format)
+    const queryIndex = deepLink.indexOf('?');
+    if (queryIndex !== -1) {
+      const query = deepLink.substring(queryIndex + 1);
+      const params = new URLSearchParams(query);
+      
+      const error = params.get('error');
+      if (error) {
+        return {
+          error,
+          error_description: params.get('error_description') || undefined,
+        };
+      }
+      
+      const access_token = params.get('access_token');
+      const refresh_token = params.get('refresh_token');
+      
+      if (access_token && refresh_token) {
+        return {
+          access_token,
+          refresh_token,
+          expires_at: params.get('expires_at') || undefined,
+          token_type: params.get('token_type') || 'bearer',
+        };
+      }
+    }
+    
+    // Fallback: try hash fragment (legacy format)
     const hashIndex = deepLink.indexOf('#');
-    if (hashIndex === -1) return null;
-    
-    const fragment = deepLink.substring(hashIndex + 1);
-    const params = new URLSearchParams(fragment);
-    
-    // Check for error response first (OAuth denial, etc.)
-    const error = params.get('error');
-    if (error) {
-      return {
-        error,
-        error_description: params.get('error_description') || undefined,
-      };
+    if (hashIndex !== -1) {
+      const fragment = deepLink.substring(hashIndex + 1);
+      const params = new URLSearchParams(fragment);
+      
+      const error = params.get('error');
+      if (error) {
+        return {
+          error,
+          error_description: params.get('error_description') || undefined,
+        };
+      }
+      
+      const access_token = params.get('access_token');
+      const refresh_token = params.get('refresh_token');
+      
+      if (access_token && refresh_token) {
+        return {
+          access_token,
+          refresh_token,
+          expires_at: params.get('expires_at') || undefined,
+          token_type: params.get('token_type') || 'bearer',
+        };
+      }
     }
     
-    const access_token = params.get('access_token');
-    const refresh_token = params.get('refresh_token');
-    
-    if (!access_token || !refresh_token) {
-      return null;
-    }
-    
-    return {
-      access_token,
-      refresh_token,
-      expires_at: params.get('expires_at') || undefined,
-      token_type: params.get('token_type') || 'bearer',
-    };
+    return null;
   } catch {
     return null;
   }
@@ -110,7 +137,7 @@ export function isAuthDeepLink(deepLink: string): boolean {
 }
 
 /**
- * Convert deep link to web URL
+ * Convert deep link to web URL for WebView navigation
  */
 export function deepLinkToWebUrl(deepLink: string): string | null {
   console.log('[URL] Converting deep link:', deepLink);
@@ -125,15 +152,26 @@ export function deepLinkToWebUrl(deepLink: string): string | null {
     const afterScheme = deepLink.substring(`${APP_SCHEME}://`.length);
     console.log('[URL] After scheme:', afterScheme);
     
-    // For auth/callback, we need to preserve the hash fragment
+    // For auth/callback, pass tokens via query params to mobile-callback page
     if (afterScheme.startsWith('auth/callback')) {
-      const hashIndex = deepLink.indexOf('#');
-      if (hashIndex !== -1) {
-        const hash = deepLink.substring(hashIndex);
-        const result = `${WEB_URL}/auth/mobile-callback${hash}`;
+      const queryIndex = deepLink.indexOf('?');
+      if (queryIndex !== -1) {
+        const query = deepLink.substring(queryIndex);
+        const result = `${WEB_URL}/auth/mobile-callback${query}`;
         console.log('[URL] Auth callback result:', result);
         return result;
       }
+      
+      // Fallback: check for hash fragment (legacy)
+      const hashIndex = deepLink.indexOf('#');
+      if (hashIndex !== -1) {
+        // Convert hash to query params
+        const hash = deepLink.substring(hashIndex + 1);
+        const result = `${WEB_URL}/auth/mobile-callback?${hash}`;
+        console.log('[URL] Auth callback result (from hash):', result);
+        return result;
+      }
+      
       return `${WEB_URL}/auth/mobile-callback`;
     }
     

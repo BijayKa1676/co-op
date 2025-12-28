@@ -53,37 +53,22 @@ function LoginContent() {
       (document.documentElement.classList.contains('mobile-app') ||
        navigator.userAgent.includes('CoOpMobile'));
 
-    if (isMobileApp) {
-      // For mobile: Use queryParams to request implicit flow
-      // This returns tokens directly in the URL fragment instead of a code
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: `${window.location.origin}/auth/mobile-callback`,
-          queryParams: {
-            // Request implicit flow - tokens returned directly
-            response_type: 'token',
-          },
-        },
-      });
+    // Use PKCE flow for both web and mobile
+    // For mobile, we add ?mobile=true so the callback knows to redirect via deep link
+    const redirectUrl = isMobileApp 
+      ? `${window.location.origin}/auth/callback?mobile=true`
+      : `${window.location.origin}/auth/callback`;
 
-      if (error) {
-        toast.error(error.message);
-        setIsLoading(false);
-      }
-    } else {
-      // For web: Use standard PKCE flow
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
-        },
-      });
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: redirectUrl,
+      },
+    });
 
-      if (error) {
-        toast.error(error.message);
-        setIsLoading(false);
-      }
+    if (error) {
+      toast.error(error.message);
+      setIsLoading(false);
     }
   };
 
