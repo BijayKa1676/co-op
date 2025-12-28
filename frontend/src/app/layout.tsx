@@ -214,6 +214,9 @@ export default function RootLayout({
         </ThemeProvider>
         <Toaster
           position="top-center"
+          expand={false}
+          richColors
+          closeButton
           toastOptions={{
             style: {
               background: 'hsl(var(--card))',
@@ -221,8 +224,9 @@ export default function RootLayout({
               color: 'hsl(var(--foreground))',
             },
             className: 'toast-mobile-safe',
+            duration: 4000,
           }}
-          offset="60px"
+          containerAriaLabel="Notifications"
         />
         <Analytics />
       </body>

@@ -89,8 +89,9 @@ export class LegalAgentService implements BaseAgent {
     this.maxModels = this.config.get<number>('LLM_COUNCIL_MAX_MODELS', 5);
   }
 
-  async runDraft(input: AgentInput): Promise<AgentOutput> {
+  async runDraft(input: AgentInput, onProgress?: (step: string) => void): Promise<AgentOutput> {
     this.logger.debug('Running legal agent with LLM Council + RAG');
+    onProgress?.('Legal agent: Analyzing your question...');
 
     // Get sector and country from startup metadata
     const sector = (input.context.metadata.sector as RagSector) || 'saas';
@@ -105,14 +106,19 @@ export class LegalAgentService implements BaseAgent {
     if (explicitJurisdiction && explicitJurisdiction !== 'general') {
       detectedJurisdictions = [explicitJurisdiction];
       this.logger.debug(`Using explicit jurisdiction: ${explicitJurisdiction}`);
+      onProgress?.(`Legal agent: Focusing on ${this.getJurisdictionLabel(explicitJurisdiction)} regulations`);
     } else {
       detectedJurisdictions = this.detectJurisdictions(input.prompt);
+      if (detectedJurisdictions.length > 0) {
+        onProgress?.(`Legal agent: Detected relevant jurisdictions: ${detectedJurisdictions.join(', ')}`);
+      }
     }
 
     // Only fetch RAG if no user documents provided (user docs take priority)
     let ragContext = '';
     if (input.documents.length === 0 && this.ragService.isAvailable()) {
       try {
+        onProgress?.('Legal agent: Searching knowledge base for relevant documents...');
         ragContext = await this.ragService.getContext(
           input.prompt,
           'legal',
@@ -123,23 +129,30 @@ export class LegalAgentService implements BaseAgent {
         );
         if (ragContext) {
           this.logger.debug(`RAG context fetched for legal/${sector} (country: ${country ?? 'global'})`);
+          onProgress?.('Legal agent: Found relevant legal documents');
         }
       } catch (error) {
         // Graceful degradation - continue without RAG context
         this.logger.warn('Failed to fetch RAG context for legal agent, continuing without it', error);
         ragContext = '';
       }
+    } else if (input.documents.length > 0) {
+      onProgress?.(`Legal agent: Analyzing ${input.documents.length} uploaded document(s)...`);
     }
 
     // Build the user prompt
     const userPrompt = this.buildUserPrompt(input, ragContext, country, explicitJurisdiction, explicitRegion);
 
+    onProgress?.('Legal agent: Running LLM Council for cross-critique...');
     const result = await this.council.runCouncil(LEGAL_SYSTEM_PROMPT, userPrompt, {
       minModels: this.minModels,
       maxModels: this.maxModels,
       temperature: 0.6,
       maxTokens: 600,
+      onProgress,
     });
+
+    onProgress?.(`Legal agent: Council complete (${result.responses.length} models, ${result.critiques.length} critiques)`);
 
     return {
       content: result.finalResponse,

@@ -42,25 +42,35 @@ export class InvestorAgentService implements BaseAgent {
     this.maxModels = this.config.get<number>('LLM_COUNCIL_MAX_MODELS', 5);
   }
 
-  async runDraft(input: AgentInput): Promise<AgentOutput> {
+  async runDraft(input: AgentInput, onProgress?: (step: string) => void): Promise<AgentOutput> {
     this.logger.debug('Running investor agent with LLM Council + Web Research');
+    onProgress?.('Investor agent: Analyzing your fundraising question...');
 
     // Only fetch web research if no user documents provided
     let webContext = '';
     if (input.documents.length === 0) {
-      webContext = await this.getWebResearchContext(input);
+      onProgress?.('Investor agent: Researching investors and market data...');
+      webContext = await this.getWebResearchContext(input, onProgress);
+      if (webContext) {
+        onProgress?.('Investor agent: Found relevant investor data');
+      }
+    } else {
+      onProgress?.(`Investor agent: Analyzing ${input.documents.length} uploaded document(s)...`);
     }
 
     const userPrompt = this.buildUserPrompt(input, webContext);
 
+    onProgress?.('Investor agent: Running LLM Council for cross-critique...');
     const result = await this.council.runCouncil(INVESTOR_SYSTEM_PROMPT, userPrompt, {
       minModels: this.minModels,
       maxModels: this.maxModels,
       temperature: 0.6,
       maxTokens: 600,
+      onProgress,
     });
 
     const sources = this.extractSources(webContext);
+    onProgress?.(`Investor agent: Council complete (${result.responses.length} models, ${result.critiques.length} critiques, ${sources.length} sources)`);
 
     return {
       content: result.finalResponse,
@@ -103,13 +113,14 @@ export class InvestorAgentService implements BaseAgent {
     });
   }
 
-  private async getWebResearchContext(input: AgentInput): Promise<string> {
+  private async getWebResearchContext(input: AgentInput, onProgress?: (step: string) => void): Promise<string> {
     try {
       const companyName = this.extractFromMetadata(input, 'companyName', 'startup');
       const industry = this.extractFromMetadata(input, 'industry', 'technology');
       const fundingStage = this.extractFromMetadata(input, 'fundingStage', 'seed');
       const country = this.extractFromMetadata(input, 'country', 'United States');
 
+      onProgress?.(`Investor agent: Searching for ${fundingStage} investors in ${industry}...`);
       const context = await this.researchService.gatherInvestorContext(
         companyName, industry, fundingStage, country,
       );

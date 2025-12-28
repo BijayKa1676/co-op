@@ -29,6 +29,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Toast Positioning Fix** - Fixed toast notifications on mobile
   - Toasts now properly positioned and visible on mobile devices
 
+#### Real-time Thinking Steps
+- **Agent Progress Callbacks** - Fixed thinking steps not showing in real-time
+  - All domain agents (Legal, Finance, Investor, Competitor) now pass `onProgress` to LLM Council
+  - Real-time progress updates: RAG search, web research, council phases, critique scores
+  - Thinking steps now properly stream via SSE to frontend
+  - Shows which agent is working, what phase, and detailed progress
+
 ### New Features
 
 #### Analytics Dashboard

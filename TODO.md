@@ -158,6 +158,7 @@
 - [x] Jurisdiction dropdown for chat/agents pages
 - [x] Queue Health card in analytics dashboard
 - [x] DLQ metrics tracking (taskQueueSize, taskDlqSize, retryAttemptsTotal, retrySuccessesTotal)
+- [x] Real-time thinking steps fix - all agents now pass onProgress to LLM Council
 
 ### Agent Improvements
 - [x] Legal: Jurisdiction selector (region + specific regulations)

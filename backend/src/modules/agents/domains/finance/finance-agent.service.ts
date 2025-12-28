@@ -84,8 +84,9 @@ export class FinanceAgentService implements BaseAgent {
     this.maxModels = this.config.get<number>('LLM_COUNCIL_MAX_MODELS', 5);
   }
 
-  async runDraft(input: AgentInput): Promise<AgentOutput> {
+  async runDraft(input: AgentInput, onProgress?: (step: string) => void): Promise<AgentOutput> {
     this.logger.debug('Running finance agent with LLM Council + RAG');
+    onProgress?.('Finance agent: Analyzing your financial question...');
 
     const sector = (input.context.metadata.sector as RagSector) || 'saas';
     const country = (input.context.metadata.country as string) || undefined;
@@ -93,10 +94,18 @@ export class FinanceAgentService implements BaseAgent {
     const currency = (input.context.metadata.currency as string) || 'auto';
     const detectedJurisdictions = this.detectJurisdictions(input.prompt);
 
+    if (financeFocus && financeFocus !== 'general') {
+      onProgress?.(`Finance agent: Focusing on ${financeFocus.replace('_', ' ')}`);
+    }
+    if (detectedJurisdictions.length > 0) {
+      onProgress?.(`Finance agent: Detected relevant regulations: ${detectedJurisdictions.join(', ')}`);
+    }
+
     // Only fetch RAG if no user documents provided
     let ragContext = '';
     if (input.documents.length === 0 && this.ragService.isAvailable()) {
       try {
+        onProgress?.('Finance agent: Searching knowledge base for relevant documents...');
         ragContext = await this.ragService.getContext(
           input.prompt,
           'finance',
@@ -107,22 +116,29 @@ export class FinanceAgentService implements BaseAgent {
         );
         if (ragContext) {
           this.logger.debug(`RAG context fetched for finance/${sector}`);
+          onProgress?.('Finance agent: Found relevant financial documents');
         }
       } catch (error) {
         // Graceful degradation - continue without RAG context
         this.logger.warn('Failed to fetch RAG context for finance agent, continuing without it', error);
         ragContext = '';
       }
+    } else if (input.documents.length > 0) {
+      onProgress?.(`Finance agent: Analyzing ${input.documents.length} uploaded document(s)...`);
     }
 
     const userPrompt = this.buildUserPrompt(input, ragContext, country, financeFocus, currency);
 
+    onProgress?.('Finance agent: Running LLM Council for cross-critique...');
     const result = await this.council.runCouncil(FINANCE_SYSTEM_PROMPT, userPrompt, {
       minModels: this.minModels,
       maxModels: this.maxModels,
       temperature: 0.6,
       maxTokens: 600,
+      onProgress,
     });
+
+    onProgress?.(`Finance agent: Council complete (${result.responses.length} models, ${result.critiques.length} critiques)`);
 
     return {
       content: result.finalResponse,

@@ -42,25 +42,35 @@ export class CompetitorAgentService implements BaseAgent {
     this.maxModels = this.config.get<number>('LLM_COUNCIL_MAX_MODELS', 5);
   }
 
-  async runDraft(input: AgentInput): Promise<AgentOutput> {
+  async runDraft(input: AgentInput, onProgress?: (step: string) => void): Promise<AgentOutput> {
     this.logger.debug('Running competitor agent with LLM Council + Web Research');
+    onProgress?.('Competitor agent: Analyzing your market question...');
 
     // Only fetch web research if no user documents provided
     let webContext = '';
     if (input.documents.length === 0) {
-      webContext = await this.getWebResearchContext(input);
+      onProgress?.('Competitor agent: Researching competitors and market landscape...');
+      webContext = await this.getWebResearchContext(input, onProgress);
+      if (webContext) {
+        onProgress?.('Competitor agent: Found relevant market data');
+      }
+    } else {
+      onProgress?.(`Competitor agent: Analyzing ${input.documents.length} uploaded document(s)...`);
     }
 
     const userPrompt = this.buildUserPrompt(input, webContext);
 
+    onProgress?.('Competitor agent: Running LLM Council for cross-critique...');
     const result = await this.council.runCouncil(COMPETITOR_SYSTEM_PROMPT, userPrompt, {
       minModels: this.minModels,
       maxModels: this.maxModels,
       temperature: 0.6,
       maxTokens: 600,
+      onProgress,
     });
 
     const sources = this.extractSources(webContext);
+    onProgress?.(`Competitor agent: Council complete (${result.responses.length} models, ${result.critiques.length} critiques, ${sources.length} sources)`);
 
     return {
       content: result.finalResponse,
@@ -103,12 +113,13 @@ export class CompetitorAgentService implements BaseAgent {
     });
   }
 
-  private async getWebResearchContext(input: AgentInput): Promise<string> {
+  private async getWebResearchContext(input: AgentInput, onProgress?: (step: string) => void): Promise<string> {
     try {
       const companyName = this.extractFromMetadata(input, 'companyName', 'startup');
       const industry = this.extractFromMetadata(input, 'industry', 'technology');
       const description = this.extractFromMetadata(input, 'description', input.prompt);
 
+      onProgress?.(`Competitor agent: Searching for competitors in ${industry}...`);
       const context = await this.researchService.gatherCompetitorContext(
         companyName, industry, description,
       );
