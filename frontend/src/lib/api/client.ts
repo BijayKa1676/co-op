@@ -48,9 +48,21 @@ class ApiError extends Error {
 
 // Request deduplication
 const inflightRequests = new Map<string, Promise<unknown>>();
-// In-memory cache (5s TTL)
+// Mutation deduplication (prevents double-clicks)
+const pendingMutations = new Map<string, Promise<unknown>>();
+// In-memory cache with configurable TTL per endpoint
 const responseCache = new Map<string, { data: unknown; timestamp: number }>();
-const CACHE_TTL = 5000;
+const DEFAULT_CACHE_TTL = 5000;
+
+// Per-endpoint cache TTL configuration (ms)
+const CACHE_TTL_CONFIG: Record<string, number> = {
+  '/users/me': 10000,        // User data changes less frequently
+  '/sessions': 5000,         // Sessions list
+  '/bookmarks': 5000,        // Bookmarks
+  '/alerts': 3000,           // Alerts need fresher data
+  '/api-keys': 10000,        // API keys rarely change
+  '/webhooks': 10000,        // Webhooks rarely change
+};
 
 class ApiClient {
   private readonly maxRetries = 3;
@@ -87,8 +99,25 @@ class ApiClient {
     return this.cacheableEndpoints.some(e => endpoint.startsWith(e));
   }
 
+  private getCacheTTL(endpoint: string): number {
+    for (const [pattern, ttl] of Object.entries(CACHE_TTL_CONFIG)) {
+      if (endpoint.startsWith(pattern)) {
+        return ttl;
+      }
+    }
+    return DEFAULT_CACHE_TTL;
+  }
+
   private getCacheKey(method: string, endpoint: string, body?: unknown): string {
     return `${method}:${endpoint}:${body ? JSON.stringify(body) : ''}`;
+  }
+
+  /**
+   * Generate idempotency key for mutations to prevent duplicate requests
+   */
+  private generateIdempotencyKey(endpoint: string, body?: unknown): string {
+    const timestamp = Math.floor(Date.now() / 1000); // 1-second window
+    return `${endpoint}:${body ? JSON.stringify(body) : ''}:${timestamp}`;
   }
 
   private async request<T>(
@@ -99,15 +128,16 @@ class ApiClient {
   ): Promise<T> {
     const cacheKey = this.getCacheKey(method, endpoint, body);
     
-    // Check cache for GET requests
+    // Check cache for GET requests with per-endpoint TTL
     if (method === 'GET' && this.isCacheable(endpoint)) {
       const cached = responseCache.get(cacheKey);
-      if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+      const ttl = this.getCacheTTL(endpoint);
+      if (cached && Date.now() - cached.timestamp < ttl) {
         return cached.data as T;
       }
     }
     
-    // Deduplicate in-flight requests (same request made multiple times)
+    // Deduplicate in-flight GET requests
     if (method === 'GET') {
       const inflight = inflightRequests.get(cacheKey);
       if (inflight) {
@@ -115,20 +145,39 @@ class ApiClient {
       }
     }
     
+    // Deduplicate mutations (POST/PATCH/DELETE) to prevent double-clicks
+    if (method !== 'GET') {
+      const idempotencyKey = this.generateIdempotencyKey(endpoint, body);
+      const pending = pendingMutations.get(idempotencyKey);
+      if (pending) {
+        return pending as Promise<T>;
+      }
+      
+      const mutationPromise = this.executeRequest<T>(method, endpoint, body, customHeaders);
+      pendingMutations.set(idempotencyKey, mutationPromise);
+      
+      try {
+        const result = await mutationPromise;
+        // Invalidate related cache on successful mutations
+        this.invalidateCacheForEndpoint(endpoint);
+        return result;
+      } finally {
+        pendingMutations.delete(idempotencyKey);
+      }
+    }
+    
     const requestPromise = this.executeRequest<T>(method, endpoint, body, customHeaders);
     
     // Track in-flight GET requests
-    if (method === 'GET') {
-      inflightRequests.set(cacheKey, requestPromise);
-      requestPromise.finally(() => {
-        inflightRequests.delete(cacheKey);
-      });
-    }
+    inflightRequests.set(cacheKey, requestPromise);
+    requestPromise.finally(() => {
+      inflightRequests.delete(cacheKey);
+    });
     
     const result = await requestPromise;
     
     // Cache successful GET responses
-    if (method === 'GET' && this.isCacheable(endpoint)) {
+    if (this.isCacheable(endpoint)) {
       responseCache.set(cacheKey, { data: result, timestamp: Date.now() });
     }
     
@@ -215,36 +264,43 @@ class ApiClient {
   }
 
   async post<T>(endpoint: string, body?: unknown): Promise<T> {
-    const result = await this.request<T>('POST', endpoint, body);
-    // Invalidate related cache on mutations
-    this.invalidateCacheForEndpoint(endpoint);
-    return result;
+    return this.request<T>('POST', endpoint, body);
   }
 
   async patch<T>(endpoint: string, body: unknown): Promise<T> {
-    const result = await this.request<T>('PATCH', endpoint, body);
-    // Invalidate related cache on mutations
-    this.invalidateCacheForEndpoint(endpoint);
-    return result;
+    return this.request<T>('PATCH', endpoint, body);
   }
 
   async delete(endpoint: string): Promise<void> {
     await this.request<null>('DELETE', endpoint);
-    // Invalidate related cache on mutations
-    this.invalidateCacheForEndpoint(endpoint);
   }
 
-  private invalidateCacheForEndpoint(endpoint: string): void {
+  /**
+   * Granular cache invalidation - invalidates specific resource or pattern
+   * @param endpoint - The endpoint that was mutated
+   * @param resourceId - Optional specific resource ID to invalidate
+   */
+  private invalidateCacheForEndpoint(endpoint: string, resourceId?: string): void {
     // Extract base resource from endpoint (e.g., /sessions/123 -> /sessions)
     const parts = endpoint.split('/').filter(Boolean);
     if (parts.length === 0) return;
     
     const baseResource = `/${parts[0]}`;
     
-    // Invalidate all cache entries for this resource
+    // If we have a specific resource ID, try to invalidate just that resource
+    // Otherwise, invalidate all cache entries for this resource type
     const keysToDelete: string[] = [];
     responseCache.forEach((_, key) => {
-      if (key.includes(baseResource)) {
+      if (resourceId) {
+        // Granular invalidation: only invalidate specific resource
+        if (key.includes(baseResource) && key.includes(resourceId)) {
+          keysToDelete.push(key);
+        }
+        // Also invalidate list endpoints that might contain this resource
+        if (key.includes(baseResource) && !key.includes('/')) {
+          keysToDelete.push(key);
+        }
+      } else if (key.includes(baseResource)) {
         keysToDelete.push(key);
       }
     });

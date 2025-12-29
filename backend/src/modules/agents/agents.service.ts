@@ -1,4 +1,5 @@
 import { Injectable, BadRequestException, ForbiddenException, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { v4 as uuid } from 'uuid';
 import { createHash } from 'crypto';
 import { OrchestratorService } from './orchestrator/orchestrator.service';
@@ -12,8 +13,6 @@ import { CacheService } from '@/common/cache/cache.service';
 import { AgentType, AgentInput, AgentPhaseResult } from './types/agent.types';
 import { RunAgentDto } from './dto/run-agent.dto';
 import { TaskStatusDto } from './dto/task-status.dto';
-
-const PILOT_MONTHLY_LIMIT = 3;
 
 interface QueueTaskResult {
   taskId: string;
@@ -41,6 +40,7 @@ const RESPONSE_CACHE_TTL = 15 * 60;
 @Injectable()
 export class AgentsService {
   private readonly logger = new Logger(AgentsService.name);
+  private readonly pilotMonthlyLimit: number;
 
   constructor(
     private readonly orchestrator: OrchestratorService,
@@ -51,7 +51,10 @@ export class AgentsService {
     private readonly council: LlmCouncilService,
     private readonly redis: RedisService,
     private readonly cache: CacheService,
-  ) {}
+    private readonly configService: ConfigService,
+  ) {
+    this.pilotMonthlyLimit = this.configService.get<number>('PILOT_AGENT_MONTHLY_REQUESTS', 3);
+  }
 
   private getPromptCacheKey(startupId: string, prompt: string, agents?: string[]): string {
     const normalizedPrompt = prompt.toLowerCase().trim().replace(/\s+/g, ' ');
@@ -80,14 +83,14 @@ export class AgentsService {
 
     const newCount = await this.redis.incrWithExpire(key, ttl);
 
-    if (newCount > PILOT_MONTHLY_LIMIT) {
-      throw new ForbiddenException(`Monthly limit of ${PILOT_MONTHLY_LIMIT} AI requests reached. Resets on the 1st of next month.`);
+    if (newCount > this.pilotMonthlyLimit) {
+      throw new ForbiddenException(`Monthly limit of ${this.pilotMonthlyLimit} AI requests reached. Resets on the 1st of next month.`);
     }
 
     return {
       used: newCount,
-      limit: PILOT_MONTHLY_LIMIT,
-      remaining: PILOT_MONTHLY_LIMIT - newCount,
+      limit: this.pilotMonthlyLimit,
+      remaining: this.pilotMonthlyLimit - newCount,
     };
   }
 
@@ -105,8 +108,8 @@ export class AgentsService {
 
     return {
       used: current,
-      limit: PILOT_MONTHLY_LIMIT,
-      remaining: Math.max(0, PILOT_MONTHLY_LIMIT - current),
+      limit: this.pilotMonthlyLimit,
+      remaining: Math.max(0, this.pilotMonthlyLimit - current),
       resetsAt: resetsAt.toISOString(),
     };
   }

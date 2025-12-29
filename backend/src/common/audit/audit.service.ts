@@ -7,10 +7,12 @@ import * as schema from '@/database/schema';
 
 // Redis key for failed audit log queue (dead letter queue)
 const AUDIT_DLQ_KEY = 'audit:dlq';
-// Max items in DLQ before we stop accepting new ones
+// Max items in DLQ before we start trimming old entries
 const AUDIT_DLQ_MAX_SIZE = 1000;
 // Retry interval for processing DLQ (5 minutes)
 const AUDIT_DLQ_RETRY_INTERVAL_MS = 5 * 60 * 1000;
+// DLQ item TTL (7 days) - items older than this are considered stale
+const AUDIT_DLQ_TTL_DAYS = 7;
 
 interface AuditLogInput {
   userId: string | null;
@@ -87,10 +89,24 @@ export class AuditService implements OnModuleInit, OnModuleDestroy {
 
       this.logger.log(`Processing ${items.length} items from audit DLQ`);
       let processed = 0;
+      let expired = 0;
+      const maxAge = AUDIT_DLQ_TTL_DAYS * 24 * 60 * 60 * 1000;
 
       for (const item of items) {
         try {
-          const input = JSON.parse(item) as AuditLogInput;
+          const parsed = JSON.parse(item) as AuditLogInput & { _dlqTimestamp?: number };
+          
+          // Check if item is too old (stale)
+          if (parsed._dlqTimestamp && Date.now() - parsed._dlqTimestamp > maxAge) {
+            // Remove stale item without processing
+            await this.redis.lrem(AUDIT_DLQ_KEY, 1, item);
+            expired++;
+            continue;
+          }
+          
+          // Remove internal timestamp before inserting
+          const { _dlqTimestamp, ...input } = parsed;
+          
           await this.db.insert(schema.auditLogs).values({
             userId: input.userId,
             action: input.action,
@@ -110,8 +126,8 @@ export class AuditService implements OnModuleInit, OnModuleDestroy {
         }
       }
 
-      if (processed > 0) {
-        this.logger.log(`Processed ${processed}/${items.length} audit DLQ items`);
+      if (processed > 0 || expired > 0) {
+        this.logger.log(`Audit DLQ: processed ${processed}, expired ${expired} of ${items.length} items`);
       }
     } catch (error) {
       this.logger.warn(`Failed to process audit DLQ: ${String(error)}`);
@@ -139,16 +155,44 @@ export class AuditService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
-   * Queue failed audit log to Redis dead letter queue
+   * Queue failed audit log to Redis dead letter queue with overflow handling
    */
   private async queueToDlq(input: AuditLogInput): Promise<void> {
     try {
-      const queueLength = await this.redis.lpush(AUDIT_DLQ_KEY, JSON.stringify(input));
+      // Add timestamp for TTL tracking
+      const dlqItem = JSON.stringify({
+        ...input,
+        _dlqTimestamp: Date.now(),
+      });
+      
+      const queueLength = await this.redis.lpush(AUDIT_DLQ_KEY, dlqItem);
+      
+      // If queue exceeds max size, trim oldest entries instead of rejecting new ones
+      // This ensures recent audit logs are preserved while preventing unbounded growth
       if (queueLength > AUDIT_DLQ_MAX_SIZE) {
-        this.logger.warn(`Audit DLQ size (${queueLength}) exceeds max (${AUDIT_DLQ_MAX_SIZE})`);
+        this.logger.warn(`Audit DLQ size (${queueLength}) exceeds max (${AUDIT_DLQ_MAX_SIZE}), trimming oldest entries`);
+        // Keep only the most recent AUDIT_DLQ_MAX_SIZE items
+        // Note: This is a Redis LTRIM operation - keeps items from 0 to MAX_SIZE-1
+        await this.trimDlq();
       }
     } catch (dlqError) {
       this.logger.error(`Failed to queue audit log to DLQ: ${String(dlqError)}`);
+    }
+  }
+
+  /**
+   * Trim DLQ to max size, removing oldest entries
+   */
+  private async trimDlq(): Promise<void> {
+    try {
+      // Get items beyond the max size and remove them
+      const items = await this.redis.lrange(AUDIT_DLQ_KEY, AUDIT_DLQ_MAX_SIZE, -1);
+      for (const item of items) {
+        await this.redis.lrem(AUDIT_DLQ_KEY, 1, item);
+      }
+      this.logger.log(`Trimmed ${items.length} old items from audit DLQ`);
+    } catch (error) {
+      this.logger.warn(`Failed to trim audit DLQ: ${String(error)}`);
     }
   }
 

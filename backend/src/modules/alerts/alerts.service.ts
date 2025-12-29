@@ -5,6 +5,7 @@ import {
   ForbiddenException,
   BadRequestException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { eq, and, desc, inArray } from 'drizzle-orm';
 import { DATABASE_CONNECTION } from '@/database/database.module';
@@ -23,15 +24,17 @@ import {
   AlertResultResponseDto,
 } from './dto/alert.dto';
 
-// Pilot limit: 3 alerts per user
-const PILOT_ALERT_LIMIT = 3;
-
 @Injectable()
 export class AlertsService {
+  private readonly pilotAlertLimit: number;
+
   constructor(
     @Inject(DATABASE_CONNECTION)
     private readonly db: NodePgDatabase<typeof schema>,
-  ) {}
+    private readonly configService: ConfigService,
+  ) {
+    this.pilotAlertLimit = this.configService.get<number>('PILOT_ALERT_LIMIT', 3);
+  }
 
   async create(
     userId: string,
@@ -41,9 +44,9 @@ export class AlertsService {
     // Check pilot limit
     const existingAlerts = await this.db.select().from(alerts).where(eq(alerts.userId, userId));
 
-    if (existingAlerts.length >= PILOT_ALERT_LIMIT) {
+    if (existingAlerts.length >= this.pilotAlertLimit) {
       throw new BadRequestException(
-        `Pilot users are limited to ${PILOT_ALERT_LIMIT} alerts. Delete an existing alert to create a new one.`,
+        `Pilot users are limited to ${this.pilotAlertLimit} alerts. Delete an existing alert to create a new one.`,
       );
     }
 

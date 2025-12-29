@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { randomBytes, createHash } from 'crypto';
 import { RedisService } from '@/common/redis/redis.service';
 import { AuditService } from '@/common/audit/audit.service';
@@ -40,12 +41,21 @@ export class ApiKeysService {
   private readonly API_KEY_HASH_PREFIX = 'apikey:hash:';
   private readonly USER_KEYS_PREFIX = 'user:apikeys:';
   private readonly API_KEY_USAGE_PREFIX = 'apikey:usage:';
+  private readonly API_KEY_REVOKED_PREFIX = 'apikey:revoked:';
   private readonly KEY_TTL = 365 * 24 * 60 * 60; // 1 year
+  
+  // Configurable pilot limits (from env vars)
+  private readonly pilotKeyLimit: number;
+  private readonly pilotMonthlyLimit: number;
 
   constructor(
     private readonly redis: RedisService,
     private readonly audit: AuditService,
-  ) {}
+    private readonly configService: ConfigService,
+  ) {
+    this.pilotKeyLimit = this.configService.get<number>('PILOT_API_KEY_LIMIT', 1);
+    this.pilotMonthlyLimit = this.configService.get<number>('PILOT_API_KEY_MONTHLY_REQUESTS', 3);
+  }
 
   async create(userId: string, dto: CreateApiKeyDto): Promise<ApiKeyCreatedResponseDto> {
     // Validate name length
@@ -59,10 +69,10 @@ export class ApiKeysService {
       throw new BadRequestException('Invalid scope provided');
     }
 
-    // Pilot program: Limit to 1 API key per user
+    // Pilot program: Configurable API key limit per user
     const existingKeys = await this.findByUser(userId);
-    if (existingKeys.length >= 1) {
-      throw new BadRequestException('Pilot program allows only 1 API key per user. Delete your existing key to create a new one.');
+    if (existingKeys.length >= this.pilotKeyLimit) {
+      throw new BadRequestException(`Pilot program allows only ${this.pilotKeyLimit} API key(s) per user. Delete your existing key to create a new one.`);
     }
 
     const id = randomBytes(8).toString('hex');
@@ -154,6 +164,10 @@ export class ApiKeysService {
       throw new NotFoundException('API key not found');
     }
 
+    // IMMEDIATE REVOCATION: Add to revocation list first (checked during auth)
+    // This ensures the key is immediately invalid even if other deletions fail
+    await this.redis.set(`${this.API_KEY_REVOKED_PREFIX}${keyData.keyHash}`, '1', this.KEY_TTL);
+
     // Look up raw key from hash mapping for deletion
     const rawKey = await this.redis.get<string>(`${this.API_KEY_HASH_PREFIX}${keyData.keyHash}`);
     if (rawKey) {
@@ -180,16 +194,27 @@ export class ApiKeysService {
     this.logger.log(`API key ${keyId} revoked for user ${userId}`);
   }
 
-  private readonly PILOT_MONTHLY_LIMIT = 3;
+  /**
+   * Check if an API key has been revoked (for immediate revocation support)
+   */
+  async isRevoked(keyHash: string): Promise<boolean> {
+    const revoked = await this.redis.get<string>(`${this.API_KEY_REVOKED_PREFIX}${keyHash}`);
+    return revoked === '1';
+  }
 
   async checkUsageLimit(rawKey: string): Promise<{ allowed: boolean; remaining: number; limit: number }> {
     if (!rawKey || typeof rawKey !== 'string' || rawKey.length < 10) {
-      return { allowed: false, remaining: 0, limit: this.PILOT_MONTHLY_LIMIT };
+      return { allowed: false, remaining: 0, limit: this.pilotMonthlyLimit };
     }
 
     const keyData = await this.redis.get<StoredApiKey>(`${this.API_KEY_PREFIX}${rawKey}`);
     if (!keyData || !keyData.id) {
-      return { allowed: false, remaining: 0, limit: this.PILOT_MONTHLY_LIMIT };
+      return { allowed: false, remaining: 0, limit: this.pilotMonthlyLimit };
+    }
+
+    // Check if key has been revoked
+    if (await this.isRevoked(keyData.keyHash)) {
+      return { allowed: false, remaining: 0, limit: this.pilotMonthlyLimit };
     }
 
     const now = new Date();
@@ -197,12 +222,12 @@ export class ApiKeysService {
     const monthlyKey = `${this.API_KEY_USAGE_PREFIX}${keyData.id}:monthly:${month}`;
     
     const currentUsage = await this.redis.get<number>(monthlyKey) ?? 0;
-    const remaining = Math.max(0, this.PILOT_MONTHLY_LIMIT - currentUsage);
+    const remaining = Math.max(0, this.pilotMonthlyLimit - currentUsage);
     
     return {
-      allowed: currentUsage < this.PILOT_MONTHLY_LIMIT,
+      allowed: currentUsage < this.pilotMonthlyLimit,
       remaining,
-      limit: this.PILOT_MONTHLY_LIMIT,
+      limit: this.pilotMonthlyLimit,
     };
   }
 

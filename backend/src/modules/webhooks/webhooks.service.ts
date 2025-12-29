@@ -46,6 +46,10 @@ export class WebhooksService {
   private readonly logger = new Logger(WebhooksService.name);
   private readonly isProduction: boolean;
   private readonly WEBHOOK_USAGE_PREFIX = 'webhook:usage:';
+  
+  // Configurable pilot limits (from env vars)
+  private readonly pilotWebhookLimit: number;
+  private readonly pilotDailyTriggerLimit: number;
 
   constructor(
     @Inject(DATABASE_CONNECTION)
@@ -56,6 +60,8 @@ export class WebhooksService {
     private readonly redis: RedisService,
   ) {
     this.isProduction = this.configService.get<string>('NODE_ENV') === 'production';
+    this.pilotWebhookLimit = this.configService.get<number>('PILOT_WEBHOOK_LIMIT', 1);
+    this.pilotDailyTriggerLimit = this.configService.get<number>('PILOT_WEBHOOK_DAILY_TRIGGERS', 10);
   }
 
   private validateWebhookUrl(url: string): void {
@@ -98,16 +104,12 @@ export class WebhooksService {
     }
   }
 
-  // Pilot: 1 webhook per user
-  private readonly PILOT_WEBHOOK_LIMIT = 1;
-  // Pilot: 10 triggers per day
-  private readonly PILOT_DAILY_TRIGGER_LIMIT = 10;
-
+  // Pilot: Configurable webhook limit per user
   async create(userId: string, dto: CreateWebhookDto): Promise<WebhookResponseDto> {
-    // Pilot program: Limit to 1 webhook per user
+    // Pilot program: Configurable webhook limit per user
     const existingWebhooks = await this.findByUserId(userId);
-    if (existingWebhooks.length >= this.PILOT_WEBHOOK_LIMIT) {
-      throw new BadRequestException('Pilot program allows only 1 webhook per user. Delete your existing webhook to create a new one.');
+    if (existingWebhooks.length >= this.pilotWebhookLimit) {
+      throw new BadRequestException(`Pilot program allows only ${this.pilotWebhookLimit} webhook(s) per user. Delete your existing webhook to create a new one.`);
     }
 
     // Validate URL for SSRF prevention
@@ -252,7 +254,7 @@ export class WebhooksService {
     const today = new Date().toISOString().split('T')[0];
     const dailyKey = `${this.WEBHOOK_USAGE_PREFIX}${webhookId}:daily:${today}`;
     const currentUsage = await this.redis.get<number>(dailyKey) ?? 0;
-    return currentUsage < this.PILOT_DAILY_TRIGGER_LIMIT;
+    return currentUsage < this.pilotDailyTriggerLimit;
   }
 
   async trigger(event: string, data: Record<string, unknown>): Promise<void> {
@@ -280,7 +282,7 @@ export class WebhooksService {
     const allowedWebhooks = webhooksToTrigger.filter((w): w is schema.Webhook => w !== null);
     
     if (allowedWebhooks.length < matchingWebhooks.length) {
-      this.logger.warn(`Some webhooks skipped due to daily trigger limit (${this.PILOT_DAILY_TRIGGER_LIMIT}/day)`);
+      this.logger.warn(`Some webhooks skipped due to daily trigger limit (${this.pilotDailyTriggerLimit}/day)`);
     }
 
     await Promise.allSettled(allowedWebhooks.map((webhook) => this.sendWebhook(webhook, payload)));
@@ -288,14 +290,13 @@ export class WebhooksService {
 
   private async sendWebhook(webhook: schema.Webhook, payload: WebhookPayload): Promise<void> {
     const MAX_RETRIES = 3;
-    const RETRY_DELAYS = [1000, 5000, 15000]; // Exponential backoff
 
     const body = JSON.stringify(payload);
     // Decrypt the secret for signing
     const decryptedSecret = this.encryption.decrypt(webhook.secret);
     const signature = this.generateSignature(body, decryptedSecret);
 
-    // Use iterative retry instead of recursive to prevent stack overflow
+    // Use iterative retry with exponential backoff and jitter
     for (let retryCount = 0; retryCount <= MAX_RETRIES; retryCount++) {
       try {
         const response = await fetch(webhook.url, {
@@ -330,7 +331,7 @@ export class WebhooksService {
         this.logger.warn(
           `Webhook ${webhook.id} failed with ${String(response.status)}, retrying (${String(retryCount + 1)}/${String(MAX_RETRIES)})`,
         );
-        await this.delay(RETRY_DELAYS[retryCount]);
+        await this.delay(this.getRetryDelay(retryCount));
       } catch (error) {
         if (retryCount >= MAX_RETRIES) {
           this.logger.error(`Webhook ${webhook.id} error after ${String(MAX_RETRIES)} retries: ${String(error)}`);
@@ -341,9 +342,23 @@ export class WebhooksService {
         this.logger.warn(
           `Webhook ${webhook.id} error, retrying (${String(retryCount + 1)}/${String(MAX_RETRIES)}): ${String(error)}`,
         );
-        await this.delay(RETRY_DELAYS[retryCount]);
+        await this.delay(this.getRetryDelay(retryCount));
       }
     }
+  }
+
+  /**
+   * Calculate retry delay with exponential backoff and jitter
+   * Prevents thundering herd problem when multiple webhooks fail simultaneously
+   */
+  private getRetryDelay(attempt: number): number {
+    const baseDelay = 1000; // 1 second
+    const maxDelay = 60000; // 60 seconds max
+    // Exponential backoff: 1s, 2s, 4s, 8s, etc.
+    const exponentialDelay = baseDelay * Math.pow(2, attempt);
+    // Add random jitter (0-1000ms) to prevent thundering herd
+    const jitter = Math.random() * 1000;
+    return Math.min(exponentialDelay + jitter, maxDelay);
   }
 
   private delay(ms: number): Promise<void> {

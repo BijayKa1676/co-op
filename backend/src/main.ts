@@ -16,9 +16,69 @@ function getLogLevels(env: string): LogLevel[] {
 // Graceful shutdown timeout (30 seconds)
 const SHUTDOWN_TIMEOUT_MS = 30000;
 
+/**
+ * Pre-flight validation for production environment
+ * Fails fast if critical configuration is missing
+ */
+function validateProductionConfig(): void {
+  const isProduction = process.env.NODE_ENV === 'production';
+  if (!isProduction) return;
+
+  const logger = new Logger('PreFlight');
+  const errors: string[] = [];
+
+  // Critical: Encryption key required for data security
+  if (!process.env.ENCRYPTION_KEY) {
+    errors.push('ENCRYPTION_KEY is required in production for secure data encryption');
+  } else if (process.env.ENCRYPTION_KEY.length < 32) {
+    errors.push('ENCRYPTION_KEY must be at least 32 characters');
+  }
+
+  // Critical: CORS must be explicitly configured in production
+  if (!process.env.CORS_ORIGINS || process.env.CORS_ORIGINS === '*') {
+    logger.warn('CORS_ORIGINS is set to "*" in production - consider restricting to specific origins');
+  }
+
+  // Critical: Database URL required
+  if (!process.env.DATABASE_URL) {
+    errors.push('DATABASE_URL is required');
+  }
+
+  // Critical: Supabase configuration
+  if (!process.env.SUPABASE_URL || !process.env.SUPABASE_ANON_KEY) {
+    errors.push('SUPABASE_URL and SUPABASE_ANON_KEY are required');
+  }
+
+  // Critical: Redis configuration
+  if (!process.env.UPSTASH_REDIS_URL || !process.env.UPSTASH_REDIS_TOKEN) {
+    errors.push('UPSTASH_REDIS_URL and UPSTASH_REDIS_TOKEN are required');
+  }
+
+  // Warning: LLM providers
+  const llmProviders = [
+    process.env.GROQ_API_KEY,
+    process.env.GOOGLE_AI_API_KEY,
+    process.env.HUGGINGFACE_API_KEY,
+  ].filter(Boolean);
+  if (llmProviders.length < 2) {
+    logger.warn('Less than 2 LLM providers configured - council cross-critique may be limited');
+  }
+
+  if (errors.length > 0) {
+    logger.error('Production configuration validation failed:');
+    errors.forEach(err => logger.error(`  - ${err}`));
+    throw new Error(`Production configuration invalid: ${errors.join('; ')}`);
+  }
+
+  logger.log('Production configuration validated successfully');
+}
+
 async function bootstrap(): Promise<void> {
   const isProduction = process.env.NODE_ENV === 'production';
   const logger = new Logger('Bootstrap');
+
+  // Validate production configuration before starting
+  validateProductionConfig();
 
   const app = await NestFactory.create(AppModule, {
     logger: getLogLevels(process.env.NODE_ENV ?? 'development'),

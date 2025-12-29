@@ -5,6 +5,7 @@ import {
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { eq, and, desc, ilike, or, gte, inArray } from 'drizzle-orm';
 import { DATABASE_CONNECTION } from '@/database/database.module';
@@ -22,15 +23,17 @@ import {
   LeadFiltersDto,
 } from './dto/lead.dto';
 
-// Pilot limits
-const PILOT_LEAD_LIMIT = 50;
+// Rate limit keys
 const DISCOVERY_RATE_LIMIT_KEY = 'outreach:discovery:';
 const DISCOVERY_RATE_LIMIT_TTL = 3600;
-const DISCOVERY_RATE_LIMIT_MAX = 5;
 
 @Injectable()
 export class LeadsService {
   private readonly logger = new Logger(LeadsService.name);
+  
+  // Configurable pilot limits
+  private readonly pilotLeadLimit: number;
+  private readonly discoveryRateLimitMax: number;
 
   constructor(
     @Inject(DATABASE_CONNECTION)
@@ -38,7 +41,11 @@ export class LeadsService {
     private readonly researchService: ResearchService,
     private readonly llmCouncil: LlmCouncilService,
     private readonly cache: CacheService,
-  ) {}
+    private readonly configService: ConfigService,
+  ) {
+    this.pilotLeadLimit = this.configService.get<number>('PILOT_LEAD_LIMIT', 50);
+    this.discoveryRateLimitMax = this.configService.get<number>('PILOT_LEAD_DISCOVERY_HOURLY', 5);
+  }
 
   /**
    * Discover potential leads using web research
@@ -53,9 +60,9 @@ export class LeadsService {
     const rateLimitKey = `${DISCOVERY_RATE_LIMIT_KEY}${userId}`;
     const currentCount = await this.cache.get<number>(rateLimitKey) ?? 0;
     
-    if (currentCount >= DISCOVERY_RATE_LIMIT_MAX) {
+    if (currentCount >= this.discoveryRateLimitMax) {
       throw new BadRequestException(
-        `Discovery rate limit reached. You can discover leads ${DISCOVERY_RATE_LIMIT_MAX} times per hour.`
+        `Discovery rate limit reached. You can discover leads ${this.discoveryRateLimitMax} times per hour.`
       );
     }
 
@@ -65,9 +72,9 @@ export class LeadsService {
       .from(leads)
       .where(eq(leads.userId, userId));
 
-    if (existingLeads.length >= PILOT_LEAD_LIMIT) {
+    if (existingLeads.length >= this.pilotLeadLimit) {
       throw new BadRequestException(
-        `Pilot users are limited to ${PILOT_LEAD_LIMIT} leads. Delete some leads to discover more.`
+        `Pilot users are limited to ${this.pilotLeadLimit} leads. Delete some leads to discover more.`
       );
     }
 
@@ -81,7 +88,7 @@ export class LeadsService {
       throw new NotFoundException('Startup not found');
     }
 
-    const maxLeads = Math.min(dto.maxLeads ?? 10, PILOT_LEAD_LIMIT - existingLeads.length);
+    const maxLeads = Math.min(dto.maxLeads ?? 10, this.pilotLeadLimit - existingLeads.length);
 
     // Build search query based on lead type
     const searchQuery = this.buildSearchQuery(dto, startup);
@@ -162,9 +169,9 @@ export class LeadsService {
       .from(leads)
       .where(eq(leads.userId, userId));
 
-    if (existingLeads.length >= PILOT_LEAD_LIMIT) {
+    if (existingLeads.length >= this.pilotLeadLimit) {
       throw new BadRequestException(
-        `Pilot users are limited to ${PILOT_LEAD_LIMIT} leads.`
+        `Pilot users are limited to ${this.pilotLeadLimit} leads.`
       );
     }
 

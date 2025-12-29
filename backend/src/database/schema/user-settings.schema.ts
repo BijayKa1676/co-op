@@ -42,16 +42,31 @@ export type UserSettings = typeof userSettings.$inferSelect;
 export type NewUserSettings = typeof userSettings.$inferInsert;
 
 /**
- * Pilot plan limits - these are the EXISTING limits enforced via Redis
- * Admin can view and reset these, but not change the limits (code-defined)
+ * Pilot plan limits - these are the DEFAULT limits enforced via Redis
+ * Actual limits are configurable via environment variables:
+ * - PILOT_AGENT_MONTHLY_REQUESTS (default: 3)
+ * - PILOT_API_KEY_LIMIT (default: 1)
+ * - PILOT_API_KEY_MONTHLY_REQUESTS (default: 3)
+ * - PILOT_WEBHOOK_LIMIT (default: 1)
+ * - PILOT_WEBHOOK_DAILY_TRIGGERS (default: 10)
+ * - PILOT_LEAD_LIMIT (default: 50)
+ * - PILOT_LEAD_DISCOVERY_HOURLY (default: 5)
+ * - PILOT_CAMPAIGN_LIMIT (default: 5)
+ * - PILOT_EMAILS_PER_DAY (default: 50)
+ * 
+ * Admin can view and reset usage, but limits are code/env-defined
  */
 export const PILOT_LIMITS = {
-  agentRequests: { limit: 3, period: 'month', key: 'usage' }, // usage:{userId}:{YYYY-MM}
-  apiKeys: { limit: 1, period: 'total' },
-  webhooks: { limit: 1, period: 'total' },
-  leads: { limit: 50, period: 'total' },
-  campaigns: { limit: 5, period: 'total' },
-  emailsPerDay: { limit: 50, period: 'day' },
+  agentRequests: { limit: 3, period: 'month', key: 'usage', envVar: 'PILOT_AGENT_MONTHLY_REQUESTS' },
+  apiKeys: { limit: 1, period: 'total', envVar: 'PILOT_API_KEY_LIMIT' },
+  apiKeyRequests: { limit: 3, period: 'month', envVar: 'PILOT_API_KEY_MONTHLY_REQUESTS' },
+  webhooks: { limit: 1, period: 'total', envVar: 'PILOT_WEBHOOK_LIMIT' },
+  webhookTriggers: { limit: 10, period: 'day', envVar: 'PILOT_WEBHOOK_DAILY_TRIGGERS' },
+  alerts: { limit: 3, period: 'total', envVar: 'PILOT_ALERT_LIMIT' },
+  leads: { limit: 50, period: 'total', envVar: 'PILOT_LEAD_LIMIT' },
+  leadDiscovery: { limit: 5, period: 'hour', envVar: 'PILOT_LEAD_DISCOVERY_HOURLY' },
+  campaigns: { limit: 5, period: 'total', envVar: 'PILOT_CAMPAIGN_LIMIT' },
+  emailsPerDay: { limit: 50, period: 'day', envVar: 'PILOT_EMAILS_PER_DAY' },
 } as const;
 
 export type PilotLimitType = keyof typeof PILOT_LIMITS;

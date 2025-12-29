@@ -14,8 +14,9 @@ interface ServiceCheckResult {
   error: string;
 }
 
-// Cache health check results for 10 seconds to prevent hammering during high traffic
-const HEALTH_CACHE_TTL_MS = 10000;
+// Cache health check results for 3 seconds to prevent hammering during high traffic
+// Reduced from 10s to 3s for more accurate health status during incidents
+const HEALTH_CACHE_TTL_MS = 3000;
 
 @Injectable()
 export class HealthService {

@@ -5,6 +5,7 @@ import {
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { eq, and, desc } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
@@ -28,12 +29,13 @@ import {
   RegenerateEmailDto,
 } from './dto/campaign.dto';
 
-const PILOT_CAMPAIGN_LIMIT = 5;
-const PILOT_EMAILS_PER_DAY = 50;
-
 @Injectable()
 export class CampaignsService {
   private readonly logger = new Logger(CampaignsService.name);
+  
+  // Configurable pilot limits
+  private readonly pilotCampaignLimit: number;
+  private readonly pilotEmailsPerDay: number;
 
   constructor(
     @Inject(DATABASE_CONNECTION)
@@ -41,7 +43,11 @@ export class CampaignsService {
     private readonly llmCouncil: LlmCouncilService,
     private readonly emailService: EmailService,
     private readonly leadsService: LeadsService,
-  ) {}
+    private readonly configService: ConfigService,
+  ) {
+    this.pilotCampaignLimit = this.configService.get<number>('PILOT_CAMPAIGN_LIMIT', 5);
+    this.pilotEmailsPerDay = this.configService.get<number>('PILOT_EMAILS_PER_DAY', 50);
+  }
 
   /**
    * Create a new campaign
@@ -56,9 +62,9 @@ export class CampaignsService {
       .from(campaigns)
       .where(eq(campaigns.userId, userId));
 
-    if (existingCampaigns.length >= PILOT_CAMPAIGN_LIMIT) {
+    if (existingCampaigns.length >= this.pilotCampaignLimit) {
       throw new BadRequestException(
-        `Pilot users are limited to ${PILOT_CAMPAIGN_LIMIT} campaigns.`
+        `Pilot users are limited to ${this.pilotCampaignLimit} campaigns.`
       );
     }
 
@@ -93,7 +99,7 @@ export class CampaignsService {
         settings: {
           trackOpens: dto.trackOpens ?? true,
           trackClicks: dto.trackClicks ?? true,
-          dailyLimit: dto.dailyLimit ?? PILOT_EMAILS_PER_DAY,
+          dailyLimit: dto.dailyLimit ?? this.pilotEmailsPerDay,
           includeUnsubscribeLink: dto.includeUnsubscribeLink ?? true,
         },
         stats: { totalEmails: 0, sent: 0, delivered: 0, opened: 0, clicked: 0, bounced: 0 },
@@ -397,7 +403,7 @@ export class CampaignsService {
       throw new BadRequestException('No pending emails to send');
     }
 
-    const dailyLimit = campaign.settings?.dailyLimit ?? PILOT_EMAILS_PER_DAY;
+    const dailyLimit = campaign.settings?.dailyLimit ?? this.pilotEmailsPerDay;
     const toSend = pendingEmails.slice(0, dailyLimit);
 
     // Batch fetch all leads at once to avoid N+1 query

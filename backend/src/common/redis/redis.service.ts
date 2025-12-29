@@ -313,6 +313,45 @@ export class RedisService implements OnModuleDestroy {
     }
   }
 
+  async sadd(key: string, members: string[]): Promise<number> {
+    this.metrics.operations++;
+    this.metricsService.recordRedisOperation('sadd');
+    try {
+      if (members.length === 0) return 0;
+      return await this.client.sadd(key, members);
+    } catch (error) {
+      this.metrics.errors++;
+      this.metricsService.recordRedisError();
+      throw error;
+    }
+  }
+
+  async sismember(key: string, member: string): Promise<boolean> {
+    this.metrics.operations++;
+    this.metricsService.recordRedisOperation('sismember');
+    try {
+      const result = await this.client.sismember(key, member);
+      return result === 1;
+    } catch (error) {
+      this.metrics.errors++;
+      this.metricsService.recordRedisError();
+      throw error;
+    }
+  }
+
+  async srem(key: string, members: string[]): Promise<number> {
+    this.metrics.operations++;
+    this.metricsService.recordRedisOperation('srem');
+    try {
+      if (members.length === 0) return 0;
+      return await this.client.srem(key, members);
+    } catch (error) {
+      this.metrics.errors++;
+      this.metricsService.recordRedisError();
+      throw error;
+    }
+  }
+
   getClient(): Redis {
     return this.client;
   }

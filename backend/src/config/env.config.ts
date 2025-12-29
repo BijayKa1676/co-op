@@ -63,6 +63,23 @@ export const envSchema = z.object({
   THROTTLE_TTL: z.string().default('60').transform(Number),
   THROTTLE_LIMIT: z.string().default('100').transform(Number),
 
+  // Pilot program limits (configurable for scaling)
+  // Agent/Chat limits
+  PILOT_AGENT_MONTHLY_REQUESTS: z.string().default('3').transform(Number),
+  // API key limits
+  PILOT_API_KEY_LIMIT: z.string().default('1').transform(Number),
+  PILOT_API_KEY_MONTHLY_REQUESTS: z.string().default('3').transform(Number),
+  // Webhook limits
+  PILOT_WEBHOOK_LIMIT: z.string().default('1').transform(Number),
+  PILOT_WEBHOOK_DAILY_TRIGGERS: z.string().default('10').transform(Number),
+  // Alert limits
+  PILOT_ALERT_LIMIT: z.string().default('3').transform(Number),
+  // Outreach limits
+  PILOT_LEAD_LIMIT: z.string().default('50').transform(Number),
+  PILOT_LEAD_DISCOVERY_HOURLY: z.string().default('5').transform(Number),
+  PILOT_CAMPAIGN_LIMIT: z.string().default('5').transform(Number),
+  PILOT_EMAILS_PER_DAY: z.string().default('50').transform(Number),
+
   // CORS
   CORS_ORIGINS: z.string().default('*'),
 

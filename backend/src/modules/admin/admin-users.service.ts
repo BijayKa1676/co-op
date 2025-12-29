@@ -1,4 +1,5 @@
 import { Injectable, Inject, NotFoundException, ConflictException, ForbiddenException, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { eq, and, isNull, ilike, or, desc, asc, sql, count } from 'drizzle-orm';
 import { DATABASE_CONNECTION } from '@/database/database.module';
@@ -6,7 +7,6 @@ import { CacheService, CACHE_PREFIX } from '@/common/cache/cache.service';
 import { AuditService } from '@/common/audit/audit.service';
 import { RedisService } from '@/common/redis/redis.service';
 import * as schema from '@/database/schema';
-import { PILOT_LIMITS } from '@/database/schema/user-settings.schema';
 import {
   AdminUserResponseDto,
   AdminUserListQueryDto,
@@ -21,6 +21,9 @@ import { PaginatedResult } from '@/common/dto/pagination.dto';
 @Injectable()
 export class AdminUsersService {
   private readonly logger = new Logger(AdminUsersService.name);
+  
+  // Configurable pilot limits
+  private readonly pilotAgentLimit: number;
 
   constructor(
     @Inject(DATABASE_CONNECTION)
@@ -28,7 +31,10 @@ export class AdminUsersService {
     private readonly cache: CacheService,
     private readonly audit: AuditService,
     private readonly redis: RedisService,
-  ) {}
+    private readonly configService: ConfigService,
+  ) {
+    this.pilotAgentLimit = this.configService.get<number>('PILOT_AGENT_MONTHLY_REQUESTS', 3);
+  }
 
   /**
    * Get current month key for usage tracking (matches agents.service.ts format)
@@ -72,7 +78,7 @@ export class AdminUsersService {
 
     return {
       agentRequestsUsed,
-      agentRequestsLimit: PILOT_LIMITS.agentRequests.limit,
+      agentRequestsLimit: this.pilotAgentLimit,
       apiKeysUsed,
       webhooksUsed: Number(webhooksCount?.count ?? 0),
       leadsUsed: Number(leadsCount?.count ?? 0),
