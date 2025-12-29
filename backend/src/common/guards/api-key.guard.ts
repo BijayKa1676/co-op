@@ -32,32 +32,24 @@ export class ApiKeyGuard implements CanActivate {
       throw new UnauthorizedException('API key required');
     }
 
-    // Check master API key (for internal services) - use timing-safe comparison
     const masterKey = this.configService.get<string>('MASTER_API_KEY');
     if (masterKey && this.timingSafeEqual(apiKey, masterKey)) {
       return true;
     }
 
-    // Check user-generated API keys from Redis
     const keyData = await this.redis.get<ApiKeyData>(`${this.API_KEY_PREFIX}${apiKey}`);
     if (!keyData) {
       throw new UnauthorizedException('Invalid API key');
     }
 
-    // Attach key data to request for downstream use
     (request as ApiKeyRequest & { apiKeyData: ApiKeyData }).apiKeyData = keyData;
     return true;
   }
 
-  /**
-   * Timing-safe string comparison to prevent timing attacks
-   */
   private timingSafeEqual(a: string, b: string): boolean {
-    if (a.length !== b.length) {
-      // Still do a comparison to maintain constant time
-      timingSafeEqual(Buffer.from(a), Buffer.from(a));
-      return false;
-    }
-    return timingSafeEqual(Buffer.from(a), Buffer.from(b));
+    const maxLen = Math.max(a.length, b.length);
+    const paddedA = a.padEnd(maxLen, '\0');
+    const paddedB = b.padEnd(maxLen, '\0');
+    return timingSafeEqual(Buffer.from(paddedA), Buffer.from(paddedB)) && a.length === b.length;
   }
 }

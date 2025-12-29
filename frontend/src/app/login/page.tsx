@@ -229,7 +229,7 @@ function LoginContent() {
                 <div className="w-full border-t border-border/40" />
               </div>
               <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-background px-3 text-muted-foreground">Or</span>
+                <span className="px-3 text-muted-foreground">Or</span>
               </div>
             </div>
 

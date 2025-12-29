@@ -3,7 +3,6 @@ import { ConfigService } from '@nestjs/config';
 import { Redis } from '@upstash/redis';
 import { MetricsService } from '@/common/metrics/metrics.service';
 
-// Redis operation metrics (in-memory counters for Prometheus)
 interface RedisMetrics {
   operations: number;
   errors: number;
@@ -41,16 +40,10 @@ export class RedisService implements OnModuleDestroy {
     this.logger.log('Redis connection closed');
   }
 
-  /**
-   * Get Redis operation metrics for monitoring
-   */
   getMetrics(): RedisMetrics {
     return { ...this.metrics };
   }
 
-  /**
-   * Reset metrics (useful for testing)
-   */
   resetMetrics(): void {
     this.metrics.operations = 0;
     this.metrics.errors = 0;
@@ -143,6 +136,26 @@ export class RedisService implements OnModuleDestroy {
     }
   }
 
+  async incrWithExpire(key: string, ttlSeconds: number): Promise<number> {
+    this.metrics.operations++;
+    this.metricsService.recordRedisOperation('incrWithExpire');
+    try {
+      const script = `
+        local current = redis.call('INCR', KEYS[1])
+        if current == 1 then
+          redis.call('EXPIRE', KEYS[1], ARGV[1])
+        end
+        return current
+      `;
+      const result = await this.client.eval(script, [key], [ttlSeconds]);
+      return typeof result === 'number' ? result : parseInt(String(result), 10);
+    } catch (error) {
+      this.metrics.errors++;
+      this.metricsService.recordRedisError();
+      throw error;
+    }
+  }
+
   async hset(key: string, field: string, value: unknown): Promise<void> {
     this.metrics.operations++;
     this.metricsService.recordRedisOperation('hset');
@@ -227,9 +240,6 @@ export class RedisService implements OnModuleDestroy {
     }
   }
 
-  /**
-   * Check if Redis connection is healthy
-   */
   async ping(): Promise<boolean> {
     try {
       await this.client.set('ping', 'pong');
@@ -240,9 +250,6 @@ export class RedisService implements OnModuleDestroy {
     }
   }
 
-  /**
-   * Get multiple keys at once
-   */
   async mget<T>(keys: string[]): Promise<(T | null)[]> {
     if (keys.length === 0) return [];
     this.metrics.operations++;
@@ -256,11 +263,8 @@ export class RedisService implements OnModuleDestroy {
     }
   }
 
-  /**
-   * Set multiple keys at once with TTL
-   */
   async mset(entries: { key: string; value: unknown; ttl?: number }[]): Promise<void> {
-    if (entries.length === 0) return; // Guard against empty array
+    if (entries.length === 0) return;
     this.metrics.operations++;
     this.metricsService.recordRedisOperation('mset');
     try {
@@ -280,10 +284,6 @@ export class RedisService implements OnModuleDestroy {
     }
   }
 
-  /**
-   * Publish message to a channel (for SSE streaming)
-   * Note: Upstash Redis REST API supports publish
-   */
   async publish(channel: string, message: string): Promise<number> {
     this.metrics.operations++;
     this.metricsService.recordRedisOperation('publish');
@@ -296,22 +296,16 @@ export class RedisService implements OnModuleDestroy {
     }
   }
 
-  /**
-   * Set key only if it doesn't exist (for locking)
-   * Returns true if key was set, false if it already existed
-   */
   async setnx(key: string, value: string, ttlSeconds?: number): Promise<boolean> {
     this.metrics.operations++;
     this.metricsService.recordRedisOperation('setnx');
     try {
       if (ttlSeconds) {
-        // Use SET with NX and EX options
         const result = await this.client.set(key, value, { nx: true, ex: ttlSeconds });
         return result === 'OK';
-      } else {
-        const result = await this.client.setnx(key, value);
-        return result === 1;
       }
+      const result = await this.client.setnx(key, value);
+      return result === 1;
     } catch (error) {
       this.metrics.errors++;
       this.metricsService.recordRedisError();
@@ -319,9 +313,6 @@ export class RedisService implements OnModuleDestroy {
     }
   }
 
-  /**
-   * Get the raw Redis client for advanced operations
-   */
   getClient(): Redis {
     return this.client;
   }

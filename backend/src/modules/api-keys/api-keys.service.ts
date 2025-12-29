@@ -180,15 +180,15 @@ export class ApiKeysService {
     this.logger.log(`API key ${keyId} revoked for user ${userId}`);
   }
 
-  /** Pilot program: 3 API requests per month */
   private readonly PILOT_MONTHLY_LIMIT = 3;
 
-  /**
-   * Check if user has exceeded their monthly API key usage limit
-   */
   async checkUsageLimit(rawKey: string): Promise<{ allowed: boolean; remaining: number; limit: number }> {
+    if (!rawKey || typeof rawKey !== 'string' || rawKey.length < 10) {
+      return { allowed: false, remaining: 0, limit: this.PILOT_MONTHLY_LIMIT };
+    }
+
     const keyData = await this.redis.get<StoredApiKey>(`${this.API_KEY_PREFIX}${rawKey}`);
-    if (!keyData) {
+    if (!keyData || !keyData.id) {
       return { allowed: false, remaining: 0, limit: this.PILOT_MONTHLY_LIMIT };
     }
 
@@ -209,53 +209,37 @@ export class ApiKeysService {
   async updateLastUsed(rawKey: string): Promise<void> {
     const keyData = await this.redis.get<StoredApiKey>(`${this.API_KEY_PREFIX}${rawKey}`);
     if (keyData) {
-      // Update last used timestamp
       await this.redis.hset(`${this.USER_KEYS_PREFIX}${keyData.userId}`, keyData.id, {
         ...keyData,
         lastUsedAt: new Date().toISOString(),
       });
-      
-      // Refresh TTL on the key to extend its lifetime on active use
       await this.redis.expire(`${this.API_KEY_PREFIX}${rawKey}`, this.KEY_TTL);
-
-      // Track usage stats
       await this.incrementUsage(keyData.id);
     }
   }
 
-  /**
-   * Increment usage counters for an API key
-   */
   private async incrementUsage(keyId: string): Promise<void> {
     const now = new Date();
-    const today = now.toISOString().split('T')[0]; // YYYY-MM-DD
-    const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`; // YYYY-MM
+    const today = now.toISOString().split('T')[0];
+    const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 
-    // Increment daily counter
     const dailyKey = `${this.API_KEY_USAGE_PREFIX}${keyId}:daily:${today}`;
     await this.redis.incr(dailyKey);
-    await this.redis.expire(dailyKey, 86400 * 7); // Keep for 7 days
+    await this.redis.expire(dailyKey, 86400 * 7);
 
-    // Increment monthly counter
     const monthlyKey = `${this.API_KEY_USAGE_PREFIX}${keyId}:monthly:${month}`;
     await this.redis.incr(monthlyKey);
-    await this.redis.expire(monthlyKey, 86400 * 35); // Keep for ~35 days
+    await this.redis.expire(monthlyKey, 86400 * 35);
 
-    // Increment total counter
     const totalKey = `${this.API_KEY_USAGE_PREFIX}${keyId}:total`;
     await this.redis.incr(totalKey);
   }
 
-  /**
-   * Get usage stats for a specific API key
-   */
   async getKeyUsage(keyId: string, userId: string): Promise<ApiKeyUsageStats | null> {
     const keys = await this.redis.hgetall<StoredApiKey>(`${this.USER_KEYS_PREFIX}${userId}`);
     const keyData = keys?.[keyId];
 
-    if (!keyData) {
-      return null;
-    }
+    if (!keyData) return null;
 
     const now = new Date();
     const today = now.toISOString().split('T')[0];
@@ -278,9 +262,6 @@ export class ApiKeysService {
     };
   }
 
-  /**
-   * Get usage summary for all API keys of a user
-   */
   async getUserUsageSummary(userId: string): Promise<UserApiKeyUsageSummary> {
     const keys = await this.findByUser(userId);
     

@@ -28,10 +28,6 @@ export class AdminService {
     private readonly audit: AuditService,
   ) {}
 
-  /**
-   * Upload PDF to Supabase Storage, then register with RAG service.
-   * Vectors are NOT created immediately (lazy loading on first query).
-   */
   async uploadPdf(
     dto: UploadPdfDto,
     fileBuffer: Buffer,
@@ -39,25 +35,20 @@ export class AdminService {
   ): Promise<UploadResult> {
     const fileId = uuid();
 
-    // Sanitize filename to prevent path traversal
     const sanitizedFilename = dto.filename
       .replace(/[^a-zA-Z0-9._-]/g, '_')
       .replace(/\.{2,}/g, '.')
       .slice(0, 255);
 
-    // Storage path: domain/sector/region/fileId/filename
     const region = dto.region ?? 'global';
     const storagePath = `${dto.domain}/${dto.sector}/${region}/${fileId}/${sanitizedFilename}`;
 
-    // 1. Upload to Supabase Storage
     const uploadResult = await this.storage.upload(storagePath, fileBuffer, contentType);
-    this.logger.log(`File uploaded to storage: ${uploadResult.path}`);
+    this.logger.log(`File uploaded: ${uploadResult.path}`);
 
-    // Prepare jurisdiction data
     const jurisdictions = dto.jurisdictions ?? ['general'];
     const documentType = dto.documentType ?? 'guide';
 
-    // 2. Register with RAG service (lazy vectorization)
     if (this.ragService.isAvailable()) {
       const registerResult = await this.ragService.registerFile({
         fileId,
@@ -72,55 +63,27 @@ export class AdminService {
       });
 
       if (!registerResult.success) {
-        // Rollback: delete from storage if registration fails
         await this.storage.delete(storagePath);
         throw new BadRequestException(`RAG registration failed: ${registerResult.message}`);
       }
-
-      this.logger.log(
-        `File registered with RAG: ${fileId} (${dto.domain}/${dto.sector}/${region}, jurisdictions: ${jurisdictions.join(',')})`,
-      );
-    } else {
-      this.logger.warn('RAG service not available - file uploaded but not registered');
     }
 
-    // Audit log
     await this.audit.log({
-      userId: null, // Admin action
+      userId: null,
       action: 'embedding.uploaded',
       resource: 'embedding',
       resourceId: fileId,
       oldValue: null,
-      newValue: {
-        filename: sanitizedFilename,
-        domain: dto.domain,
-        sector: dto.sector,
-        region,
-        jurisdictions,
-        documentType,
-      },
+      newValue: { filename: sanitizedFilename, domain: dto.domain, sector: dto.sector, region, jurisdictions, documentType },
       ipAddress: null,
       userAgent: null,
       metadata: { storagePath: uploadResult.path },
     });
 
-    return {
-      id: fileId,
-      status: 'pending',
-      storagePath: uploadResult.path,
-      domain: dto.domain,
-      sector: dto.sector,
-      region,
-      jurisdictions,
-      documentType,
-    };
+    return { id: fileId, status: 'pending', storagePath: uploadResult.path, domain: dto.domain, sector: dto.sector, region, jurisdictions, documentType };
   }
 
-  /**
-   * Force vectorization of a specific file.
-   */
   async forceVectorize(fileId: string): Promise<{ chunksCreated: number }> {
-    // Validate file ID format (UUID)
     if (!this.isValidUuid(fileId)) {
       throw new BadRequestException('Invalid file ID format');
     }
@@ -129,31 +92,17 @@ export class AdminService {
       throw new BadRequestException('RAG service not configured');
     }
 
-    const fileInfo = await this.ragService.getFile(fileId);
-    if (fileInfo) {
-      this.logger.log(`Vectorizing file: ${fileId}`);
-      this.logger.log(`Storage path: ${fileInfo.storagePath}`);
-      this.logger.log(`Domain: ${fileInfo.domain}, Sector: ${fileInfo.sector}`);
-      this.logger.log(`Region: ${fileInfo.region ?? 'global'}, Jurisdictions: ${fileInfo.jurisdictions?.join(',') ?? 'general'}`);
-    }
-
     const result = await this.ragService.vectorizeFile(fileId);
 
     if (!result.success) {
-      this.logger.error(`Vectorization failed for ${fileId}: ${result.message}`);
       throw new BadRequestException(result.message);
     }
 
-    this.logger.log(`Vectorization successful: ${result.chunksCreated} chunks created`);
+    this.logger.log(`Vectorization complete: ${result.chunksCreated} chunks`);
     return { chunksCreated: result.chunksCreated };
   }
 
-  /**
-   * List all embeddings with optional domain/sector/region filter.
-   */
-  async listEmbeddings(
-    query: ListEmbeddingsQueryDto,
-  ): Promise<PaginatedResult<EmbeddingResponseDto>> {
+  async listEmbeddings(query: ListEmbeddingsQueryDto): Promise<PaginatedResult<EmbeddingResponseDto>> {
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
 
@@ -191,24 +140,14 @@ export class AdminService {
       const startIndex = (page - 1) * limit;
       const paginatedData = embeddings.slice(startIndex, startIndex + limit);
 
-      return {
-        data: paginatedData,
-        meta: { total, page, limit, totalPages },
-      };
+      return { data: paginatedData, meta: { total, page, limit, totalPages } };
     } catch (error) {
       this.logger.error('Failed to list embeddings', error);
-      return {
-        data: [],
-        meta: { total: 0, page, limit, totalPages: 0 },
-      };
+      throw new BadRequestException('Failed to retrieve embeddings');
     }
   }
 
-  /**
-   * Get embedding by ID.
-   */
   async getEmbedding(id: string): Promise<EmbeddingResponseDto> {
-    // Validate file ID format (UUID)
     if (!this.isValidUuid(id)) {
       throw new BadRequestException('Invalid file ID format');
     }
@@ -218,7 +157,6 @@ export class AdminService {
     }
 
     const file = await this.ragService.getFile(id);
-
     if (!file) {
       throw new NotFoundException('Document not found');
     }
@@ -239,78 +177,48 @@ export class AdminService {
     };
   }
 
-  /**
-   * Validate UUID format
-   */
   private isValidUuid(id: string): boolean {
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-    return uuidRegex.test(id);
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id);
   }
 
-  /**
-   * Delete embedding and its vectors + storage file.
-   */
   async deleteEmbedding(id: string): Promise<void> {
-    // Validate file ID format (UUID)
     if (!this.isValidUuid(id)) {
       throw new BadRequestException('Invalid file ID format');
     }
 
     const file = await this.ragService.getFile(id);
-
     if (!file) {
       throw new NotFoundException('Document not found');
     }
 
-    // 1. Delete from RAG service (vectors + metadata)
     const result = await this.ragService.deleteFile(id);
-
     if (!result.success) {
       throw new BadRequestException(result.message);
     }
 
-    // 2. Delete from Supabase Storage
     try {
       await this.storage.delete(file.storagePath);
-      this.logger.log(`Deleted from storage: ${file.storagePath}`);
     } catch (error) {
       this.logger.warn(`Failed to delete from storage: ${file.storagePath}`, error);
     }
 
-    // Audit log
     await this.audit.log({
       userId: null,
       action: 'embedding.deleted',
       resource: 'embedding',
       resourceId: id,
-      oldValue: {
-        filename: file.filename,
-        domain: file.domain,
-        sector: file.sector,
-        region: file.region,
-        jurisdictions: file.jurisdictions,
-      },
+      oldValue: { filename: file.filename, domain: file.domain, sector: file.sector },
       newValue: null,
       ipAddress: null,
       userAgent: null,
       metadata: { chunksDeleted: result.chunksDeleted },
     });
-
-    this.logger.log(`Document deleted: ${id} (${String(result.chunksDeleted)} chunks)`);
   }
 
-  /**
-   * Trigger cleanup of expired vectors (not accessed in X days).
-   */
   async cleanupExpiredVectors(days = 30): Promise<{ filesCleaned: number; vectorsRemoved: number }> {
     if (!this.ragService.isAvailable()) {
       throw new BadRequestException('RAG service not configured');
     }
-
-    const result = await this.ragService.cleanupExpired(days);
-
-    this.logger.log(`Cleanup completed: ${String(result.filesCleaned)} files, ${String(result.vectorsRemoved)} vectors`);
-
-    return result;
+    return this.ragService.cleanupExpired(days);
   }
 }

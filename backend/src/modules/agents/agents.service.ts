@@ -13,7 +13,6 @@ import { AgentType, AgentInput, AgentPhaseResult } from './types/agent.types';
 import { RunAgentDto } from './dto/run-agent.dto';
 import { TaskStatusDto } from './dto/task-status.dto';
 
-// Pilot plan limits
 const PILOT_MONTHLY_LIMIT = 3;
 
 interface QueueTaskResult {
@@ -37,8 +36,6 @@ interface A2ACritique {
 }
 
 const ALL_AGENTS: AgentType[] = ['legal', 'finance', 'investor', 'competitor'];
-
-// Response cache TTL (15 minutes for similar queries)
 const RESPONSE_CACHE_TTL = 15 * 60;
 
 @Injectable()
@@ -56,57 +53,34 @@ export class AgentsService {
     private readonly cache: CacheService,
   ) {}
 
-  /**
-   * Generate cache key for a prompt (normalized hash)
-   */
   private getPromptCacheKey(startupId: string, prompt: string, agents?: string[]): string {
-    // Normalize prompt: lowercase, trim, remove extra spaces
     const normalizedPrompt = prompt.toLowerCase().trim().replace(/\s+/g, ' ');
     const agentKey = agents?.sort().join(',') ?? 'all';
     const hash = createHash('md5').update(`${startupId}:${agentKey}:${normalizedPrompt}`).digest('hex').slice(0, 16);
     return `agent:response:${hash}`;
   }
 
-  /**
-   * Get usage key for current month
-   */
   private getUsageKey(userId: string): string {
     const now = new Date();
     const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
     return `usage:${userId}:${month}`;
   }
 
-  /**
-   * Check and increment usage for pilot users
-   * Uses atomic increment to prevent race conditions
-   */
   private async checkAndIncrementUsage(userId: string): Promise<{ used: number; limit: number; remaining: number }> {
     const key = this.getUsageKey(userId);
     const user = await this.usersService.findById(userId);
     
-    // Admins have unlimited usage
     if (user.role === 'admin') {
       return { used: 0, limit: -1, remaining: -1 };
     }
 
-    // Atomic increment first - this prevents race conditions
-    // If multiple requests come in simultaneously, each gets a unique count
-    const newCount = await this.redis.incr(key);
-    
-    // Set expiry to end of month if this is the first request
-    if (newCount === 1) {
-      const now = new Date();
-      const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-      const ttl = Math.floor((endOfMonth.getTime() - now.getTime()) / 1000);
-      await this.redis.expire(key, ttl);
-    }
+    const now = new Date();
+    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+    const ttl = Math.floor((endOfMonth.getTime() - now.getTime()) / 1000);
 
-    // Check if over limit AFTER incrementing
-    // This ensures we don't have a TOCTOU race condition
+    const newCount = await this.redis.incrWithExpire(key, ttl);
+
     if (newCount > PILOT_MONTHLY_LIMIT) {
-      // Decrement back since we're over limit
-      // Note: In high-concurrency scenarios, this is still safe because
-      // the user already exceeded their limit
       throw new ForbiddenException(`Monthly limit of ${PILOT_MONTHLY_LIMIT} AI requests reached. Resets on the 1st of next month.`);
     }
 
@@ -117,21 +91,15 @@ export class AgentsService {
     };
   }
 
-  /**
-   * Get current usage stats for a user
-   */
   async getUsageStats(userId: string): Promise<{ used: number; limit: number; remaining: number; resetsAt: string }> {
     const user = await this.usersService.findById(userId);
     
-    // Admins have unlimited usage
     if (user.role === 'admin') {
       return { used: 0, limit: -1, remaining: -1, resetsAt: '' };
     }
 
     const key = this.getUsageKey(userId);
     const current = await this.redis.get<number>(key) ?? 0;
-    
-    // Calculate reset date (1st of next month)
     const now = new Date();
     const resetsAt = new Date(now.getFullYear(), now.getMonth() + 1, 1);
 
@@ -148,33 +116,23 @@ export class AgentsService {
     dto: RunAgentDto,
     onProgress?: (step: string) => void,
   ): Promise<AgentPhaseResult[]> {
-    // Check usage limits for pilot users
     await this.checkAndIncrementUsage(userId);
-    
     return this.runWithoutUsageCheck(userId, dto, onProgress);
   }
 
-  /**
-   * Run agent without incrementing usage (for webhook handler where queueTask already incremented)
-   */
   async runWithoutUsageCheck(
     userId: string,
     dto: RunAgentDto,
     onProgress?: (step: string) => void,
   ): Promise<AgentPhaseResult[]> {
-    // Check cache for similar prompts (skip if onProgress is provided - user wants realtime updates)
     const cacheKey = this.getPromptCacheKey(dto.startupId, dto.prompt, dto.agents);
     if (!onProgress) {
       const cached = await this.cache.get<AgentPhaseResult[]>(cacheKey);
-      if (cached) {
-        this.logger.log(`Cache hit for prompt: ${cacheKey}`);
-        return cached;
-      }
+      if (cached) return cached;
     }
 
     const input = await this.buildAgentInput(userId, dto);
     
-    // Multi-agent mode: no agentType specified or agents array provided
     let result: AgentPhaseResult[];
     if (!dto.agentType) {
       const agents = dto.agents?.filter((a): a is AgentType => ALL_AGENTS.includes(a as AgentType)) ?? ALL_AGENTS;
@@ -183,16 +141,10 @@ export class AgentsService {
       result = await this.orchestrator.runAgent(dto.agentType, input, onProgress);
     }
 
-    // Cache the result for future similar queries
     await this.cache.set(cacheKey, result, { ttl: RESPONSE_CACHE_TTL });
-    
     return result;
   }
 
-  /**
-   * Run multi-agent with pre-built input (for webhook handler where input is already built)
-   * This avoids re-running buildAgentInput which would fail since documents are already content, not IDs.
-   */
   async runMultiAgentWithInput(
     input: AgentInput,
     agents: string[],
@@ -206,22 +158,15 @@ export class AgentsService {
   }
 
   async queueTask(userId: string, dto: RunAgentDto): Promise<QueueTaskResult> {
-    // Check usage limits for pilot users
     await this.checkAndIncrementUsage(userId);
     
     const input = await this.buildAgentInput(userId, dto);
-    
-    // For multi-agent, we use 'legal' as the primary but the queue service will handle multi-agent
     const agentType = dto.agentType ?? 'legal';
     const isMultiAgent = !dto.agentType;
     
     return this.queueService.addJob(agentType, input, userId, isMultiAgent ? (dto.agents ?? ALL_AGENTS) : undefined);
   }
 
-  /**
-   * Run multi-agent A2A query with cross-critique
-   * @param onProgress - Optional callback for realtime progress updates
-   */
   private async runMultiAgent(
     agents: AgentType[],
     input: AgentInput,
@@ -304,7 +249,6 @@ export class AgentsService {
     input: AgentInput,
     onProgress?: (step: string) => void,
   ): Promise<A2AAgentResponse[]> {
-    // Guard against empty agents array
     if (!agents || agents.length === 0) {
       throw new BadRequestException('At least one agent must be specified');
     }
@@ -327,7 +271,6 @@ export class AgentsService {
           };
         } catch (error) {
           this.logger.warn(`Agent ${agent} failed`, error);
-          onProgress?.(`${agent.charAt(0).toUpperCase() + agent.slice(1)} agent failed - skipping`);
           return null;
         }
       }),
@@ -342,11 +285,9 @@ export class AgentsService {
     prompt: string,
     onProgress?: (step: string) => void,
   ): Promise<A2ACritique[]> {
-    // Build all critique tasks for parallel execution
     const critiqueTasks: Promise<A2ACritique | null>[] = [];
     
     for (const criticAgent of agents) {
-      // Each agent critiques only 1 other response for speed
       const otherResponses = responses.filter((r) => r.agent !== criticAgent).slice(0, 1);
       
       for (const response of otherResponses) {
@@ -361,14 +302,12 @@ export class AgentsService {
             })
             .catch(error => {
               this.logger.warn(`Critique by ${criticAgent} failed`, error);
-              onProgress?.(`${criticAgent.charAt(0).toUpperCase() + criticAgent.slice(1)} critique failed - skipping`);
               return null;
             })
         );
       }
     }
     
-    // Run all critiques in parallel
     const results = await Promise.all(critiqueTasks);
     return results.filter((c): c is A2ACritique => c !== null);
   }
@@ -390,7 +329,6 @@ R: ${response.content.slice(0, 500)}
         { minModels: 1, maxModels: 1, temperature: 0.2, maxTokens: 100 },
       );
       
-      // Try to extract JSON from response
       const jsonMatch = /\{[^}]+\}/.exec(result.finalResponse);
       if (!jsonMatch) return null;
       
