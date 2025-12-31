@@ -24,6 +24,7 @@ import { EmailModule } from './common/email/email.module';
 
 // Interceptors
 import { HttpMetricsInterceptor } from './common/interceptors/http-metrics.interceptor';
+import { TransformResponseInterceptor } from './common/interceptors/transform-response.interceptor';
 
 // Feature modules
 import { HealthModule } from './modules/health/health.module';
@@ -105,6 +106,10 @@ import { CapTableModule } from './modules/cap-table/cap-table.module';
     {
       provide: APP_INTERCEPTOR,
       useClass: HttpMetricsInterceptor,
+    },
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: TransformResponseInterceptor,
     },
   ],
 })
