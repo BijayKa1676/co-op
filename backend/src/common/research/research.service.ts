@@ -16,6 +16,8 @@ import {
 } from './research.types';
 
 const RESEARCH_MODEL = 'gemini-2.0-flash';
+// Timeout for Gemini API calls (30 seconds)
+const GEMINI_TIMEOUT_MS = 30000;
 
 // Google Search tool type for grounded search (new API format)
 interface GoogleSearchTool {
@@ -278,7 +280,14 @@ export class ResearchService {
     if (this.model) {
       try {
         const prompt = this.buildResearchPrompt(research);
-        const result = await this.model.generateContent(prompt);
+        
+        // Wrap Gemini call with timeout to prevent hanging
+        const resultPromise = this.model.generateContent(prompt);
+        const timeoutPromise = new Promise<never>((_, reject) => {
+          setTimeout(() => reject(new Error('Gemini API timeout')), GEMINI_TIMEOUT_MS);
+        });
+        
+        const result = await Promise.race([resultPromise, timeoutPromise]);
         const response = result.response;
         const text = response.text();
 
@@ -293,8 +302,10 @@ export class ResearchService {
           groundingChunks,
         };
       } catch (error) {
-        this.logger.warn(`Gemini grounded search failed for ${research.type}: ${String(error)}`);
-        // Fall through to SerpAPI fallback
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        const isTimeout = errorMsg.includes('timeout');
+        this.logger.warn(`Gemini grounded search ${isTimeout ? 'timed out' : 'failed'} for ${research.type}: ${errorMsg}`);
+        // Fall through to ScrapingBee fallback
       }
     }
 

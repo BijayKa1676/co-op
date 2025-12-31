@@ -7,10 +7,28 @@ export interface AgentContext {
   metadata: Record<string, unknown>;
 }
 
+/**
+ * Context quality indicators for transparency
+ */
+export interface ContextQualityIndicators {
+  /** Whether semantic search was used (true) or fallback (false) */
+  semanticSearchUsed: boolean;
+  /** Number of relevant chunks found */
+  relevantChunksFound: number;
+  /** Total documents processed */
+  documentsProcessed: number;
+  /** Whether context was degraded due to errors */
+  degraded: boolean;
+  /** Reason for degradation if any */
+  degradationReason?: string;
+}
+
 export interface AgentInput {
   context: AgentContext;
   prompt: string;
   documents: string[];
+  /** Context quality indicators for transparency to users */
+  contextQuality?: ContextQualityIndicators;
 }
 
 export interface AgentOutput {

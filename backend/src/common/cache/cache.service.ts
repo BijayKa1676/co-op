@@ -169,6 +169,7 @@ export class CacheService implements OnModuleInit {
   /**
    * Get or set with stale-while-revalidate pattern
    * Returns stale data immediately while refreshing in background
+   * Uses distributed lock to prevent thundering herd on refresh
    */
   async getOrSetSWR<T>(
     key: string,
@@ -177,6 +178,7 @@ export class CacheService implements OnModuleInit {
   ): Promise<T> {
     const fullKey = this.buildKey(key, options.prefix);
     const metaKey = `${fullKey}:meta`;
+    const lockKey = `${fullKey}:refresh-lock`;
     
     const [cached, meta] = await Promise.all([
       this.redis.get<T>(fullKey),
@@ -191,10 +193,16 @@ export class CacheService implements OnModuleInit {
     if (cached !== null) {
       this.hits++;
       
-      // If stale, refresh in background
+      // If stale, try to refresh in background (with lock to prevent multiple refreshes)
       if (isStale) {
-        this.logger.debug(`Cache stale, refreshing in background: ${fullKey}`);
-        void this.refreshInBackground(fullKey, metaKey, factory, options.ttl);
+        // Try to acquire refresh lock (10 second TTL)
+        const acquired = await this.redis.setnx(lockKey, 'refreshing', 10);
+        if (acquired) {
+          this.logger.debug(`Cache stale, refreshing in background: ${fullKey}`);
+          void this.refreshInBackground(fullKey, metaKey, lockKey, factory, options.ttl);
+        } else {
+          this.logger.debug(`Cache stale but refresh already in progress: ${fullKey}`);
+        }
       }
       
       return cached;
@@ -214,6 +222,7 @@ export class CacheService implements OnModuleInit {
   private async refreshInBackground<T>(
     fullKey: string,
     metaKey: string,
+    lockKey: string,
     factory: () => Promise<T>,
     ttl: number
   ): Promise<void> {
@@ -226,6 +235,9 @@ export class CacheService implements OnModuleInit {
       this.logger.debug(`Background refresh complete: ${fullKey}`);
     } catch (error) {
       this.logger.warn(`Background refresh failed: ${fullKey} - ${String(error)}`);
+    } finally {
+      // Always release the lock
+      await this.redis.del(lockKey);
     }
   }
 

@@ -141,6 +141,12 @@ export class RagService {
    * Query RAG with domain, sector, and jurisdiction filtering.
    * Returns context (document chunks) - NO LLM generation.
    * Results are cached for 30 minutes to reduce latency.
+   * 
+   * FALLBACK STRATEGY:
+   * 1. Check cache first
+   * 2. Try live query with circuit breaker
+   * 3. If circuit breaker trips, try stale cache
+   * 4. Return empty result with error message as last resort
    */
   async query(request: QueryRequest): Promise<QueryResponse> {
     if (!this.isConfigured) {
@@ -229,8 +235,10 @@ export class RagService {
       };
     };
 
-    try {
-      const result = await this.circuitBreaker.execute('rag-query', queryFn, () => ({
+    // Fallback function that returns empty result (stale cache checked in catch block)
+    const fallbackFn = (): QueryResponse => {
+      this.logger.warn('RAG circuit breaker open - returning empty result');
+      return {
         context: '',
         sources: [],
         domain: request.domain,
@@ -239,8 +247,24 @@ export class RagService {
         jurisdictions: request.jurisdictions,
         vectorsLoaded: 0,
         chunksFound: 0,
-        error: 'RAG service temporarily unavailable',
-      }));
+        error: 'RAG service temporarily unavailable (circuit breaker open)',
+      };
+    };
+
+    try {
+      const result = await this.circuitBreaker.execute('rag-query', queryFn, fallbackFn);
+
+      // If circuit breaker returned fallback, try stale cache
+      if (result.error?.includes('circuit breaker')) {
+        const staleCache = await this.cacheService.getStale(request);
+        if (staleCache) {
+          this.logger.warn('RAG circuit breaker open - using stale cache');
+          return {
+            ...staleCache,
+            error: 'Using cached data (service temporarily unavailable)',
+          };
+        }
+      }
 
       // Cache successful results
       if (result.chunksFound > 0 && !result.error) {
@@ -250,6 +274,17 @@ export class RagService {
       return result;
     } catch (error) {
       this.logger.error('RAG query failed', error);
+      
+      // Last resort: try stale cache
+      const staleCache = await this.cacheService.getStale(request);
+      if (staleCache) {
+        this.logger.warn('RAG query failed - using stale cache as fallback');
+        return {
+          ...staleCache,
+          error: 'Using cached data (query failed)',
+        };
+      }
+      
       return {
         context: '',
         sources: [],

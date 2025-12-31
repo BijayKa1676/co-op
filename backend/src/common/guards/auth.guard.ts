@@ -31,7 +31,16 @@ const ipFailedAttempts = new Map<string, { count: number; resetAt: number }>();
 
 const TOKEN_CACHE_TTL_MS = 30000;
 const TOKEN_CACHE_MAX_SIZE = 10000;
-const tokenCache = new Map<string, { userId: string; user: AuthenticatedUser; expiresAt: number }>();
+const TOKEN_CACHE_EVICT_BATCH = 1000; // Evict 10% at a time
+
+interface TokenCacheEntry {
+  userId: string;
+  user: AuthenticatedUser;
+  expiresAt: number;
+  lastAccessed: number; // For LRU eviction
+}
+
+const tokenCache = new Map<string, TokenCacheEntry>();
 
 let cleanupIntervalId: NodeJS.Timeout | null = null;
 
@@ -39,13 +48,36 @@ function startCleanupInterval(): void {
   if (cleanupIntervalId) return;
   cleanupIntervalId = setInterval(() => {
     const now = Date.now();
+    // Remove expired entries
     for (const [key, value] of tokenCache) {
       if (now > value.expiresAt) tokenCache.delete(key);
     }
     for (const [key, value] of ipFailedAttempts) {
       if (now > value.resetAt) ipFailedAttempts.delete(key);
     }
+    
+    // LRU eviction if still over capacity
+    if (tokenCache.size > TOKEN_CACHE_MAX_SIZE) {
+      evictLRU();
+    }
   }, 60000);
+}
+
+/**
+ * LRU eviction - remove least recently accessed entries
+ */
+function evictLRU(): void {
+  if (tokenCache.size <= TOKEN_CACHE_MAX_SIZE) return;
+  
+  // Sort by lastAccessed (oldest first)
+  const entries = Array.from(tokenCache.entries())
+    .sort((a, b) => a[1].lastAccessed - b[1].lastAccessed);
+  
+  // Remove oldest entries until we're under capacity
+  const toRemove = Math.min(TOKEN_CACHE_EVICT_BATCH, tokenCache.size - TOKEN_CACHE_MAX_SIZE + 100);
+  for (let i = 0; i < toRemove && i < entries.length; i++) {
+    tokenCache.delete(entries[i][0]);
+  }
 }
 
 function stopCleanupInterval(): void {
@@ -89,29 +121,39 @@ export class AuthGuard implements CanActivate, OnModuleDestroy {
     const key = this.getTokenCacheKey(token);
     const cached = tokenCache.get(key);
     
-    if (cached && Date.now() < cached.expiresAt) return cached.user;
+    if (cached && Date.now() < cached.expiresAt) {
+      // Update lastAccessed for LRU tracking
+      cached.lastAccessed = Date.now();
+      return cached.user;
+    }
     if (cached) tokenCache.delete(key);
     return null;
   }
 
   private cacheAuth(token: string, user: AuthenticatedUser): void {
     const key = this.getTokenCacheKey(token);
+    const now = Date.now();
     
+    // Proactive eviction before adding
     if (tokenCache.size >= TOKEN_CACHE_MAX_SIZE) {
-      const now = Date.now();
+      // First pass: remove expired entries
       for (const [cacheKey, value] of tokenCache) {
         if (now > value.expiresAt) tokenCache.delete(cacheKey);
         if (tokenCache.size < TOKEN_CACHE_MAX_SIZE * 0.9) break;
       }
       
+      // Second pass: LRU eviction if still over capacity
       if (tokenCache.size >= TOKEN_CACHE_MAX_SIZE) {
-        const toRemove = Math.ceil(TOKEN_CACHE_MAX_SIZE * 0.1);
-        const keys = Array.from(tokenCache.keys()).slice(0, toRemove);
-        keys.forEach(k => tokenCache.delete(k));
+        evictLRU();
       }
     }
     
-    tokenCache.set(key, { userId: user.id, user, expiresAt: Date.now() + TOKEN_CACHE_TTL_MS });
+    tokenCache.set(key, { 
+      userId: user.id, 
+      user, 
+      expiresAt: now + TOKEN_CACHE_TTL_MS,
+      lastAccessed: now,
+    });
   }
 
   private checkFailedAuthRateLimit(ip: string): void {

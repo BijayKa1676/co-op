@@ -208,7 +208,7 @@ export class ApiKeysService {
     }
 
     const keyData = await this.redis.get<StoredApiKey>(`${this.API_KEY_PREFIX}${rawKey}`);
-    if (!keyData || !keyData.id) {
+    if (!keyData?.id) {
       return { allowed: false, remaining: 0, limit: this.pilotMonthlyLimit };
     }
 

@@ -5,6 +5,56 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0] - 2025-12-31
+
+### Production Quality Improvements
+
+#### Critical Fixes
+- **LLM Council Response Validation** - Added minimum response threshold validation
+  - Requires at least 50% of models to respond successfully
+  - Validates response content is not empty or too short (<50 chars)
+  - Tracks success count during parallel response generation
+  - Prevents council from proceeding with insufficient data
+
+- **RAG Service Stale Cache Fallback** - Added graceful degradation when circuit breaker trips
+  - Maintains separate stale cache with 2-hour TTL
+  - Falls back to stale cache when service is unavailable
+  - Clear error messaging indicates cached data usage
+  - Prevents complete failure when RAG service is down
+
+- **Research Service Timeout** - Added 30-second timeout to Gemini API calls
+  - Prevents hanging requests from blocking research operations
+  - Graceful fallback to ScrapingBee on timeout
+  - Clear logging distinguishes timeout from other failures
+
+- **Orchestrator DLQ Race Condition Fix** - Replaced lrange+lrem with atomic lpop
+  - Prevents race condition between reading and removing DLQ items
+  - Added lpop and llen methods to Redis service
+  - More reliable DLQ processing under concurrent load
+
+- **Auth Guard LRU Eviction** - Implemented proper LRU cache eviction
+  - Added `lastAccessed` timestamp tracking for each cached token
+  - Evicts least recently used entries when cache is full
+  - Prevents memory leak from unbounded cache growth
+  - Batch eviction of 1000 entries at a time
+
+- **Retry Service Minimum Delay** - Added floor to jitter calculation
+  - Minimum delay of 100ms or 10% of capped delay
+  - Prevents 0ms retry loops that could hammer services
+  - Better distribution of retry attempts
+
+- **Cache Service SWR Lock** - Added distributed lock for background refresh
+  - Uses Redis setnx with 10-second TTL for refresh lock
+  - Prevents thundering herd on stale cache refresh
+  - Lock automatically released after refresh completes
+
+### Infrastructure
+- Added `lpop` and `llen` methods to Redis service
+- Added `getStale` method to RAG cache service with separate stale cache
+- Improved error handling throughout critical services
+
+---
+
 ## [1.4.0] - 2025-12-29
 
 ### New Features
@@ -594,6 +644,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 | Version | Date | Description |
 |---------|------|-------------|
+| 1.5.0 | 2025-12-31 | Production quality: LLM validation, RAG fallback, DLQ fix, LRU eviction |
+| 1.4.0 | 2025-12-29 | Admin user management, pilot limits, encryption versioning |
 | 1.3.7 | 2025-12-28 | Session integrity, RAG fix, Queue Health card, DLQ metrics |
 | 1.3.6 | 2025-12-27 | Rate limiting & security fixes across all controllers |
 | 1.3.5 | 2025-12-27 | LLM provider robustness, security improvements |

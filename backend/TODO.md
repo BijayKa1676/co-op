@@ -175,6 +175,16 @@
 - ✅ Health check caching (5s TTL)
 - ✅ Webhook exponential backoff
 
+### Production Quality (v1.5.0)
+- ✅ LLM Council minimum response validation (50% threshold)
+- ✅ RAG service stale cache fallback (2-hour TTL)
+- ✅ Research service Gemini API timeout (30s)
+- ✅ Orchestrator DLQ atomic operations (lpop instead of lrange+lrem)
+- ✅ Auth guard LRU eviction with lastAccessed tracking
+- ✅ Retry service minimum delay floor (100ms)
+- ✅ Cache service SWR distributed lock (prevents thundering herd)
+- ✅ Redis service lpop and llen methods
+
 ### Configurable Pilot Limits (v1.4.0)
 - ✅ PILOT_AGENT_MONTHLY_REQUESTS
 - ✅ PILOT_API_KEY_LIMIT

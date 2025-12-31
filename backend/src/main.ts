@@ -66,7 +66,7 @@ function validateProductionConfig(): void {
 
   if (errors.length > 0) {
     logger.error('Production configuration validation failed:');
-    errors.forEach(err => logger.error(`  - ${err}`));
+    errors.forEach(err => { logger.error(`  - ${err}`); });
     throw new Error(`Production configuration invalid: ${errors.join('; ')}`);
   }
 

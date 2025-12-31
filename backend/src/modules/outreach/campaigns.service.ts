@@ -740,7 +740,7 @@ export class CampaignsService {
     }
 
     const lead = await this.leadsService.getLeadById(email.leadId);
-    if (!lead || !lead.email) {
+    if (!lead?.email) {
       throw new BadRequestException('Lead has no email address');
     }
 

@@ -1,4 +1,4 @@
-import { IsString, IsBoolean, IsOptional, IsEnum, IsInt, Min, IsUrl, IsEmail } from 'class-validator';
+import { IsString, IsBoolean, IsOptional, IsEnum, IsInt, Min, Max, IsUrl, IsEmail, MaxLength } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export type InvestorStage = 'pre-seed' | 'seed' | 'series-a' | 'series-b' | 'series-c' | 'growth';
@@ -6,11 +6,13 @@ export type InvestorStage = 'pre-seed' | 'seed' | 'series-a' | 'series-b' | 'ser
 export class CreateInvestorDto {
   @ApiProperty({ example: 'Sequoia Capital' })
   @IsString()
+  @MaxLength(255)
   name: string;
 
   @ApiPropertyOptional({ example: 'Leading venture capital firm' })
   @IsOptional()
   @IsString()
+  @MaxLength(2000)
   description?: string;
 
   @ApiPropertyOptional({ example: 'https://sequoiacap.com' })
@@ -24,27 +26,32 @@ export class CreateInvestorDto {
 
   @ApiProperty({ example: 'saas,fintech,ai', description: 'Comma-separated sectors' })
   @IsString()
+  @MaxLength(500)
   sectors: string;
 
   @ApiPropertyOptional({ example: 1000, description: 'Minimum check size in thousands USD' })
   @IsOptional()
   @IsInt()
   @Min(0)
+  @Max(10000000) // 10B max
   checkSizeMin?: number;
 
   @ApiPropertyOptional({ example: 50000, description: 'Maximum check size in thousands USD' })
   @IsOptional()
   @IsInt()
   @Min(0)
+  @Max(10000000) // 10B max
   checkSizeMax?: number;
 
   @ApiProperty({ example: 'Menlo Park, CA' })
   @IsString()
+  @MaxLength(255)
   location: string;
 
   @ApiPropertyOptional({ example: 'us,eu,apac', description: 'Comma-separated regions' })
   @IsOptional()
   @IsString()
+  @MaxLength(255)
   regions?: string;
 
   @ApiPropertyOptional({ example: 'contact@sequoiacap.com' })
@@ -77,11 +84,13 @@ export class UpdateInvestorDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
+  @MaxLength(255)
   name?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
+  @MaxLength(2000)
   description?: string;
 
   @ApiPropertyOptional()
@@ -97,28 +106,33 @@ export class UpdateInvestorDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
+  @MaxLength(500)
   sectors?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsInt()
   @Min(0)
+  @Max(10000000)
   checkSizeMin?: number;
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsInt()
   @Min(0)
+  @Max(10000000)
   checkSizeMax?: number;
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
+  @MaxLength(255)
   location?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
+  @MaxLength(255)
   regions?: string;
 
   @ApiPropertyOptional()
@@ -212,16 +226,19 @@ export class InvestorQueryDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
+  @MaxLength(100)
   sector?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
+  @MaxLength(100)
   region?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
+  @MaxLength(200)
   search?: string;
 
   @ApiPropertyOptional({ default: false })

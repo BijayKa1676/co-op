@@ -160,6 +160,15 @@
 - [x] DLQ metrics tracking (taskQueueSize, taskDlqSize, retryAttemptsTotal, retrySuccessesTotal)
 - [x] Real-time thinking steps fix - all agents now pass onProgress to LLM Council
 
+### Production Quality (v1.5.0)
+- [x] LLM Council minimum response validation (50% threshold)
+- [x] RAG service stale cache fallback (2-hour TTL)
+- [x] Research service Gemini API timeout (30s)
+- [x] Orchestrator DLQ atomic operations (lpop instead of lrange+lrem)
+- [x] Auth guard LRU eviction with lastAccessed tracking
+- [x] Retry service minimum delay floor (100ms)
+- [x] Cache service SWR distributed lock (prevents thundering herd)
+
 ### Production Readiness (v1.4.0)
 - [x] Encryption key versioning for rotation
 - [x] API key revocation support

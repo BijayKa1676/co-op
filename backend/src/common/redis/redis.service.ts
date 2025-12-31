@@ -240,6 +240,30 @@ export class RedisService implements OnModuleDestroy {
     }
   }
 
+  async lpop(key: string): Promise<string | null> {
+    this.metrics.operations++;
+    this.metricsService.recordRedisOperation('lpop');
+    try {
+      return await this.client.lpop<string>(key);
+    } catch (error) {
+      this.metrics.errors++;
+      this.metricsService.recordRedisError();
+      throw error;
+    }
+  }
+
+  async llen(key: string): Promise<number> {
+    this.metrics.operations++;
+    this.metricsService.recordRedisOperation('llen');
+    try {
+      return await this.client.llen(key);
+    } catch (error) {
+      this.metrics.errors++;
+      this.metricsService.recordRedisError();
+      throw error;
+    }
+  }
+
   async ping(): Promise<boolean> {
     try {
       await this.client.set('ping', 'pong');

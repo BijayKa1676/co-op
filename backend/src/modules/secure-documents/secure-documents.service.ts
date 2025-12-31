@@ -15,6 +15,7 @@ const CHUNK_OVERLAP = 200;
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const ALLOWED_MIME_TYPES = ['application/pdf'] as const;
+type AllowedMimeType = typeof ALLOWED_MIME_TYPES[number];
 
 export interface SecureDocumentResponse {
   id: string;
@@ -380,10 +381,12 @@ export class SecureDocumentsService {
       throw new BadRequestException(`File size exceeds maximum of ${MAX_FILE_SIZE / 1024 / 1024}MB`);
     }
     
-    if (file.mimetype === 'application/pdf') {
+    // Check MIME type against allowed types
+    if (ALLOWED_MIME_TYPES.includes(file.mimetype as AllowedMimeType)) {
       return;
     }
 
+    // Fallback: check file extension
     const ext = file.originalname.split('.').pop()?.toLowerCase() ?? '';
     if (ext === 'pdf') {
       return;

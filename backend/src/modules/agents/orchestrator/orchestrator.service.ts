@@ -67,23 +67,26 @@ export class OrchestratorService implements OnModuleInit, OnModuleDestroy {
 
   /**
    * Process dead letter queue - retry failed tasks
+   * Uses atomic LPOP to prevent race conditions between lrange and lrem
    */
   private async processDlq(): Promise<void> {
     try {
-      const items = await this.redis.lrange(TASK_DLQ_KEY, 0, 20);
-      if (items.length === 0) return;
-
-      this.logger.log(`Processing ${items.length} items from task DLQ`);
       let processed = 0;
-
-      for (const item of items) {
+      let skipped = 0;
+      const maxItemsPerRun = 20;
+      
+      // Use atomic LPOP instead of lrange + lrem to prevent race conditions
+      for (let i = 0; i < maxItemsPerRun; i++) {
+        const item = await this.redis.lpop(TASK_DLQ_KEY);
+        if (!item) break; // Queue is empty
+        
         try {
           const failedTask = JSON.parse(item) as FailedTask;
           
           // Skip if max retries exceeded
           if (failedTask.retryCount >= TASK_MAX_RETRIES) {
-            this.logger.warn(`Task ${failedTask.task.id} exceeded max retries, removing from DLQ`);
-            await this.redis.lrem(TASK_DLQ_KEY, 1, item);
+            this.logger.warn(`Task ${failedTask.task.id} exceeded max retries (${TASK_MAX_RETRIES}), discarding`);
+            skipped++;
             continue;
           }
 
@@ -98,17 +101,17 @@ export class OrchestratorService implements OnModuleInit, OnModuleDestroy {
           (task as OrchestratorTask & { retryCount?: number }).retryCount = newRetryCount;
           
           await this.redis.set(`${TASK_PREFIX}${task.id}`, task, TASK_TTL_SECONDS);
-          await this.redis.lrem(TASK_DLQ_KEY, 1, item);
           processed++;
           
           this.logger.log(`Restored task ${task.id} from DLQ (retry ${newRetryCount}/${TASK_MAX_RETRIES})`);
-        } catch {
-          // Leave in DLQ for next retry
+        } catch (parseError) {
+          this.logger.warn(`Failed to parse DLQ item, discarding: ${String(parseError)}`);
+          skipped++;
         }
       }
 
-      if (processed > 0) {
-        this.logger.log(`Processed ${processed}/${items.length} task DLQ items`);
+      if (processed > 0 || skipped > 0) {
+        this.logger.log(`DLQ processing: ${processed} restored, ${skipped} discarded`);
         // Record retry metrics
         this.metricsService.recordRetryAttempt('dlq');
         if (processed > 0) {

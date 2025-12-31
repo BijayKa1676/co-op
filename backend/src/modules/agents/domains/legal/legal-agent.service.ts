@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { LlmCouncilService } from '@/common/llm/llm-council.service';
 import { RagService } from '@/common/rag/rag.service';
-import { RagSector, RagJurisdiction } from '@/common/rag/rag.types';
+import { RagSector, RagJurisdiction, RAG_SECTORS, RAG_JURISDICTIONS } from '@/common/rag/rag.types';
 import { sanitizeResponse } from '@/common/llm/utils/response-sanitizer';
 import { BaseAgent, AgentInput, AgentOutput } from '../../types/agent.types';
 
@@ -93,13 +93,21 @@ export class LegalAgentService implements BaseAgent {
     this.logger.debug('Running legal agent with LLM Council + RAG');
     onProgress?.('Legal agent: Analyzing your question...');
 
-    // Get sector and country from startup metadata
-    const sector = (input.context.metadata.sector as RagSector) || 'other';
-    const country = (input.context.metadata.country as string) || undefined;
+    // Validate and extract sector from startup metadata with type safety
+    const rawSector = input.context.metadata.sector;
+    const sector: RagSector = this.isValidSector(rawSector) ? rawSector : 'other';
+    
+    // Validate country
+    const rawCountry = input.context.metadata.country;
+    const country = typeof rawCountry === 'string' && rawCountry.length > 0 ? rawCountry : undefined;
 
-    // Get explicit jurisdiction from request (user-selected) or detect from query
-    const explicitJurisdiction = input.context.metadata.jurisdiction as RagJurisdiction | undefined;
-    const explicitRegion = input.context.metadata.region as string | undefined;
+    // Validate explicit jurisdiction from request (user-selected)
+    const rawJurisdiction = input.context.metadata.jurisdiction;
+    const explicitJurisdiction: RagJurisdiction | undefined = this.isValidJurisdiction(rawJurisdiction) ? rawJurisdiction : undefined;
+    
+    // Validate region
+    const rawRegion = input.context.metadata.region;
+    const explicitRegion = typeof rawRegion === 'string' && rawRegion.length > 0 ? rawRegion : undefined;
     
     // Use explicit jurisdiction if provided, otherwise detect from query
     let detectedJurisdictions: RagJurisdiction[];
@@ -144,19 +152,25 @@ export class LegalAgentService implements BaseAgent {
     const userPrompt = this.buildUserPrompt(input, ragContext, country, explicitJurisdiction, explicitRegion);
 
     onProgress?.('Legal agent: Running LLM Council for cross-critique...');
+    const hasRagContext = Boolean(ragContext);
+    const hasUserDocuments = input.documents.length > 0;
+    
     const result = await this.council.runCouncil(LEGAL_SYSTEM_PROMPT, userPrompt, {
       minModels: this.minModels,
       maxModels: this.maxModels,
       temperature: 0.6,
       maxTokens: 600,
+      hasRagContext,
+      hasUserDocuments,
       onProgress,
     });
 
     onProgress?.(`Legal agent: Council complete (${result.responses.length} models, ${result.critiques.length} critiques)`);
+    onProgress?.(`Legal agent: Confidence ${result.confidence.overall}% (${result.confidence.level})`);
 
     return {
       content: result.finalResponse,
-      confidence: result.consensus.averageScore / 10,
+      confidence: result.confidence.overall / 100, // Normalize to 0-1 for backward compatibility
       sources: [],
       metadata: {
         phase: 'council',
@@ -166,14 +180,20 @@ export class LegalAgentService implements BaseAgent {
         explicitJurisdiction,
         explicitRegion,
         detectedJurisdictions,
-        ragEnabled: Boolean(ragContext),
-        hasUserDocuments: input.documents.length > 0,
+        ragEnabled: hasRagContext,
+        hasUserDocuments,
         modelsUsed: result.metadata.modelsUsed,
         totalTokens: result.metadata.totalTokens,
         processingTimeMs: result.metadata.processingTimeMs,
         consensusScore: result.consensus.averageScore,
         responsesCount: result.responses.length,
         critiquesCount: result.critiques.length,
+        // Enhanced confidence breakdown
+        confidenceLevel: result.confidence.level,
+        confidenceBreakdown: result.confidence.breakdown,
+        confidenceExplanation: result.confidence.explanation,
+        contextQuality: result.metadata.contextQuality,
+        validationIssues: result.metadata.validationIssues,
       },
     };
   }
@@ -322,5 +342,19 @@ export class LegalAgentService implements BaseAgent {
       mena: 'Middle East & North Africa',
     };
     return labels[region] || region.toUpperCase();
+  }
+
+  /**
+   * Type guard for RagSector
+   */
+  private isValidSector(value: unknown): value is RagSector {
+    return typeof value === 'string' && RAG_SECTORS.includes(value as RagSector);
+  }
+
+  /**
+   * Type guard for RagJurisdiction
+   */
+  private isValidJurisdiction(value: unknown): value is RagJurisdiction {
+    return typeof value === 'string' && RAG_JURISDICTIONS.includes(value as RagJurisdiction);
   }
 }

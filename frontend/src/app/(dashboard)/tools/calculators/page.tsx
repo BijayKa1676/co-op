@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { motion } from '@/components/motion';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,7 +8,22 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
+
+// Currency configuration for enterprise users
+const CURRENCIES = [
+  { code: 'USD', symbol: '$', name: 'US Dollar' },
+  { code: 'EUR', symbol: '€', name: 'Euro' },
+  { code: 'GBP', symbol: '£', name: 'British Pound' },
+  { code: 'INR', symbol: '₹', name: 'Indian Rupee' },
+  { code: 'AED', symbol: 'د.إ', name: 'UAE Dirham' },
+  { code: 'SGD', symbol: 'S$', name: 'Singapore Dollar' },
+  { code: 'CAD', symbol: 'C$', name: 'Canadian Dollar' },
+  { code: 'AUD', symbol: 'A$', name: 'Australian Dollar' },
+] as const;
+
+type CurrencyCode = typeof CURRENCIES[number]['code'];
 
 // SVG Icons to avoid Phosphor deprecation warnings
 const ArrowLeftIcon = () => (
@@ -46,29 +61,74 @@ interface CalculatorResult {
   label: string;
   description?: string;
   isHighlight?: boolean;
+  isWarning?: boolean;
+}
+
+interface ValidationError {
+  field: string;
+  message: string;
+}
+
+// Validation helpers
+function validatePositiveNumber(value: string, fieldName: string): ValidationError | null {
+  const num = parseFloat(value);
+  if (value && (isNaN(num) || num < 0)) {
+    return { field: fieldName, message: `${fieldName} must be a positive number` };
+  }
+  if (num > 1e15) {
+    return { field: fieldName, message: `${fieldName} exceeds maximum allowed value` };
+  }
+  return null;
+}
+
+function validatePercentage(value: string, fieldName: string): ValidationError | null {
+  const num = parseFloat(value);
+  if (value && (isNaN(num) || num < 0 || num > 100)) {
+    return { field: fieldName, message: `${fieldName} must be between 0 and 100` };
+  }
+  return null;
 }
 
 export default function CalculatorsPage() {
   const router = useRouter();
+  const [currency, setCurrency] = useState<CurrencyCode>('USD');
+  
+  const currencySymbol = useMemo(() => {
+    return CURRENCIES.find(c => c.code === currency)?.symbol ?? '$';
+  }, [currency]);
 
   return (
     <div className="max-w-4xl mx-auto space-y-4 sm:space-y-6">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="flex items-center gap-3 sm:gap-4"
+        className="flex items-center justify-between gap-3 sm:gap-4"
       >
-        <Button variant="ghost" size="icon" onClick={() => router.back()} className="h-9 w-9 sm:h-10 sm:w-10 shrink-0">
-          <ArrowLeftIcon />
-        </Button>
-        <div className="min-w-0">
-          <h1 className="font-serif text-xl sm:text-2xl md:text-3xl font-medium tracking-tight">
-            Financial Calculators
-          </h1>
-          <p className="text-xs sm:text-sm text-muted-foreground truncate">
-            Essential tools for startup financial planning
-          </p>
+        <div className="flex items-center gap-3 sm:gap-4">
+          <Button variant="ghost" size="icon" onClick={() => router.back()} className="h-9 w-9 sm:h-10 sm:w-10 shrink-0">
+            <ArrowLeftIcon />
+          </Button>
+          <div className="min-w-0">
+            <h1 className="font-serif text-xl sm:text-2xl md:text-3xl font-medium tracking-tight">
+              Financial Calculators
+            </h1>
+            <p className="text-xs sm:text-sm text-muted-foreground truncate">
+              Essential tools for startup financial planning
+            </p>
+          </div>
         </div>
+        <Select value={currency} onValueChange={(v) => setCurrency(v as CurrencyCode)}>
+          <SelectTrigger className="w-[100px] sm:w-[130px]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {CURRENCIES.map((c) => (
+              <SelectItem key={c.code} value={c.code}>
+                {c.symbol} {c.code}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </motion.div>
 
       <Tabs defaultValue="runway" className="space-y-4 sm:space-y-6">
@@ -80,16 +140,16 @@ export default function CalculatorsPage() {
         </TabsList>
 
         <TabsContent value="runway">
-          <RunwayCalculator />
+          <RunwayCalculator currencySymbol={currencySymbol} />
         </TabsContent>
         <TabsContent value="burnrate">
-          <BurnRateCalculator />
+          <BurnRateCalculator currencySymbol={currencySymbol} />
         </TabsContent>
         <TabsContent value="valuation">
-          <ValuationCalculator />
+          <ValuationCalculator currencySymbol={currencySymbol} />
         </TabsContent>
         <TabsContent value="uniteconomics">
-          <UnitEconomicsCalculator />
+          <UnitEconomicsCalculator currencySymbol={currencySymbol} />
         </TabsContent>
       </Tabs>
     </div>
@@ -97,13 +157,32 @@ export default function CalculatorsPage() {
 }
 
 
-function RunwayCalculator() {
+function RunwayCalculator({ currencySymbol }: { currencySymbol: string }) {
   const [cashBalance, setCashBalance] = useState('');
   const [monthlyBurn, setMonthlyBurn] = useState('');
   const [monthlyRevenue, setMonthlyRevenue] = useState('');
   const [results, setResults] = useState<CalculatorResult[] | null>(null);
+  const [errors, setErrors] = useState<ValidationError[]>([]);
+
+  const validate = (): boolean => {
+    const newErrors: ValidationError[] = [];
+    
+    const cashError = validatePositiveNumber(cashBalance, 'Cash Balance');
+    if (cashError) newErrors.push(cashError);
+    
+    const burnError = validatePositiveNumber(monthlyBurn, 'Monthly Burn');
+    if (burnError) newErrors.push(burnError);
+    
+    const revenueError = validatePositiveNumber(monthlyRevenue, 'Monthly Revenue');
+    if (revenueError) newErrors.push(revenueError);
+    
+    setErrors(newErrors);
+    return newErrors.length === 0;
+  };
 
   const calculate = () => {
+    if (!validate()) return;
+    
     const cash = parseFloat(cashBalance) || 0;
     const burn = parseFloat(monthlyBurn) || 0;
     const revenue = parseFloat(monthlyRevenue) || 0;
@@ -112,7 +191,7 @@ function RunwayCalculator() {
     if (netBurn <= 0) {
       setResults([
         { value: '∞', label: 'Runway', description: 'You are cash flow positive!', isHighlight: true },
-        { value: formatCurrency(revenue - burn), label: 'Monthly Profit' },
+        { value: formatCurrency(revenue - burn, currencySymbol), label: 'Monthly Profit' },
       ]);
       return;
     }
@@ -121,13 +200,24 @@ function RunwayCalculator() {
     const runwayDate = new Date();
     runwayDate.setMonth(runwayDate.getMonth() + Math.floor(runwayMonths));
 
+    const isLowRunway = runwayMonths < 6;
+    const isCriticalRunway = runwayMonths < 3;
+
     setResults([
-      { value: runwayMonths.toFixed(1), label: 'Months of Runway', isHighlight: true },
-      { value: formatCurrency(netBurn), label: 'Net Monthly Burn' },
+      { 
+        value: runwayMonths.toFixed(1), 
+        label: 'Months of Runway', 
+        isHighlight: true,
+        isWarning: isCriticalRunway,
+        description: isCriticalRunway ? 'Critical - start fundraising now' : isLowRunway ? 'Consider fundraising soon' : undefined,
+      },
+      { value: formatCurrency(netBurn, currencySymbol), label: 'Net Monthly Burn' },
       { value: runwayDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' }), label: 'Cash Out Date' },
-      { value: formatCurrency(cash * 0.25 / netBurn), label: 'Months to 25% Cash' },
+      { value: formatCurrency(cash * 0.25 / netBurn, currencySymbol), label: 'Months to 25% Cash' },
     ]);
   };
+
+  const getFieldError = (field: string) => errors.find(e => e.field === field)?.message;
 
   return (
     <Card className="border-border/40">
@@ -143,31 +233,43 @@ function RunwayCalculator() {
       <CardContent className="space-y-6">
         <div className="grid sm:grid-cols-3 gap-4">
           <div className="space-y-2">
-            <Label>Cash Balance ($)</Label>
+            <Label>Cash Balance ({currencySymbol})</Label>
             <Input
               type="number"
               placeholder="500000"
               value={cashBalance}
               onChange={(e) => setCashBalance(e.target.value)}
+              className={getFieldError('Cash Balance') ? 'border-destructive' : ''}
             />
+            {getFieldError('Cash Balance') && (
+              <p className="text-xs text-destructive">{getFieldError('Cash Balance')}</p>
+            )}
           </div>
           <div className="space-y-2">
-            <Label>Monthly Burn ($)</Label>
+            <Label>Monthly Burn ({currencySymbol})</Label>
             <Input
               type="number"
               placeholder="50000"
               value={monthlyBurn}
               onChange={(e) => setMonthlyBurn(e.target.value)}
+              className={getFieldError('Monthly Burn') ? 'border-destructive' : ''}
             />
+            {getFieldError('Monthly Burn') && (
+              <p className="text-xs text-destructive">{getFieldError('Monthly Burn')}</p>
+            )}
           </div>
           <div className="space-y-2">
-            <Label>Monthly Revenue ($)</Label>
+            <Label>Monthly Revenue ({currencySymbol})</Label>
             <Input
               type="number"
               placeholder="10000"
               value={monthlyRevenue}
               onChange={(e) => setMonthlyRevenue(e.target.value)}
+              className={getFieldError('Monthly Revenue') ? 'border-destructive' : ''}
             />
+            {getFieldError('Monthly Revenue') && (
+              <p className="text-xs text-destructive">{getFieldError('Monthly Revenue')}</p>
+            )}
           </div>
         </div>
         <Button onClick={calculate} className="w-full sm:w-auto">Calculate Runway</Button>
@@ -177,18 +279,45 @@ function RunwayCalculator() {
   );
 }
 
-function BurnRateCalculator() {
+function BurnRateCalculator({ currencySymbol }: { currencySymbol: string }) {
   const [salaries, setSalaries] = useState('');
   const [rent, setRent] = useState('');
   const [software, setSoftware] = useState('');
   const [marketing, setMarketing] = useState('');
   const [other, setOther] = useState('');
   const [results, setResults] = useState<CalculatorResult[] | null>(null);
+  const [errors, setErrors] = useState<ValidationError[]>([]);
+
+  const validate = (): boolean => {
+    const newErrors: ValidationError[] = [];
+    const fields = [
+      { value: salaries, name: 'Salaries' },
+      { value: rent, name: 'Rent' },
+      { value: software, name: 'Software' },
+      { value: marketing, name: 'Marketing' },
+      { value: other, name: 'Other' },
+    ];
+    
+    for (const field of fields) {
+      const error = validatePositiveNumber(field.value, field.name);
+      if (error) newErrors.push(error);
+    }
+    
+    setErrors(newErrors);
+    return newErrors.length === 0;
+  };
 
   const calculate = () => {
+    if (!validate()) return;
+    
     const total = [salaries, rent, software, marketing, other]
       .map(v => parseFloat(v) || 0)
       .reduce((a, b) => a + b, 0);
+
+    if (total === 0) {
+      setResults([{ value: formatCurrency(0, currencySymbol), label: 'Monthly Burn Rate', description: 'Enter your expenses', isHighlight: true }]);
+      return;
+    }
 
     const breakdown = [
       { name: 'Salaries', value: parseFloat(salaries) || 0 },
@@ -201,12 +330,14 @@ function BurnRateCalculator() {
     const largest = breakdown.sort((a, b) => b.value - a.value)[0];
 
     setResults([
-      { value: formatCurrency(total), label: 'Monthly Burn Rate', isHighlight: true },
-      { value: formatCurrency(total * 12), label: 'Annual Burn Rate' },
-      { value: formatCurrency(total / 30), label: 'Daily Burn Rate' },
+      { value: formatCurrency(total, currencySymbol), label: 'Monthly Burn Rate', isHighlight: true },
+      { value: formatCurrency(total * 12, currencySymbol), label: 'Annual Burn Rate' },
+      { value: formatCurrency(total / 30, currencySymbol), label: 'Daily Burn Rate' },
       { value: largest ? `${largest.name} (${Math.round(largest.value / total * 100)}%)` : '-', label: 'Largest Expense' },
     ]);
   };
+
+  const getFieldError = (field: string) => errors.find(e => e.field === field)?.message;
 
   return (
     <Card className="border-border/40">
@@ -222,26 +353,29 @@ function BurnRateCalculator() {
       <CardContent className="space-y-6">
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
           <div className="space-y-2">
-            <Label>Salaries & Benefits ($)</Label>
-            <Input type="number" placeholder="30000" value={salaries} onChange={(e) => setSalaries(e.target.value)} />
+            <Label>Salaries & Benefits ({currencySymbol})</Label>
+            <Input type="number" placeholder="30000" value={salaries} onChange={(e) => setSalaries(e.target.value)} className={getFieldError('Salaries') ? 'border-destructive' : ''} />
           </div>
           <div className="space-y-2">
-            <Label>Rent & Office ($)</Label>
-            <Input type="number" placeholder="5000" value={rent} onChange={(e) => setRent(e.target.value)} />
+            <Label>Rent & Office ({currencySymbol})</Label>
+            <Input type="number" placeholder="5000" value={rent} onChange={(e) => setRent(e.target.value)} className={getFieldError('Rent') ? 'border-destructive' : ''} />
           </div>
           <div className="space-y-2">
-            <Label>Software & Tools ($)</Label>
-            <Input type="number" placeholder="2000" value={software} onChange={(e) => setSoftware(e.target.value)} />
+            <Label>Software & Tools ({currencySymbol})</Label>
+            <Input type="number" placeholder="2000" value={software} onChange={(e) => setSoftware(e.target.value)} className={getFieldError('Software') ? 'border-destructive' : ''} />
           </div>
           <div className="space-y-2">
-            <Label>Marketing ($)</Label>
-            <Input type="number" placeholder="5000" value={marketing} onChange={(e) => setMarketing(e.target.value)} />
+            <Label>Marketing ({currencySymbol})</Label>
+            <Input type="number" placeholder="5000" value={marketing} onChange={(e) => setMarketing(e.target.value)} className={getFieldError('Marketing') ? 'border-destructive' : ''} />
           </div>
           <div className="space-y-2">
-            <Label>Other Expenses ($)</Label>
-            <Input type="number" placeholder="3000" value={other} onChange={(e) => setOther(e.target.value)} />
+            <Label>Other Expenses ({currencySymbol})</Label>
+            <Input type="number" placeholder="3000" value={other} onChange={(e) => setOther(e.target.value)} className={getFieldError('Other') ? 'border-destructive' : ''} />
           </div>
         </div>
+        {errors.length > 0 && (
+          <p className="text-xs text-destructive">{errors[0].message}</p>
+        )}
         <Button onClick={calculate} className="w-full sm:w-auto">Calculate Burn Rate</Button>
         {results && <ResultsDisplay results={results} />}
       </CardContent>
@@ -250,30 +384,61 @@ function BurnRateCalculator() {
 }
 
 
-function ValuationCalculator() {
+function ValuationCalculator({ currencySymbol }: { currencySymbol: string }) {
   const [arr, setArr] = useState('');
   const [multiple, setMultiple] = useState('10');
   const [lastRoundVal, setLastRoundVal] = useState('');
   const [raised, setRaised] = useState('');
   const [results, setResults] = useState<CalculatorResult[] | null>(null);
+  const [errors, setErrors] = useState<ValidationError[]>([]);
+
+  const validate = (): boolean => {
+    const newErrors: ValidationError[] = [];
+    
+    const arrError = validatePositiveNumber(arr, 'ARR');
+    if (arrError) newErrors.push(arrError);
+    
+    const multipleNum = parseFloat(multiple);
+    if (isNaN(multipleNum) || multipleNum < 0.1 || multipleNum > 100) {
+      newErrors.push({ field: 'Multiple', message: 'Multiple must be between 0.1x and 100x' });
+    }
+    
+    const lastValError = validatePositiveNumber(lastRoundVal, 'Last Round Valuation');
+    if (lastValError) newErrors.push(lastValError);
+    
+    const raisedError = validatePositiveNumber(raised, 'Total Raised');
+    if (raisedError) newErrors.push(raisedError);
+    
+    setErrors(newErrors);
+    return newErrors.length === 0;
+  };
 
   const calculate = () => {
+    if (!validate()) return;
+    
     const annualRevenue = parseFloat(arr) || 0;
     const revenueMultiple = parseFloat(multiple) || 10;
     const lastVal = parseFloat(lastRoundVal) || 0;
     const totalRaised = parseFloat(raised) || 0;
 
+    if (annualRevenue === 0) {
+      setResults([{ value: 'N/A', label: 'Enter ARR to calculate', isHighlight: true }]);
+      return;
+    }
+
     const revenueBasedVal = annualRevenue * revenueMultiple;
     const impliedMultiple = lastVal > 0 && annualRevenue > 0 ? lastVal / annualRevenue : 0;
 
     setResults([
-      { value: formatCurrency(revenueBasedVal), label: `Valuation (${revenueMultiple}x ARR)`, isHighlight: true },
-      { value: formatCurrency(revenueBasedVal * 0.8), label: 'Conservative (0.8x)' },
-      { value: formatCurrency(revenueBasedVal * 1.2), label: 'Optimistic (1.2x)' },
+      { value: formatCurrency(revenueBasedVal, currencySymbol), label: `Valuation (${revenueMultiple}x ARR)`, isHighlight: true },
+      { value: formatCurrency(revenueBasedVal * 0.8, currencySymbol), label: 'Conservative (0.8x)' },
+      { value: formatCurrency(revenueBasedVal * 1.2, currencySymbol), label: 'Optimistic (1.2x)' },
       ...(impliedMultiple > 0 ? [{ value: `${impliedMultiple.toFixed(1)}x`, label: 'Last Round Multiple' }] : []),
-      ...(totalRaised > 0 ? [{ value: formatCurrency(totalRaised), label: 'Total Raised' }] : []),
+      ...(totalRaised > 0 ? [{ value: formatCurrency(totalRaised, currencySymbol), label: 'Total Raised' }] : []),
     ]);
   };
+
+  const getFieldError = (field: string) => errors.find(e => e.field === field)?.message;
 
   return (
     <Card className="border-border/40">
@@ -289,23 +454,26 @@ function ValuationCalculator() {
       <CardContent className="space-y-6">
         <div className="grid sm:grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label>Annual Recurring Revenue ($)</Label>
-            <Input type="number" placeholder="1000000" value={arr} onChange={(e) => setArr(e.target.value)} />
+            <Label>Annual Recurring Revenue ({currencySymbol})</Label>
+            <Input type="number" placeholder="1000000" value={arr} onChange={(e) => setArr(e.target.value)} className={getFieldError('ARR') ? 'border-destructive' : ''} />
           </div>
           <div className="space-y-2">
             <Label>Revenue Multiple (x)</Label>
-            <Input type="number" placeholder="10" value={multiple} onChange={(e) => setMultiple(e.target.value)} />
+            <Input type="number" placeholder="10" value={multiple} onChange={(e) => setMultiple(e.target.value)} className={getFieldError('Multiple') ? 'border-destructive' : ''} />
             <p className="text-xs text-muted-foreground">SaaS: 5-15x, Fintech: 8-20x</p>
           </div>
           <div className="space-y-2">
-            <Label>Last Round Valuation ($)</Label>
-            <Input type="number" placeholder="5000000" value={lastRoundVal} onChange={(e) => setLastRoundVal(e.target.value)} />
+            <Label>Last Round Valuation ({currencySymbol})</Label>
+            <Input type="number" placeholder="5000000" value={lastRoundVal} onChange={(e) => setLastRoundVal(e.target.value)} className={getFieldError('Last Round Valuation') ? 'border-destructive' : ''} />
           </div>
           <div className="space-y-2">
-            <Label>Total Raised ($)</Label>
-            <Input type="number" placeholder="1000000" value={raised} onChange={(e) => setRaised(e.target.value)} />
+            <Label>Total Raised ({currencySymbol})</Label>
+            <Input type="number" placeholder="1000000" value={raised} onChange={(e) => setRaised(e.target.value)} className={getFieldError('Total Raised') ? 'border-destructive' : ''} />
           </div>
         </div>
+        {errors.length > 0 && (
+          <p className="text-xs text-destructive">{errors[0].message}</p>
+        )}
         <Button onClick={calculate} className="w-full sm:w-auto">Calculate Valuation</Button>
         {results && <ResultsDisplay results={results} />}
       </CardContent>
@@ -313,21 +481,43 @@ function ValuationCalculator() {
   );
 }
 
-function UnitEconomicsCalculator() {
+function UnitEconomicsCalculator({ currencySymbol }: { currencySymbol: string }) {
   const [cac, setCac] = useState('');
   const [arpu, setArpu] = useState('');
   const [churnRate, setChurnRate] = useState('');
   const [grossMargin, setGrossMargin] = useState('70');
   const [results, setResults] = useState<CalculatorResult[] | null>(null);
+  const [errors, setErrors] = useState<ValidationError[]>([]);
+
+  const validate = (): boolean => {
+    const newErrors: ValidationError[] = [];
+    
+    const cacError = validatePositiveNumber(cac, 'CAC');
+    if (cacError) newErrors.push(cacError);
+    
+    const arpuError = validatePositiveNumber(arpu, 'ARPU');
+    if (arpuError) newErrors.push(arpuError);
+    
+    const churnError = validatePercentage(churnRate, 'Churn Rate');
+    if (churnError) newErrors.push(churnError);
+    
+    const marginError = validatePercentage(grossMargin, 'Gross Margin');
+    if (marginError) newErrors.push(marginError);
+    
+    setErrors(newErrors);
+    return newErrors.length === 0;
+  };
 
   const calculate = () => {
+    if (!validate()) return;
+    
     const customerAcqCost = parseFloat(cac) || 0;
     const avgRevPerUser = parseFloat(arpu) || 0;
     const monthlyChurn = parseFloat(churnRate) || 0;
     const margin = parseFloat(grossMargin) || 70;
 
     if (monthlyChurn <= 0 || avgRevPerUser <= 0) {
-      setResults([{ value: 'Invalid', label: 'Please enter valid values', isHighlight: true }]);
+      setResults([{ value: 'Invalid', label: 'Please enter valid ARPU and churn rate', isHighlight: true, isWarning: true }]);
       return;
     }
 
@@ -336,13 +526,28 @@ function UnitEconomicsCalculator() {
     const ltvCacRatio = customerAcqCost > 0 ? ltv / customerAcqCost : 0;
     const paybackMonths = customerAcqCost > 0 ? customerAcqCost / (avgRevPerUser * (margin / 100)) : 0;
 
+    const isHealthyRatio = ltvCacRatio >= 3;
+    const isGoodPayback = paybackMonths <= 12;
+
     setResults([
-      { value: formatCurrency(ltv), label: 'Customer LTV', isHighlight: true },
-      { value: `${ltvCacRatio.toFixed(1)}x`, label: 'LTV:CAC Ratio', description: ltvCacRatio >= 3 ? 'Healthy (≥3x)' : 'Needs improvement (<3x)' },
-      { value: `${paybackMonths.toFixed(1)} mo`, label: 'CAC Payback Period' },
+      { value: formatCurrency(ltv, currencySymbol), label: 'Customer LTV', isHighlight: true },
+      { 
+        value: `${ltvCacRatio.toFixed(1)}x`, 
+        label: 'LTV:CAC Ratio', 
+        description: isHealthyRatio ? 'Healthy (≥3x)' : 'Needs improvement (<3x)',
+        isWarning: !isHealthyRatio,
+      },
+      { 
+        value: `${paybackMonths.toFixed(1)} mo`, 
+        label: 'CAC Payback Period',
+        description: isGoodPayback ? 'Good (<12 months)' : 'Consider optimizing',
+        isWarning: !isGoodPayback,
+      },
       { value: `${avgLifetimeMonths.toFixed(1)} mo`, label: 'Avg Customer Lifetime' },
     ]);
   };
+
+  const getFieldError = (field: string) => errors.find(e => e.field === field)?.message;
 
   return (
     <Card className="border-border/40">
@@ -358,22 +563,25 @@ function UnitEconomicsCalculator() {
       <CardContent className="space-y-6">
         <div className="grid sm:grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label>Customer Acquisition Cost ($)</Label>
-            <Input type="number" placeholder="500" value={cac} onChange={(e) => setCac(e.target.value)} />
+            <Label>Customer Acquisition Cost ({currencySymbol})</Label>
+            <Input type="number" placeholder="500" value={cac} onChange={(e) => setCac(e.target.value)} className={getFieldError('CAC') ? 'border-destructive' : ''} />
           </div>
           <div className="space-y-2">
-            <Label>Avg Revenue Per User/Month ($)</Label>
-            <Input type="number" placeholder="100" value={arpu} onChange={(e) => setArpu(e.target.value)} />
+            <Label>Avg Revenue Per User/Month ({currencySymbol})</Label>
+            <Input type="number" placeholder="100" value={arpu} onChange={(e) => setArpu(e.target.value)} className={getFieldError('ARPU') ? 'border-destructive' : ''} />
           </div>
           <div className="space-y-2">
             <Label>Monthly Churn Rate (%)</Label>
-            <Input type="number" placeholder="5" value={churnRate} onChange={(e) => setChurnRate(e.target.value)} />
+            <Input type="number" placeholder="5" value={churnRate} onChange={(e) => setChurnRate(e.target.value)} className={getFieldError('Churn Rate') ? 'border-destructive' : ''} />
           </div>
           <div className="space-y-2">
             <Label>Gross Margin (%)</Label>
-            <Input type="number" placeholder="70" value={grossMargin} onChange={(e) => setGrossMargin(e.target.value)} />
+            <Input type="number" placeholder="70" value={grossMargin} onChange={(e) => setGrossMargin(e.target.value)} className={getFieldError('Gross Margin') ? 'border-destructive' : ''} />
           </div>
         </div>
+        {errors.length > 0 && (
+          <p className="text-xs text-destructive">{errors[0].message}</p>
+        )}
         <Button onClick={calculate} className="w-full sm:w-auto">Calculate Unit Economics</Button>
         {results && <ResultsDisplay results={results} />}
       </CardContent>
@@ -393,15 +601,22 @@ function ResultsDisplay({ results }: { results: CalculatorResult[] }) {
           key={i}
           className={cn(
             'p-3 sm:p-4 rounded-lg',
+            result.isWarning ? 'bg-destructive/10 border border-destructive/20' :
             result.isHighlight ? 'bg-primary/10 border border-primary/20' : 'bg-muted/30'
           )}
         >
-          <p className={cn('text-lg sm:text-2xl font-semibold truncate', result.isHighlight && 'text-primary')}>
+          <p className={cn(
+            'text-lg sm:text-2xl font-semibold truncate', 
+            result.isWarning ? 'text-destructive' : result.isHighlight && 'text-primary'
+          )}>
             {result.value}
           </p>
           <p className="text-xs sm:text-sm text-muted-foreground">{result.label}</p>
           {result.description && (
-            <p className="text-[10px] sm:text-xs text-muted-foreground/70 mt-1">{result.description}</p>
+            <p className={cn(
+              'text-[10px] sm:text-xs mt-1',
+              result.isWarning ? 'text-destructive/70' : 'text-muted-foreground/70'
+            )}>{result.description}</p>
           )}
         </div>
       ))}
@@ -409,12 +624,15 @@ function ResultsDisplay({ results }: { results: CalculatorResult[] }) {
   );
 }
 
-function formatCurrency(value: number): string {
+function formatCurrency(value: number, symbol = '$'): string {
+  if (value >= 1000000000) {
+    return `${symbol}${(value / 1000000000).toFixed(1)}B`;
+  }
   if (value >= 1000000) {
-    return `$${(value / 1000000).toFixed(1)}M`;
+    return `${symbol}${(value / 1000000).toFixed(1)}M`;
   }
   if (value >= 1000) {
-    return `$${(value / 1000).toFixed(0)}K`;
+    return `${symbol}${(value / 1000).toFixed(0)}K`;
   }
-  return `$${value.toFixed(0)}`;
+  return `${symbol}${value.toFixed(0)}`;
 }

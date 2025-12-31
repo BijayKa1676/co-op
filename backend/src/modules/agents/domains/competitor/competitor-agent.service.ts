@@ -61,20 +61,26 @@ export class CompetitorAgentService implements BaseAgent {
     const userPrompt = this.buildUserPrompt(input, webContext);
 
     onProgress?.('Competitor agent: Running LLM Council for cross-critique...');
+    const hasWebResearch = webContext.length > 0;
+    const hasUserDocuments = input.documents.length > 0;
+    
     const result = await this.council.runCouncil(COMPETITOR_SYSTEM_PROMPT, userPrompt, {
       minModels: this.minModels,
       maxModels: this.maxModels,
       temperature: 0.6,
       maxTokens: 600,
+      hasRagContext: hasWebResearch, // Web research counts as external context
+      hasUserDocuments,
       onProgress,
     });
 
     const sources = this.extractSources(webContext);
     onProgress?.(`Competitor agent: Council complete (${result.responses.length} models, ${result.critiques.length} critiques, ${sources.length} sources)`);
+    onProgress?.(`Competitor agent: Confidence ${result.confidence.overall}% (${result.confidence.level})`);
 
     return {
       content: result.finalResponse,
-      confidence: result.consensus.averageScore / 10,
+      confidence: result.confidence.overall / 100, // Normalize to 0-1 for backward compatibility
       sources,
       metadata: {
         phase: 'council',
@@ -85,8 +91,14 @@ export class CompetitorAgentService implements BaseAgent {
         consensusScore: result.consensus.averageScore,
         responsesCount: result.responses.length,
         critiquesCount: result.critiques.length,
-        hasUserDocuments: input.documents.length > 0,
-        webResearchUsed: webContext.length > 0,
+        hasUserDocuments,
+        webResearchUsed: hasWebResearch,
+        // Enhanced confidence breakdown
+        confidenceLevel: result.confidence.level,
+        confidenceBreakdown: result.confidence.breakdown,
+        confidenceExplanation: result.confidence.explanation,
+        contextQuality: result.metadata.contextQuality,
+        validationIssues: result.metadata.validationIssues,
       },
     };
   }

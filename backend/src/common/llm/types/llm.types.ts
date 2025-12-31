@@ -69,10 +69,28 @@ export interface CouncilResult {
     bestResponseId: string;
     synthesized: boolean;
   };
+  confidence: {
+    overall: number;
+    level: 'very_low' | 'low' | 'medium' | 'high' | 'very_high';
+    breakdown: {
+      consensusScore: number;
+      critiqueAgreement: number;
+      sourceQuality: number;
+      responseQuality: number;
+      crossValidation: number;
+    };
+    explanation: string;
+    factors: string[];
+  };
   metadata: {
     totalTokens: number;
     modelsUsed: string[];
     processingTimeMs: number;
+    contextQuality?: number;
+    documentRelevance?: number;
+    validationIssues?: string[];
+    responseDiversity?: number;
+    calibrationApplied?: boolean;
   };
 }
 

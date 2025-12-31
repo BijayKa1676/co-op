@@ -262,6 +262,41 @@ curl -H "X-API-Key: coop_xxxxx" https://api.co-op.software/api/v1/mcp-server/dis
 | CREATE | 5/min | 60s |
 | READ | 200/min | 60s |
 
+## New Features (v1.5.0)
+
+### Production Quality Improvements
+
+#### LLM Council Validation
+- Minimum 50% of models must respond successfully
+- Empty/short response detection (<50 chars rejected)
+- Success tracking during parallel generation
+
+#### RAG Stale Cache Fallback
+- Separate stale cache with 2-hour TTL
+- Graceful degradation when circuit breaker trips
+- Clear error messaging for cached data usage
+
+#### Research Service Timeout
+- 30-second timeout on Gemini API calls
+- Graceful fallback to ScrapingBee on timeout
+
+#### DLQ Atomic Operations
+- Replaced lrange+lrem with atomic lpop
+- Prevents race conditions under concurrent load
+
+#### Auth Guard LRU Eviction
+- `lastAccessed` timestamp tracking
+- Proper LRU eviction when cache is full
+- Batch eviction of 1000 entries
+
+#### Retry Service Minimum Delay
+- Floor of 100ms or 10% of capped delay
+- Prevents 0ms retry loops
+
+#### SWR Distributed Lock
+- Redis setnx with 10-second TTL
+- Prevents thundering herd on cache refresh
+
 ## New Features (v1.4.0)
 
 ### Encryption Key Versioning

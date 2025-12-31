@@ -78,9 +78,12 @@ export class RetryService {
 
         // Calculate delay with full jitter (better distribution than decorrelated jitter)
         // Full jitter: delay = random(0, min(maxDelay, baseDelay * 2^attempt))
+        // Add minimum delay floor to prevent 0ms delays
         const exponentialDelay = opts.initialDelayMs * Math.pow(opts.backoffMultiplier, attempt - 1);
         const cappedDelay = Math.min(exponentialDelay, opts.maxDelayMs);
-        const actualDelay = Math.random() * cappedDelay;
+        // Ensure minimum delay of 100ms to prevent tight retry loops
+        const minDelay = Math.max(100, cappedDelay * 0.1);
+        const actualDelay = minDelay + Math.random() * (cappedDelay - minDelay);
 
         this.logger.warn(
           `Attempt ${attempt}/${opts.maxAttempts} failed: ${lastError.message}. Retrying in ${Math.round(actualDelay)}ms`,

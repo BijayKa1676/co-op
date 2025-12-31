@@ -83,12 +83,16 @@ Co-Op is an open-source AI advisory platform that provides startup founders with
 | **Serverless DB** | Neon PostgreSQL auto-scales |
 | **Serverless Cache** | Upstash Redis pay-per-request |
 | **Async Processing** | QStash message queue with webhooks |
-| **Circuit Breaker** | Opossum for fault tolerance |
-| **Retry Logic** | Exponential backoff with jitter (webhooks, API calls) |
-| **RAG Caching** | 30-min TTL, SHA-256 cache keys |
+| **Circuit Breaker** | Opossum for fault tolerance with LRU cleanup |
+| **Retry Logic** | Exponential backoff with jitter + minimum delay floor |
+| **RAG Caching** | 30-min TTL + 2-hour stale cache fallback |
 | **SSE Reconnection** | Auto-reconnect with exponential backoff |
 | **Horizontal Scaling** | Stateless services, Redis-backed state |
 | **Embedding Timeout** | 30-second timeout on RAG embedding calls |
+| **LLM Timeout** | 30-second timeout on all LLM API calls |
+| **DLQ Processing** | Atomic operations prevent race conditions |
+| **Token Cache** | LRU eviction prevents memory leaks |
+| **SWR Cache** | Distributed lock prevents thundering herd |
 
 ---
 

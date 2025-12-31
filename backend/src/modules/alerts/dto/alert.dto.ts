@@ -1,4 +1,4 @@
-import { IsString, IsArray, IsBoolean, IsOptional, IsEnum } from 'class-validator';
+import { IsString, IsArray, IsBoolean, IsOptional, IsEnum, MaxLength, ArrayMaxSize, ArrayMinSize } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export type AlertType = 'competitor' | 'market' | 'news' | 'funding';
@@ -7,6 +7,7 @@ export type AlertFrequency = 'realtime' | 'daily' | 'weekly';
 export class CreateAlertDto {
   @ApiProperty({ description: 'Alert name', example: 'Competitor News' })
   @IsString()
+  @MaxLength(100)
   name: string;
 
   @ApiPropertyOptional({ enum: ['competitor', 'market', 'news', 'funding'], default: 'competitor' })
@@ -14,15 +15,20 @@ export class CreateAlertDto {
   @IsEnum(['competitor', 'market', 'news', 'funding'])
   type?: AlertType;
 
-  @ApiProperty({ description: 'Keywords to monitor', example: ['AI startup', 'Series A'] })
+  @ApiProperty({ description: 'Keywords to monitor (1-10)', example: ['AI startup', 'Series A'] })
   @IsArray()
+  @ArrayMinSize(0)
+  @ArrayMaxSize(10)
   @IsString({ each: true })
+  @MaxLength(100, { each: true })
   keywords: string[];
 
-  @ApiPropertyOptional({ description: 'Competitor names to monitor', example: ['Acme Inc', 'TechCorp'] })
+  @ApiPropertyOptional({ description: 'Competitor names to monitor (max 10)', example: ['Acme Inc', 'TechCorp'] })
   @IsOptional()
   @IsArray()
+  @ArrayMaxSize(10)
   @IsString({ each: true })
+  @MaxLength(100, { each: true })
   competitors?: string[];
 
   @ApiPropertyOptional({ enum: ['realtime', 'daily', 'weekly'], default: 'daily' })
@@ -40,18 +46,23 @@ export class UpdateAlertDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
+  @MaxLength(100)
   name?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsArray()
+  @ArrayMaxSize(10)
   @IsString({ each: true })
+  @MaxLength(100, { each: true })
   keywords?: string[];
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsArray()
+  @ArrayMaxSize(10)
   @IsString({ each: true })
+  @MaxLength(100, { each: true })
   competitors?: string[];
 
   @ApiPropertyOptional({ enum: ['realtime', 'daily', 'weekly'] })

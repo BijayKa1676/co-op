@@ -428,6 +428,7 @@ Output: Brief summary, key insights, 3-5 action items. Be concise.`;
   /**
    * Build agent input from DTO - shared between run() and queueTask()
    * Uses semantic search to find only the most relevant document chunks.
+   * Tracks context quality for transparency to enterprise users.
    */
   private async buildAgentInput(userId: string, dto: RunAgentDto): Promise<AgentInput> {
     await this.verifyStartupOwnership(userId, dto.startupId);
@@ -437,9 +438,25 @@ Output: Brief summary, key insights, 3-5 action items. Be concise.`;
       throw new BadRequestException('Startup not found');
     }
 
+    // Context quality tracking for enterprise transparency
+    const contextQuality: {
+      semanticSearchUsed: boolean;
+      relevantChunksFound: number;
+      documentsProcessed: number;
+      degraded: boolean;
+      degradationReason?: string;
+    } = {
+      semanticSearchUsed: false,
+      relevantChunksFound: 0,
+      documentsProcessed: 0,
+      degraded: false,
+    };
+
     // Fetch document content using semantic search for relevance
     const documentContents: string[] = [];
     if (dto.documents && dto.documents.length > 0) {
+      contextQuality.documentsProcessed = dto.documents.length;
+      
       try {
         // Use semantic search to find relevant chunks across all provided documents
         const searchResults = await this.secureDocumentsService.searchUserDocuments(
@@ -451,6 +468,9 @@ Output: Brief summary, key insights, 3-5 action items. Be concise.`;
         );
 
         if (searchResults.length > 0) {
+          contextQuality.semanticSearchUsed = true;
+          contextQuality.relevantChunksFound = searchResults.length;
+          
           // Group results by document for organized retrieval
           const chunksByDoc = new Map<string, number[]>();
           for (const result of searchResults) {
@@ -481,17 +501,31 @@ Output: Brief summary, key insights, 3-5 action items. Be concise.`;
 
           this.logger.log(`Semantic search: ${searchResults.length} relevant chunks from ${chunksByDoc.size} documents`);
         } else {
-          // Fallback: no semantic results, get all chunks (legacy behavior)
-          this.logger.log('No semantic search results, falling back to all chunks');
+          // Fallback: no semantic results - mark as degraded context
+          contextQuality.degraded = true;
+          contextQuality.degradationReason = 'No semantically relevant content found in documents';
+          this.logger.warn('No semantic search results, falling back to limited chunks - context quality degraded');
+          
+          const MAX_FALLBACK_CHUNKS = 20; // Limit to prevent token overflow
+          let totalChunks = 0;
+          
           for (const docId of dto.documents) {
+            if (totalChunks >= MAX_FALLBACK_CHUNKS) break;
+            
             try {
-              const chunks = await this.secureDocumentsService.getDecryptedChunks(docId, userId);
+              // Get only first N chunks per document
+              const remainingSlots = MAX_FALLBACK_CHUNKS - totalChunks;
+              const chunkIndices = Array.from({ length: Math.min(10, remainingSlots) }, (_, i) => i);
+              const chunks = await this.secureDocumentsService.getDecryptedChunks(docId, userId, chunkIndices);
+              
               if (chunks.length > 0) {
                 const content = chunks
                   .sort((a, b) => a.chunkIndex - b.chunkIndex)
                   .map(c => c.content)
                   .join('\n');
-                documentContents.push(`[Document: ${chunks[0].filename}]\n${content}`);
+                documentContents.push(`[Document: ${chunks[0].filename} - FALLBACK: first ${chunks.length} chunks]\n${content}`);
+                totalChunks += chunks.length;
+                contextQuality.relevantChunksFound += chunks.length;
               }
             } catch (error) {
               this.logger.warn(`Failed to extract content from secure document ${docId}`, error);
@@ -499,17 +533,30 @@ Output: Brief summary, key insights, 3-5 action items. Be concise.`;
           }
         }
       } catch (error) {
-        // If semantic search fails entirely, fall back to getting all chunks
-        this.logger.warn('Semantic search failed, falling back to all chunks', error);
+        // If semantic search fails entirely, mark as degraded and fall back
+        contextQuality.degraded = true;
+        contextQuality.degradationReason = 'Semantic search service unavailable';
+        this.logger.error('Semantic search failed, falling back to limited chunks', error);
+        
+        const MAX_FALLBACK_CHUNKS = 20;
+        let totalChunks = 0;
+        
         for (const docId of dto.documents) {
+          if (totalChunks >= MAX_FALLBACK_CHUNKS) break;
+          
           try {
-            const chunks = await this.secureDocumentsService.getDecryptedChunks(docId, userId);
+            const remainingSlots = MAX_FALLBACK_CHUNKS - totalChunks;
+            const chunkIndices = Array.from({ length: Math.min(10, remainingSlots) }, (_, i) => i);
+            const chunks = await this.secureDocumentsService.getDecryptedChunks(docId, userId, chunkIndices);
+            
             if (chunks.length > 0) {
               const content = chunks
                 .sort((a, b) => a.chunkIndex - b.chunkIndex)
                 .map(c => c.content)
                 .join('\n');
-              documentContents.push(`[Document: ${chunks[0].filename}]\n${content}`);
+              documentContents.push(`[Document: ${chunks[0].filename} - FALLBACK]\n${content}`);
+              totalChunks += chunks.length;
+              contextQuality.relevantChunksFound += chunks.length;
             }
           } catch (err) {
             this.logger.warn(`Failed to extract content from secure document ${docId}`, err);
@@ -563,6 +610,7 @@ Output: Brief summary, key insights, 3-5 action items. Be concise.`;
       },
       prompt: dto.prompt,
       documents: documentContents, // Contains only relevant chunks from semantic search
+      contextQuality, // Track context quality for enterprise transparency
     };
   }
 

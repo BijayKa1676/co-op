@@ -995,6 +995,41 @@ Error:
 - Automatic recovery when service returns
 - Memory-efficient with LRU cleanup
 
+### Why Stale-While-Revalidate Cache?
+
+**Problem**: Cache misses during service outages cause complete failures.
+
+**Solution**: Dual-layer caching with fresh (30-min) and stale (2-hour) TTLs.
+
+**Benefits**:
+- Graceful degradation during outages
+- Users get stale data instead of errors
+- Background refresh with distributed lock
+- Prevents thundering herd on cache expiry
+
+### Why LRU Token Cache?
+
+**Problem**: Token verification is expensive and repeated frequently.
+
+**Solution**: In-memory LRU cache with `lastAccessed` tracking.
+
+**Benefits**:
+- Reduces Supabase API calls by 90%+
+- Proper eviction prevents memory leaks
+- 30-second TTL balances freshness and performance
+- Batch eviction for efficiency
+
+### Why Atomic DLQ Operations?
+
+**Problem**: Race conditions between reading and removing DLQ items.
+
+**Solution**: Atomic `lpop` instead of `lrange` + `lrem`.
+
+**Benefits**:
+- No duplicate processing under concurrent load
+- Simpler, more reliable code
+- Better performance (single Redis operation)
+
 ---
 
 ## Contributing
