@@ -578,10 +578,10 @@ function CapTableDetail({
 
       {/* Tabs - Scrollable on mobile */}
       <Tabs defaultValue="shareholders" className="space-y-4">
-        <TabsList className="w-full grid grid-cols-3 h-auto">
-          <TabsTrigger value="shareholders" className="text-xs sm:text-sm py-2">Shareholders</TabsTrigger>
-          <TabsTrigger value="rounds" className="text-xs sm:text-sm py-2">Rounds</TabsTrigger>
-          <TabsTrigger value="scenarios" className="text-xs sm:text-sm py-2">Scenarios</TabsTrigger>
+        <TabsList className="w-full grid grid-cols-3">
+          <TabsTrigger value="shareholders" className="text-xs sm:text-sm">Shareholders</TabsTrigger>
+          <TabsTrigger value="rounds" className="text-xs sm:text-sm">Rounds</TabsTrigger>
+          <TabsTrigger value="scenarios" className="text-xs sm:text-sm">Scenarios</TabsTrigger>
         </TabsList>
 
         <TabsContent value="shareholders">

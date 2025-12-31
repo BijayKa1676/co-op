@@ -473,11 +473,11 @@ function AnalysisView({
       </Card>
 
       <Tabs defaultValue="sections" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 h-auto">
-          <TabsTrigger value="sections" className="text-xs sm:text-sm py-2">Sections</TabsTrigger>
-          <TabsTrigger value="feedback" className="text-xs sm:text-sm py-2">Feedback</TabsTrigger>
-          <TabsTrigger value="investor" className="text-xs sm:text-sm py-2">Investor</TabsTrigger>
-          <TabsTrigger value="benchmark" className="text-xs sm:text-sm py-2">Benchmark</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4">
+          <TabsTrigger value="sections" className="text-xs sm:text-sm">Sections</TabsTrigger>
+          <TabsTrigger value="feedback" className="text-xs sm:text-sm">Feedback</TabsTrigger>
+          <TabsTrigger value="investor" className="text-xs sm:text-sm">Investor</TabsTrigger>
+          <TabsTrigger value="benchmark" className="text-xs sm:text-sm">Benchmark</TabsTrigger>
         </TabsList>
 
         <TabsContent value="sections">
