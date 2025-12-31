@@ -272,7 +272,7 @@ npx expo run:android  # or run:ios
 |---------|----------|-----|
 | Frontend | Vercel | [co-op.software](https://co-op.software) |
 | Backend | Render | `https://api.co-op.software` |
-| RAG | Koyeb | `https://rag.co-op.software` |
+| RAG | Koyeb | `https://apparent-nanice-afnan-3cac971c.koyeb.app` |
 
 ### Infrastructure
 
@@ -388,12 +388,6 @@ See [Backend README](./Backend/README.md) for complete API documentation.
 - [x] Admin user management (CRUD, suspend, pilot usage reset)
 - [x] Bulk user operations
 - [x] Usage tracking and reset
-
-### CI/CD Pipeline
-- [x] GitHub Actions workflow
-- [x] Automated linting and type checking
-- [x] Build verification for all services
-- [x] Security audit checks
 
 ### Coming Soon
 - [ ] Team workspaces

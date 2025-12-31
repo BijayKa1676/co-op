@@ -116,7 +116,7 @@ export const APP_SCHEME = 'coop';
 export const ALLOWED_DOMAINS = [
   'co-op.software',
   'api.co-op.software',
-  'rag.co-op.software',
+  'apparent-nanice-afnan-3cac971c.koyeb.app',
   'localhost',
 ];
 

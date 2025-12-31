@@ -161,7 +161,6 @@
 - [x] Real-time thinking steps fix - all agents now pass onProgress to LLM Council
 
 ### Production Readiness (v1.4.0)
-- [x] CI/CD pipeline (GitHub Actions)
 - [x] Encryption key versioning for rotation
 - [x] API key revocation support
 - [x] Webhook exponential backoff

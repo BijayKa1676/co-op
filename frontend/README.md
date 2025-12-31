@@ -157,7 +157,7 @@ New in v1.3.7:
 - Real-time Prometheus metrics
 
 ### CI/CD Integration
-- GitHub Actions workflow for automated checks
+- GitHub Actions workflow for automated checks (optional)
 - Linting and type checking on all PRs
 - Build verification before merge
 

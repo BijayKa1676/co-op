@@ -105,17 +105,8 @@ ci(github): add automated security audit
 1. Create a feature branch from `main`
 2. Make your changes
 3. Run linting and type checking
-4. Ensure CI passes (GitHub Actions)
-5. Update documentation if needed
-6. Submit a pull request with clear description
-
-### CI/CD Pipeline
-
-All PRs trigger automated checks:
-- ESLint and Prettier formatting
-- TypeScript type checking
-- Build verification
-- Security audit (`npm audit`)
+4. Update documentation if needed
+5. Submit a pull request with clear description
 
 ### Code Quality
 

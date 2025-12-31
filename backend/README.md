@@ -264,14 +264,6 @@ curl -H "X-API-Key: coop_xxxxx" https://api.co-op.software/api/v1/mcp-server/dis
 
 ## New Features (v1.4.0)
 
-### CI/CD Pipeline
-
-Automated GitHub Actions workflow:
-- Linting and type checking
-- Build verification for all services
-- Security audit checks
-- Runs on all PRs and pushes to main
-
 ### Encryption Key Versioning
 
 ```typescript

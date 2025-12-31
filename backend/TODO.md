@@ -175,12 +175,6 @@
 - ✅ Health check caching (5s TTL)
 - ✅ Webhook exponential backoff
 
-### CI/CD Pipeline (v1.4.0)
-- ✅ GitHub Actions workflow
-- ✅ Automated linting and type checking
-- ✅ Build verification for all services
-- ✅ Security audit checks
-
 ### Configurable Pilot Limits (v1.4.0)
 - ✅ PILOT_AGENT_MONTHLY_REQUESTS
 - ✅ PILOT_API_KEY_LIMIT

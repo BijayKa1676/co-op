@@ -285,7 +285,7 @@ RAG/
 ### Backend Configuration
 
 ```bash
-RAG_SERVICE_URL=https://rag.co-op.software
+RAG_SERVICE_URL=https://apparent-nanice-afnan-3cac971c.koyeb.app
 RAG_API_KEY=your-secure-key
 CORS_ORIGINS=https://api.co-op.software
 ```
