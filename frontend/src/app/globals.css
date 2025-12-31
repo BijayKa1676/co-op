@@ -207,29 +207,26 @@
   }
 }
 
-/* Scrollbar styling */
+/* ============================================
+   GLOBAL SCROLLBAR HIDING
+   Hide all scrollbars while keeping scroll functionality
+   ============================================ */
+
+/* Hide scrollbars globally - WebKit browsers (Chrome, Safari, Edge) */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 0;
+  height: 0;
+  display: none;
 }
 
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-::-webkit-scrollbar-thumb {
-  background: hsl(var(--border));
-  border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: hsl(var(--muted-foreground) / 0.4);
-}
-
-/* Firefox scrollbar */
+/* Hide scrollbars globally - Firefox */
 * {
-  scrollbar-width: thin;
-  scrollbar-color: hsl(var(--border)) transparent;
+  scrollbar-width: none;
+}
+
+/* Hide scrollbars globally - IE/Edge legacy */
+* {
+  -ms-overflow-style: none;
 }
 
 /* Selection */

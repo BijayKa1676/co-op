@@ -102,33 +102,34 @@ export default function CalculatorsPage() {
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="flex items-center justify-between gap-3 sm:gap-4"
+        className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"
       >
-        <div className="flex items-center gap-3 sm:gap-4">
-          <Button variant="ghost" size="icon" onClick={() => router.back()} className="h-9 w-9 sm:h-10 sm:w-10 shrink-0">
+        <div className="flex items-center gap-2 sm:gap-4 min-w-0">
+          <Button variant="ghost" size="icon" onClick={() => router.back()} className="h-8 w-8 sm:h-10 sm:w-10 shrink-0">
             <ArrowLeftIcon />
           </Button>
-          <div className="min-w-0">
-            <h1 className="font-serif text-xl sm:text-2xl md:text-3xl font-medium tracking-tight">
+          <div className="min-w-0 flex-1">
+            <h1 className="font-serif text-lg sm:text-2xl md:text-3xl font-medium tracking-tight truncate">
               Financial Calculators
             </h1>
-            <p className="text-xs sm:text-sm text-muted-foreground truncate">
+            <p className="text-xs text-muted-foreground truncate hidden sm:block">
               Essential tools for startup financial planning
             </p>
           </div>
+          <Select value={currency} onValueChange={(v) => setCurrency(v as CurrencyCode)}>
+            <SelectTrigger className="w-[72px] sm:w-[130px] shrink-0">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {CURRENCIES.map((c) => (
+                <SelectItem key={c.code} value={c.code}>
+                  <span className="sm:hidden">{c.symbol}</span>
+                  <span className="hidden sm:inline">{c.symbol} {c.code}</span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
-        <Select value={currency} onValueChange={(v) => setCurrency(v as CurrencyCode)}>
-          <SelectTrigger className="w-[100px] sm:w-[130px]">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {CURRENCIES.map((c) => (
-              <SelectItem key={c.code} value={c.code}>
-                {c.symbol} {c.code}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
       </motion.div>
 
       <Tabs defaultValue="runway" className="space-y-4 sm:space-y-6">
