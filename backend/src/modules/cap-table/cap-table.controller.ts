@@ -276,16 +276,16 @@ export class CapTableController {
         fullyDilutedShares: summary.capTable.fullyDilutedShares,
         currentValuation: summary.capTable.currentValuation,
         shareholderCount: summary.shareholders.length,
-        shareholdersByType: summary.shareholders.reduce((acc, s) => {
-          acc[s.shareholderType] = (acc[s.shareholderType] || 0) + 1;
+        shareholdersByType: summary.shareholders.reduce<Record<string, number>>((acc, s) => {
+          acc[s.shareholderType] = (acc[s.shareholderType] ?? 0) + 1;
           return acc;
-        }, {} as Record<string, number>),
+        }, {}),
         ownershipByType: summary.ownershipByType,
         roundsCount: summary.rounds.length,
         roundsStatus: summary.rounds.map(r => ({ name: r.name, status: r.status, type: r.roundType })),
-        optionsPoolPercent: summary.ownershipByType.optionsPool || 0,
-        founderOwnership: summary.ownershipByType.founders || 0,
-        investorOwnership: summary.ownershipByType.investors || 0,
+        optionsPoolPercent: summary.ownershipByType.optionsPool ?? 0,
+        founderOwnership: summary.ownershipByType.founders ?? 0,
+        investorOwnership: summary.ownershipByType.investors ?? 0,
       },
       userContext: {
         companyName: summary.capTable.companyName,

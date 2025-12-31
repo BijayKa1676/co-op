@@ -32,6 +32,10 @@ import {
   NotePencil,
   Presentation,
   Table,
+  AndroidLogo,
+  Bug,
+  Warning,
+  Info,
 } from '@phosphor-icons/react';
 import { useUIStore } from '@/lib/store';
 import { createClient } from '@/lib/supabase/client';
@@ -416,6 +420,7 @@ export default function HomePage() {
             <a href="#features" className="text-muted-foreground hover:text-foreground transition-colors">Features</a>
             <a href="#verticals" className="text-muted-foreground hover:text-foreground transition-colors">Solutions</a>
             <a href="#pricing" className="text-muted-foreground hover:text-foreground transition-colors">Pricing</a>
+            <a href="#mobile-app" className="text-muted-foreground hover:text-foreground transition-colors">Mobile App</a>
             <a href="#developers" className="text-muted-foreground hover:text-foreground transition-colors">Developers</a>
           </nav>
           <div className="flex items-center gap-2 sm:gap-3">
@@ -469,6 +474,27 @@ export default function HomePage() {
           </div>
         </div>
       </header>
+
+      {/* Pilot Disclaimer Banner */}
+      <div className="relative z-10 bg-amber-500/10 border-b border-amber-500/20">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-2 sm:py-3 flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 text-xs sm:text-sm text-center sm:text-left">
+          <div className="flex items-center gap-2">
+            <Warning weight="fill" className="w-4 h-4 text-amber-500 shrink-0" />
+            <span className="text-amber-700 dark:text-amber-400 font-medium">Pilot Program</span>
+          </div>
+          <span className="text-amber-600 dark:text-amber-400/80">
+            Features may change and bugs may occur.{' '}
+            <a 
+              href="https://github.com/Afnanksalal/co-op/issues" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="underline hover:no-underline whitespace-nowrap"
+            >
+              Report issues
+            </a>
+          </span>
+        </div>
+      </div>
 
       <main className="relative z-10">
         {/* Hero */}
@@ -804,6 +830,88 @@ export default function HomePage() {
               <code className="text-xs bg-muted px-2 py-1 rounded">multi_agent_query</code>
             </motion.div>
           </div>
+        </section>
+
+        {/* Mobile App Download */}
+        <section id="mobile-app" className="max-w-6xl mx-auto px-4 sm:px-6 py-16 sm:py-24 border-t border-border/40">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="text-center mb-8 sm:mb-12"
+          >
+            <h2 className="font-serif text-2xl sm:text-3xl md:text-4xl font-medium tracking-tight mb-3 sm:mb-4">
+              Mobile App
+            </h2>
+            <p className="text-sm sm:text-base text-muted-foreground max-w-xl mx-auto">
+              Take Co-Op with you. Access all features on the go with our mobile app.
+            </p>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="max-w-lg mx-auto"
+          >
+            <div className="p-6 sm:p-8 rounded-2xl border border-border/40 bg-card/50 text-center">
+              <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-green-500/10 flex items-center justify-center mx-auto mb-4 sm:mb-6">
+                <AndroidLogo weight="fill" className="w-7 h-7 sm:w-8 sm:h-8 text-green-500" />
+              </div>
+              
+              <h3 className="font-serif text-lg sm:text-xl font-medium mb-2">Android App</h3>
+              <Badge variant="secondary" className="mb-4">Beta</Badge>
+              
+              <p className="text-xs sm:text-sm text-muted-foreground mb-4 sm:mb-6">
+                Download our Android app to access Co-Op from your mobile device. 
+                Full feature parity with the web version.
+              </p>
+
+              <a
+                href="https://github.com/Afnanksalal/co-op/releases/download/pilot-release/app-release.apk"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-block"
+              >
+                <Button size="lg" className="gap-2 h-11 sm:h-12 px-6 sm:px-8">
+                  <AndroidLogo weight="bold" className="w-5 h-5" />
+                  Download APK
+                </Button>
+              </a>
+
+              {/* Beta Disclaimer */}
+              <div className="mt-4 sm:mt-6 p-3 sm:p-4 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                <div className="flex items-start gap-2 sm:gap-3 text-left">
+                  <Info weight="fill" className="w-4 h-4 sm:w-5 sm:h-5 text-amber-500 shrink-0 mt-0.5" />
+                  <div className="text-xs sm:text-sm">
+                    <p className="font-medium text-amber-700 dark:text-amber-400 mb-1">
+                      Pilot Release Notice
+                    </p>
+                    <ul className="text-amber-600 dark:text-amber-500 space-y-0.5 sm:space-y-1 text-[11px] sm:text-xs">
+                      <li>• Beta version, may contain bugs</li>
+                      <li>• Android only (iOS coming soon)</li>
+                      <li>• Enable &quot;Install from unknown sources&quot;</li>
+                      <li>• Data may reset between updates</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
+              {/* Report Bugs */}
+              <div className="mt-3 sm:mt-4 flex flex-wrap items-center justify-center gap-1.5 sm:gap-2 text-xs sm:text-sm text-muted-foreground">
+                <Bug weight="regular" className="w-4 h-4" />
+                <span>Found a bug?</span>
+                <a
+                  href="https://github.com/Afnanksalal/co-op/issues"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary hover:underline"
+                >
+                  Report it on GitHub
+                </a>
+              </div>
+            </div>
+          </motion.div>
         </section>
 
         {/* CTA */}
