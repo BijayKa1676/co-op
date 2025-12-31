@@ -612,32 +612,55 @@ html.mobile-app .space-y-8 > * + * {
    Dynamic tabs that work with any number of tabs
    ============================================ */
 @media (max-width: 639px) {
-  /* Override grid to flex on mobile for all tablists */
-  [role="tablist"] {
+  /* Nuclear override - kill grid completely on mobile tablists */
+  [role="tablist"],
+  [role="tablist"].grid,
+  .grid[role="tablist"],
+  [role="tablist"].grid-cols-2,
+  [role="tablist"].grid-cols-3,
+  [role="tablist"].grid-cols-4,
+  [role="tablist"][class*="grid-cols"] {
     display: flex !important;
+    grid-template-columns: none !important;
     flex-direction: row !important;
     flex-wrap: nowrap !important;
     overflow-x: auto !important;
     -webkit-overflow-scrolling: touch !important;
-    scroll-snap-type: x mandatory !important;
+    scrollbar-width: none !important;
+    gap: 4px !important;
+    padding: 4px !important;
   }
   
-  /* Hide scrollbar but keep functionality */
   [role="tablist"]::-webkit-scrollbar {
     display: none !important;
   }
   
-  /* Each tab takes equal space, snaps on scroll */
+  /* Each tab distributes evenly */
   [role="tab"] {
-    flex: 1 0 auto !important;
-    scroll-snap-align: start !important;
-  }
-  
-  /* Override any grid-cols-* classes on mobile */
-  [role="tablist"].grid,
-  [role="tablist"][class*="grid-cols"] {
+    flex: 1 1 0% !important;
+    min-width: 0 !important;
     display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 6px 8px !important;
+    font-size: 12px !important;
+    min-height: 36px !important;
   }
+}
+
+/* Mobile app specific - even more aggressive */
+html.mobile-app [role="tablist"],
+html.mobile-app [role="tablist"].grid,
+html.mobile-app .grid[role="tablist"] {
+  display: flex !important;
+  grid-template-columns: none !important;
+  flex-direction: row !important;
+  flex-wrap: nowrap !important;
+}
+
+html.mobile-app [role="tab"] {
+  flex: 1 1 0% !important;
+  min-width: 0 !important;
 }
 
 /* ============================================
