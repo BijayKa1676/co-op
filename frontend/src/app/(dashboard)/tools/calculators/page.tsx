@@ -64,9 +64,99 @@ interface CalculatorResult {
   isWarning?: boolean;
 }
 
+interface AIInsight {
+  type: 'tip' | 'warning' | 'action';
+  message: string;
+}
+
 interface ValidationError {
   field: string;
   message: string;
+}
+
+// AI Insight Icon
+const SparkleIcon = ({ className }: { className?: string }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" className={className} width="16" height="16" fill="currentColor" viewBox="0 0 256 256">
+    <path d="M208,144a15.78,15.78,0,0,1-10.42,14.94l-51.65,19-19,51.61a15.92,15.92,0,0,1-29.88,0L78,178l-51.62-19a15.92,15.92,0,0,1,0-29.88l51.65-19,19-51.61a15.92,15.92,0,0,1,29.88,0l19,51.65,51.61,19A15.78,15.78,0,0,1,208,144ZM152,48h16V64a8,8,0,0,0,16,0V48h16a8,8,0,0,0,0-16H184V16a8,8,0,0,0-16,0V32H152a8,8,0,0,0,0,16Zm88,32h-8V72a8,8,0,0,0-16,0v8h-8a8,8,0,0,0,0,16h8v8a8,8,0,0,0,16,0V96h8a8,8,0,0,0,0-16Z"/>
+  </svg>
+);
+
+// Generate AI insights based on calculator results
+function generateRunwayInsights(runwayMonths: number, netBurn: number, revenue: number): AIInsight[] {
+  const insights: AIInsight[] = [];
+  
+  if (runwayMonths < 3) {
+    insights.push({ type: 'warning', message: 'Critical runway! Start fundraising immediately or cut costs by 30%+' });
+    insights.push({ type: 'action', message: 'Consider bridge financing or revenue-based financing options' });
+  } else if (runwayMonths < 6) {
+    insights.push({ type: 'warning', message: 'Low runway. Begin fundraising process now - it typically takes 3-6 months' });
+    insights.push({ type: 'tip', message: 'Focus on metrics that matter: MRR growth, retention, and unit economics' });
+  } else if (runwayMonths < 12) {
+    insights.push({ type: 'tip', message: 'Healthy runway. Good time to focus on growth while preparing for next round' });
+  } else {
+    insights.push({ type: 'tip', message: 'Strong runway position. Consider accelerating growth investments' });
+  }
+  
+  if (revenue > 0 && netBurn > 0) {
+    const revenueRatio = revenue / (revenue + netBurn);
+    if (revenueRatio < 0.2) {
+      insights.push({ type: 'action', message: 'Revenue covers <20% of burn. Prioritize revenue growth or reduce burn' });
+    } else if (revenueRatio > 0.5) {
+      insights.push({ type: 'tip', message: 'Revenue covers >50% of burn - strong path to profitability' });
+    }
+  }
+  
+  return insights;
+}
+
+function generateBurnInsights(total: number, salaries: number): AIInsight[] {
+  const insights: AIInsight[] = [];
+  const salaryRatio = salaries / total;
+  
+  if (salaryRatio > 0.7) {
+    insights.push({ type: 'tip', message: 'Salaries are >70% of burn - typical for early-stage. Consider equity compensation to reduce cash burn' });
+  }
+  
+  insights.push({ type: 'action', message: 'Review subscriptions quarterly - startups often have 20-30% unused SaaS spend' });
+  
+  return insights;
+}
+
+function generateValuationInsights(arr: number, multiple: number, valuation: number): AIInsight[] {
+  const insights: AIInsight[] = [];
+  
+  if (multiple > 15) {
+    insights.push({ type: 'warning', message: 'High multiple (>15x) - ensure strong growth metrics to justify valuation' });
+  } else if (multiple < 5) {
+    insights.push({ type: 'tip', message: 'Conservative multiple. If growing >100% YoY, you may be undervaluing' });
+  }
+  
+  if (arr > 0) {
+    insights.push({ type: 'action', message: `At ${multiple}x ARR, focus on NRR >120% and growth >50% YoY to maintain multiple` });
+  }
+  
+  return insights;
+}
+
+function generateUnitEconomicsInsights(ltvCacRatio: number, paybackMonths: number, churn: number): AIInsight[] {
+  const insights: AIInsight[] = [];
+  
+  if (ltvCacRatio < 3) {
+    insights.push({ type: 'warning', message: 'LTV:CAC <3x is unsustainable. Reduce CAC or increase LTV through upsells' });
+    insights.push({ type: 'action', message: 'Test referral programs - they typically have 50% lower CAC' });
+  } else if (ltvCacRatio > 5) {
+    insights.push({ type: 'tip', message: 'Strong LTV:CAC! Consider increasing marketing spend to accelerate growth' });
+  }
+  
+  if (paybackMonths > 12) {
+    insights.push({ type: 'warning', message: 'Payback >12 months strains cash. Consider annual pricing with discounts' });
+  }
+  
+  if (churn > 5) {
+    insights.push({ type: 'action', message: `${churn}% monthly churn is high. Implement customer success program to reduce by 30-50%` });
+  }
+  
+  return insights;
 }
 
 // Validation helpers
@@ -163,6 +253,7 @@ function RunwayCalculator({ currencySymbol }: { currencySymbol: string }) {
   const [monthlyBurn, setMonthlyBurn] = useState('');
   const [monthlyRevenue, setMonthlyRevenue] = useState('');
   const [results, setResults] = useState<CalculatorResult[] | null>(null);
+  const [insights, setInsights] = useState<AIInsight[]>([]);
   const [errors, setErrors] = useState<ValidationError[]>([]);
 
   const validate = (): boolean => {
@@ -194,6 +285,7 @@ function RunwayCalculator({ currencySymbol }: { currencySymbol: string }) {
         { value: '∞', label: 'Runway', description: 'You are cash flow positive!', isHighlight: true },
         { value: formatCurrency(revenue - burn, currencySymbol), label: 'Monthly Profit' },
       ]);
+      setInsights([{ type: 'tip', message: 'Excellent! You\'re profitable. Consider reinvesting in growth or building reserves.' }]);
       return;
     }
 
@@ -216,6 +308,9 @@ function RunwayCalculator({ currencySymbol }: { currencySymbol: string }) {
       { value: runwayDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' }), label: 'Cash Out Date' },
       { value: formatCurrency(cash * 0.25 / netBurn, currencySymbol), label: 'Months to 25% Cash' },
     ]);
+    
+    // Generate AI insights
+    setInsights(generateRunwayInsights(runwayMonths, netBurn, revenue));
   };
 
   const getFieldError = (field: string) => errors.find(e => e.field === field)?.message;
@@ -274,7 +369,7 @@ function RunwayCalculator({ currencySymbol }: { currencySymbol: string }) {
           </div>
         </div>
         <Button onClick={calculate} className="w-full sm:w-auto">Calculate Runway</Button>
-        {results && <ResultsDisplay results={results} />}
+        {results && <ResultsDisplay results={results} insights={insights} />}
       </CardContent>
     </Card>
   );
@@ -287,6 +382,7 @@ function BurnRateCalculator({ currencySymbol }: { currencySymbol: string }) {
   const [marketing, setMarketing] = useState('');
   const [other, setOther] = useState('');
   const [results, setResults] = useState<CalculatorResult[] | null>(null);
+  const [insights, setInsights] = useState<AIInsight[]>([]);
   const [errors, setErrors] = useState<ValidationError[]>([]);
 
   const validate = (): boolean => {
@@ -311,12 +407,14 @@ function BurnRateCalculator({ currencySymbol }: { currencySymbol: string }) {
   const calculate = () => {
     if (!validate()) return;
     
+    const salaryVal = parseFloat(salaries) || 0;
     const total = [salaries, rent, software, marketing, other]
       .map(v => parseFloat(v) || 0)
       .reduce((a, b) => a + b, 0);
 
     if (total === 0) {
       setResults([{ value: formatCurrency(0, currencySymbol), label: 'Monthly Burn Rate', description: 'Enter your expenses', isHighlight: true }]);
+      setInsights([]);
       return;
     }
 
@@ -336,6 +434,9 @@ function BurnRateCalculator({ currencySymbol }: { currencySymbol: string }) {
       { value: formatCurrency(total / 30, currencySymbol), label: 'Daily Burn Rate' },
       { value: largest ? `${largest.name} (${Math.round(largest.value / total * 100)}%)` : '-', label: 'Largest Expense' },
     ]);
+    
+    // Generate AI insights
+    setInsights(generateBurnInsights(total, salaryVal));
   };
 
   const getFieldError = (field: string) => errors.find(e => e.field === field)?.message;
@@ -378,7 +479,7 @@ function BurnRateCalculator({ currencySymbol }: { currencySymbol: string }) {
           <p className="text-xs text-destructive">{errors[0].message}</p>
         )}
         <Button onClick={calculate} className="w-full sm:w-auto">Calculate Burn Rate</Button>
-        {results && <ResultsDisplay results={results} />}
+        {results && <ResultsDisplay results={results} insights={insights} />}
       </CardContent>
     </Card>
   );
@@ -391,6 +492,7 @@ function ValuationCalculator({ currencySymbol }: { currencySymbol: string }) {
   const [lastRoundVal, setLastRoundVal] = useState('');
   const [raised, setRaised] = useState('');
   const [results, setResults] = useState<CalculatorResult[] | null>(null);
+  const [insights, setInsights] = useState<AIInsight[]>([]);
   const [errors, setErrors] = useState<ValidationError[]>([]);
 
   const validate = (): boolean => {
@@ -424,6 +526,7 @@ function ValuationCalculator({ currencySymbol }: { currencySymbol: string }) {
 
     if (annualRevenue === 0) {
       setResults([{ value: 'N/A', label: 'Enter ARR to calculate', isHighlight: true }]);
+      setInsights([]);
       return;
     }
 
@@ -437,6 +540,9 @@ function ValuationCalculator({ currencySymbol }: { currencySymbol: string }) {
       ...(impliedMultiple > 0 ? [{ value: `${impliedMultiple.toFixed(1)}x`, label: 'Last Round Multiple' }] : []),
       ...(totalRaised > 0 ? [{ value: formatCurrency(totalRaised, currencySymbol), label: 'Total Raised' }] : []),
     ]);
+    
+    // Generate AI insights
+    setInsights(generateValuationInsights(annualRevenue, revenueMultiple, revenueBasedVal));
   };
 
   const getFieldError = (field: string) => errors.find(e => e.field === field)?.message;
@@ -476,7 +582,7 @@ function ValuationCalculator({ currencySymbol }: { currencySymbol: string }) {
           <p className="text-xs text-destructive">{errors[0].message}</p>
         )}
         <Button onClick={calculate} className="w-full sm:w-auto">Calculate Valuation</Button>
-        {results && <ResultsDisplay results={results} />}
+        {results && <ResultsDisplay results={results} insights={insights} />}
       </CardContent>
     </Card>
   );
@@ -488,6 +594,7 @@ function UnitEconomicsCalculator({ currencySymbol }: { currencySymbol: string })
   const [churnRate, setChurnRate] = useState('');
   const [grossMargin, setGrossMargin] = useState('70');
   const [results, setResults] = useState<CalculatorResult[] | null>(null);
+  const [insights, setInsights] = useState<AIInsight[]>([]);
   const [errors, setErrors] = useState<ValidationError[]>([]);
 
   const validate = (): boolean => {
@@ -515,10 +622,9 @@ function UnitEconomicsCalculator({ currencySymbol }: { currencySymbol: string })
     const customerAcqCost = parseFloat(cac) || 0;
     const avgRevPerUser = parseFloat(arpu) || 0;
     const monthlyChurn = parseFloat(churnRate) || 0;
-    const margin = parseFloat(grossMargin) || 70;
-
-    if (monthlyChurn <= 0 || avgRevPerUser <= 0) {
+    const margin = parseFloat(grossMargin) || 70;    if (monthlyChurn <= 0 || avgRevPerUser <= 0) {
       setResults([{ value: 'Invalid', label: 'Please enter valid ARPU and churn rate', isHighlight: true, isWarning: true }]);
+      setInsights([]);
       return;
     }
 
@@ -546,6 +652,9 @@ function UnitEconomicsCalculator({ currencySymbol }: { currencySymbol: string })
       },
       { value: `${avgLifetimeMonths.toFixed(1)} mo`, label: 'Avg Customer Lifetime' },
     ]);
+    
+    // Generate AI insights
+    setInsights(generateUnitEconomicsInsights(ltvCacRatio, paybackMonths, monthlyChurn));
   };
 
   const getFieldError = (field: string) => errors.find(e => e.field === field)?.message;
@@ -584,43 +693,72 @@ function UnitEconomicsCalculator({ currencySymbol }: { currencySymbol: string })
           <p className="text-xs text-destructive">{errors[0].message}</p>
         )}
         <Button onClick={calculate} className="w-full sm:w-auto">Calculate Unit Economics</Button>
-        {results && <ResultsDisplay results={results} />}
+        {results && <ResultsDisplay results={results} insights={insights} />}
       </CardContent>
     </Card>
   );
 }
 
-function ResultsDisplay({ results }: { results: CalculatorResult[] }) {
+function ResultsDisplay({ results, insights }: { results: CalculatorResult[]; insights?: AIInsight[] }) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 pt-4 border-t border-border/40"
+      className="space-y-4 pt-4 border-t border-border/40"
     >
-      {results.map((result, i) => (
-        <div
-          key={i}
-          className={cn(
-            'p-3 sm:p-4 rounded-lg',
-            result.isWarning ? 'bg-destructive/10 border border-destructive/20' :
-            result.isHighlight ? 'bg-primary/10 border border-primary/20' : 'bg-muted/30'
-          )}
-        >
-          <p className={cn(
-            'text-lg sm:text-2xl font-semibold truncate', 
-            result.isWarning ? 'text-destructive' : result.isHighlight && 'text-primary'
-          )}>
-            {result.value}
-          </p>
-          <p className="text-xs sm:text-sm text-muted-foreground">{result.label}</p>
-          {result.description && (
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        {results.map((result, i) => (
+          <div
+            key={i}
+            className={cn(
+              'p-3 sm:p-4 rounded-lg',
+              result.isWarning ? 'bg-destructive/10 border border-destructive/20' :
+              result.isHighlight ? 'bg-primary/10 border border-primary/20' : 'bg-muted/30'
+            )}
+          >
             <p className={cn(
-              'text-[10px] sm:text-xs mt-1',
-              result.isWarning ? 'text-destructive/70' : 'text-muted-foreground/70'
-            )}>{result.description}</p>
-          )}
-        </div>
-      ))}
+              'text-lg sm:text-2xl font-semibold truncate', 
+              result.isWarning ? 'text-destructive' : result.isHighlight && 'text-primary'
+            )}>
+              {result.value}
+            </p>
+            <p className="text-xs sm:text-sm text-muted-foreground">{result.label}</p>
+            {result.description && (
+              <p className={cn(
+                'text-[10px] sm:text-xs mt-1',
+                result.isWarning ? 'text-destructive/70' : 'text-muted-foreground/70'
+              )}>{result.description}</p>
+            )}
+          </div>
+        ))}
+      </div>
+      
+      {/* AI Insights Section */}
+      {insights && insights.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="p-4 rounded-lg bg-gradient-to-br from-primary/5 via-primary/10 to-primary/5 border border-primary/20"
+        >
+          <div className="flex items-center gap-2 mb-3">
+            <SparkleIcon className="w-4 h-4 text-primary" />
+            <span className="text-sm font-medium text-primary">AI Insights</span>
+          </div>
+          <div className="space-y-2">
+            {insights.map((insight, i) => (
+              <div key={i} className="flex items-start gap-2 text-sm">
+                <span className={cn(
+                  'shrink-0 mt-0.5 w-1.5 h-1.5 rounded-full',
+                  insight.type === 'warning' ? 'bg-orange-500' :
+                  insight.type === 'action' ? 'bg-blue-500' : 'bg-green-500'
+                )} />
+                <span className="text-muted-foreground">{insight.message}</span>
+              </div>
+            ))}
+          </div>
+        </motion.div>
+      )}
     </motion.div>
   );
 }

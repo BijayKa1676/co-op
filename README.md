@@ -51,9 +51,9 @@ Co-Op is an open-source AI advisory platform that provides startup founders with
 | **Usage Analytics** | Personal usage dashboard |
 | **PWA Support** | Installable with shortcuts |
 | **Mobile App** | Native iOS/Android app (Expo + Hermes) |
-| **Financial Tools** | Runway, burn rate, valuation calculators |
+| **Financial Tools** | Runway, burn rate, valuation calculators with AI insights |
 | **Pitch Deck Analyzer** | AI-powered deck analysis with investor fit scoring |
-| **Cap Table Simulator** | Equity modeling and dilution simulation |
+| **Cap Table Simulator** | Equity modeling, dilution simulation, AI ownership insights |
 | **Investor Database** | 20+ real investors with admin management |
 | **Competitor Alerts** | Real-time monitoring with email notifications |
 | **Customer Outreach** | AI-powered lead discovery & email campaigns |
@@ -378,11 +378,13 @@ See [Backend README](./Backend/README.md) for complete API documentation.
 - [x] PWA with shortcuts
 
 ### Tools
-- [x] Financial calculators (Runway, Burn Rate, Valuation, Unit Economics)
+- [x] Financial calculators (Runway, Burn Rate, Valuation, Unit Economics) with AI insights
 - [x] Searchable investor database (20+ real investors)
 - [x] Real-time competitor alerts (3 per user, email notifications)
 - [x] Customer outreach with AI lead discovery
 - [x] Email campaign management with tracking
+- [x] Pitch deck analyzer with investor-specific recommendations
+- [x] Cap table simulator with AI ownership insights
 
 ### Security & Enterprise
 - [x] AES-256-GCM encryption for sensitive data

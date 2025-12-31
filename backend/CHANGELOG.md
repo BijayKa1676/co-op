@@ -5,6 +5,52 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.1] - 2025-12-31
+
+### Bug Fixes
+
+#### Response Wrapper Fix
+- **Double-Wrapping Prevention** - Fixed `TransformResponseInterceptor` double-wrapping responses
+  - Controllers using `ApiResponseDto.success()` were being wrapped again by interceptor
+  - Added `isAlreadyWrapped()` check to detect pre-wrapped responses
+  - Prevents `{ success: true, data: { success: true, data: {...} } }` structure
+  - Fixes onboarding loop issue caused by malformed API responses
+
+### Frontend Improvements
+
+#### AI-Powered Insights
+- **Calculator Insights** - All 4 financial calculators now show AI-powered insights
+  - Runway Calculator: Critical runway warnings, revenue ratio analysis
+  - Burn Rate Calculator: Salary ratio tips, subscription review suggestions
+  - Valuation Calculator: Multiple validation, growth metric recommendations
+  - Unit Economics Calculator: LTV:CAC ratio warnings, payback period analysis
+
+- **Alerts AI Tips** - Added AI monitoring tips card to alerts page
+  - Keyword optimization suggestions
+  - Funding tracking recommendations
+  - Alert frequency best practices
+
+- **Cap Table AI Insights** - Added ownership structure analysis
+  - Founder ownership warnings for early-stage dilution
+  - Options pool size recommendations
+  - Investor ownership balance tips
+  - Advisor equity suggestions
+
+#### UI/UX Improvements
+- **Sessions Page Spacing** - Improved visual hierarchy
+  - Increased spacing between session groups (`space-y-6 sm:space-y-8`)
+  - Tighter spacing within groups (`space-y-2 sm:space-y-3`)
+  - Reduced card padding for cleaner look (`p-3 sm:p-4`)
+  - Uppercase tracking on group headers
+
+- **Mobile Sidebar Animation** - Fixed sidebar animation in mobile app context
+  - Uses raw `framer-motion` imports to bypass mobile animation disabling
+  - Added `data-sidebar` attribute for CSS exclusion rules
+  - Smooth spring-based slide animation with backdrop fade
+  - Works correctly in both web and mobile WebView contexts
+
+---
+
 ## [1.6.0] - 2025-12-31
 
 ### New Features

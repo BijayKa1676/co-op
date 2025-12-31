@@ -146,18 +146,18 @@ export default function SessionsPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-4 sm:space-y-6">
+        <div className="space-y-6 sm:space-y-8">
           {groupOrder.map((group) => {
             const groupSessions = groupedSessions[group];
             if (!groupSessions?.length) return null;
             return (
-              <motion.div key={group} initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-2">
-                <h2 className="text-xs sm:text-sm font-medium text-muted-foreground px-1">{group}</h2>
+              <motion.div key={group} initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-3">
+                <h2 className="text-xs sm:text-sm font-medium text-muted-foreground px-1 uppercase tracking-wider">{group}</h2>
                 <div className="space-y-2 sm:space-y-3">
                   {groupSessions.map((session, index) => (
                     <motion.div key={session.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.03 }}>
                       <Card className={cn(
-                        "border-border/40 hover:border-border transition-colors group",
+                        "border-border/40 hover:border-border hover:shadow-sm transition-all group",
                         session.isPinned && "border-primary/30 bg-primary/5"
                       )}>
                         <CardContent className="p-3 sm:p-4">

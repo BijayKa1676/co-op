@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { motion, AnimatePresence } from '@/components/motion';
+import { motion as framerMotion, AnimatePresence as FramerAnimatePresence } from 'framer-motion';
 import {
   House,
   ChatCircle,
@@ -228,38 +229,45 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       </header>
 
       {/* Mobile Menu Overlay */}
-      <AnimatePresence mode="wait">
+      <FramerAnimatePresence mode="wait">
         {mobileMenuOpen && (
           <>
             {/* Backdrop */}
-            <motion.div
+            <framerMotion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 0.15 }}
-              className="fixed inset-0 z-[60] bg-black/60 md:hidden touch-none"
+              transition={{ duration: 0.2, ease: "easeOut" }}
+              className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm md:hidden touch-none"
               onClick={() => setMobileMenuOpen(false)}
+              data-sidebar-backdrop
             />
             
             {/* Slide-out Menu - from left like desktop */}
-            <motion.aside
+            <framerMotion.aside
               initial={{ x: '-100%' }}
               animate={{ x: 0 }}
               exit={{ x: '-100%' }}
-              transition={{ duration: 0.2, ease: [0.32, 0.72, 0, 1] }}
-              className="fixed top-0 left-0 bottom-0 z-[70] w-[280px] max-w-[85vw] bg-background border-r border-border/40 flex flex-col md:hidden hw-accelerate pt-safe"
+              transition={{ 
+                type: "spring",
+                damping: 25,
+                stiffness: 250,
+                mass: 0.5,
+              }}
+              className="fixed top-0 left-0 bottom-0 z-[70] w-[280px] max-w-[85vw] bg-background border-r border-border/40 flex flex-col md:hidden shadow-2xl pt-safe"
+              data-sidebar
             >
               {/* Mobile Menu Header */}
               <div className="h-14 flex items-center justify-between px-4 border-b border-border/40 shrink-0">
+                <span className="font-serif text-lg font-semibold">Co-Op</span>
                 <Button
                   variant="ghost"
                   size="icon"
                   onClick={() => setMobileMenuOpen(false)}
-                  className="w-9 h-9"
+                  className="w-9 h-9 hover:bg-muted/80"
                 >
                   <X weight="bold" className="w-5 h-5" />
                 </Button>
-                <span className="font-serif text-lg font-semibold">Co-Op</span>
               </div>
 
               {/* Mobile Navigation */}
@@ -284,10 +292,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   </Button>
                 </div>
               </div>
-            </motion.aside>
+            </framerMotion.aside>
           </>
         )}
-      </AnimatePresence>
+      </FramerAnimatePresence>
 
       
       {/* Desktop Sidebar */}

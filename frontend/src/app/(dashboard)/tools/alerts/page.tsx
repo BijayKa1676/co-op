@@ -412,6 +412,34 @@ export default function AlertsPage() {
         </CardContent>
       </Card>
 
+      {/* AI-Powered Insights */}
+      {alerts.length > 0 && (
+        <Card className="border-primary/20 bg-gradient-to-br from-primary/5 via-primary/10 to-primary/5">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-primary" width="16" height="16" fill="currentColor" viewBox="0 0 256 256">
+                <path d="M208,144a15.78,15.78,0,0,1-10.42,14.94l-51.65,19-19,51.61a15.92,15.92,0,0,1-29.88,0L78,178l-51.62-19a15.92,15.92,0,0,1,0-29.88l51.65-19,19-51.61a15.92,15.92,0,0,1,29.88,0l19,51.65,51.61,19A15.78,15.78,0,0,1,208,144ZM152,48h16V64a8,8,0,0,0,16,0V48h16a8,8,0,0,0,0-16H184V16a8,8,0,0,0-16,0V32H152a8,8,0,0,0,0,16Zm88,32h-8V72a8,8,0,0,0-16,0v8h-8a8,8,0,0,0,0,16h8v8a8,8,0,0,0,16,0V96h8a8,8,0,0,0,0-16Z"/>
+              </svg>
+              <span className="text-sm font-medium text-primary">AI Monitoring Tips</span>
+            </div>
+            <div className="space-y-2 text-sm text-muted-foreground">
+              <div className="flex items-start gap-2">
+                <span className="shrink-0 mt-1 w-1.5 h-1.5 rounded-full bg-blue-500" />
+                <span>Add competitor product names and key features as keywords for better tracking</span>
+              </div>
+              <div className="flex items-start gap-2">
+                <span className="shrink-0 mt-1 w-1.5 h-1.5 rounded-full bg-green-500" />
+                <span>Set up funding alerts to track when competitors raise - timing matters for your strategy</span>
+              </div>
+              <div className="flex items-start gap-2">
+                <span className="shrink-0 mt-1 w-1.5 h-1.5 rounded-full bg-orange-500" />
+                <span>Use daily digests to avoid alert fatigue while staying informed</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
 
       {/* Main content - split view */}
       <div className="grid lg:grid-cols-2 gap-4 sm:gap-6">

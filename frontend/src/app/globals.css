@@ -438,14 +438,24 @@ html.mobile-app .transition-transform {
   transition-duration: 150ms !important;
 }
 
-/* Disable framer-motion animations completely */
-html.mobile-app [style*="transform"][style*="opacity"],
-html.mobile-app [data-framer-component-type],
-html.mobile-app [data-projection-id] {
+/* Disable framer-motion animations completely - EXCEPT sidebar */
+html.mobile-app [style*="transform"][style*="opacity"]:not([data-sidebar]),
+html.mobile-app [data-framer-component-type]:not([data-sidebar]),
+html.mobile-app [data-projection-id]:not([data-sidebar]) {
   transform: none !important;
   opacity: 1 !important;
   transition: none !important;
   animation: none !important;
+}
+
+/* Keep sidebar animations working in mobile app */
+html.mobile-app [data-sidebar] {
+  /* Allow framer-motion to control these */
+}
+
+/* Sidebar backdrop animation */
+html.mobile-app [data-sidebar-backdrop] {
+  /* Allow opacity transitions for backdrop */
 }
 
 /* Body - no padding, header handles safe area */

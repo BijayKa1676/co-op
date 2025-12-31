@@ -464,6 +464,36 @@ function CapTableDetail({
   };
 
   const totalOwnership = Object.values(summary.ownershipByType).reduce((a, b) => a + b, 0);
+  
+  // Generate AI insights based on cap table data
+  const generateCapTableInsights = () => {
+    const insights: { type: 'tip' | 'warning' | 'action'; message: string }[] = [];
+    const founderOwnership = summary.ownershipByType.founders || 0;
+    const investorOwnership = summary.ownershipByType.investors || 0;
+    const optionsPool = summary.ownershipByType.optionsPool || 0;
+    
+    if (founderOwnership < 50 && summary.rounds.length <= 2) {
+      insights.push({ type: 'warning', message: 'Founder ownership below 50% at early stage - consider negotiating better terms in future rounds' });
+    }
+    
+    if (optionsPool < 10) {
+      insights.push({ type: 'action', message: 'Options pool below 10% - expand before next funding round to avoid dilution' });
+    } else if (optionsPool > 20) {
+      insights.push({ type: 'tip', message: 'Large options pool (>20%) - great for hiring, but watch dilution impact' });
+    }
+    
+    if (investorOwnership > 40 && summary.rounds.length <= 2) {
+      insights.push({ type: 'warning', message: 'High investor ownership early - maintain leverage for future rounds' });
+    }
+    
+    if (summary.shareholders.length > 0 && summary.shareholders.filter(s => s.shareholderType === 'advisor').length === 0) {
+      insights.push({ type: 'tip', message: 'Consider adding advisors with equity - they can open doors and add credibility' });
+    }
+    
+    return insights;
+  };
+  
+  const aiInsights = generateCapTableInsights();
 
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -542,6 +572,32 @@ function CapTableDetail({
           </div>
         </CardContent>
       </Card>
+
+      {/* AI Insights */}
+      {aiInsights.length > 0 && (
+        <Card className="border-primary/20 bg-gradient-to-br from-primary/5 via-primary/10 to-primary/5">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-primary" width="16" height="16" fill="currentColor" viewBox="0 0 256 256">
+                <path d="M208,144a15.78,15.78,0,0,1-10.42,14.94l-51.65,19-19,51.61a15.92,15.92,0,0,1-29.88,0L78,178l-51.62-19a15.92,15.92,0,0,1,0-29.88l51.65-19,19-51.61a15.92,15.92,0,0,1,29.88,0l19,51.65,51.61,19A15.78,15.78,0,0,1,208,144ZM152,48h16V64a8,8,0,0,0,16,0V48h16a8,8,0,0,0,0-16H184V16a8,8,0,0,0-16,0V32H152a8,8,0,0,0,0,16Zm88,32h-8V72a8,8,0,0,0-16,0v8h-8a8,8,0,0,0,0,16h8v8a8,8,0,0,0,16,0V96h8a8,8,0,0,0,0-16Z"/>
+              </svg>
+              <span className="text-sm font-medium text-primary">AI Cap Table Insights</span>
+            </div>
+            <div className="space-y-2">
+              {aiInsights.map((insight, i) => (
+                <div key={i} className="flex items-start gap-2 text-sm">
+                  <span className={cn(
+                    'shrink-0 mt-1 w-1.5 h-1.5 rounded-full',
+                    insight.type === 'warning' ? 'bg-orange-500' :
+                    insight.type === 'action' ? 'bg-blue-500' : 'bg-green-500'
+                  )} />
+                  <span className="text-muted-foreground">{insight.message}</span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Tabs - Scrollable on mobile */}
       <Tabs defaultValue="shareholders" className="space-y-4">

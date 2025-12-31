@@ -51,11 +51,11 @@ const features = [
   { icon: Brain, title: 'LLM Council', description: 'Multiple AI models cross-validate every response for accuracy' },
   { icon: Lightning, title: 'A2A Protocol', description: 'Agent-to-Agent communication for multi-perspective insights' },
   { icon: Presentation, title: 'Pitch Deck Analyzer', description: 'AI analysis with investor-specific recommendations and benchmarks' },
-  { icon: Table, title: 'Cap Table Simulator', description: 'Model funding rounds, dilution scenarios, and Carta export' },
+  { icon: Table, title: 'Cap Table Simulator', description: 'Model funding rounds, dilution scenarios, and AI ownership insights' },
   { icon: Bell, title: 'Competitor Alerts', description: 'Real-time monitoring with email notifications for market changes' },
   { icon: MagnifyingGlass, title: 'Investor Database', description: 'Search 20+ VCs by stage, sector, and region' },
   { icon: Envelope, title: 'Customer Outreach', description: 'AI-powered lead discovery and personalized email campaigns' },
-  { icon: Calculator, title: 'Financial Calculators', description: 'Runway, burn rate, valuation, and unit economics tools' },
+  { icon: Calculator, title: 'Financial Calculators', description: 'Runway, burn rate, valuation tools with AI-powered insights' },
   { icon: FileText, title: 'Secure Documents', description: 'AES-256 encrypted document storage with RAG integration' },
   { icon: NotePencil, title: 'Notion Export', description: 'Export AI responses directly to your Notion workspace' },
   { icon: ShieldCheck, title: 'Enterprise Security', description: 'End-to-end encryption, rate limiting, audit logging' },
@@ -73,10 +73,10 @@ const pricingPlans = [
       { text: '3 AI requests/month', included: true },
       { text: 'All 4 AI agents + A2A mode', included: true },
       { text: 'Pitch deck analyzer', included: true },
-      { text: 'Cap table simulator', included: true },
+      { text: 'Cap table simulator with AI insights', included: true },
       { text: 'Competitor alerts (3 max)', included: true },
       { text: 'Investor database access', included: true },
-      { text: 'Financial calculators', included: true },
+      { text: 'Financial calculators with AI insights', included: true },
       { text: 'Secure document storage', included: true },
       { text: 'Outreach (5 leads/month)', included: true },
       { text: 'Priority support', included: false },
@@ -127,6 +127,18 @@ const pricingPlans = [
 
 // Detailed roadmap with changelog-style entries
 const roadmapItems = [
+  {
+    version: '1.6.1',
+    date: 'Dec 31, 2025',
+    title: 'AI Insights & Polish',
+    status: 'released',
+    highlights: [
+      'AI-powered insights for all financial calculators',
+      'Cap table ownership analysis with recommendations',
+      'Mobile sidebar animation fix for WebView context',
+      'Sessions page spacing and UI improvements',
+    ],
+  },
   {
     version: '1.6.0',
     date: 'Dec 31, 2025',

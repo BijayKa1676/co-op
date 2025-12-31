@@ -189,6 +189,17 @@
   - Dialog-based forms for mobile
   - ScrollArea for long lists
 
+### AI Insights (v1.6.1)
+- [x] Calculator AI insights for all 4 calculators
+  - Runway: Critical warnings, revenue ratio analysis
+  - Burn Rate: Salary ratio tips, subscription review
+  - Valuation: Multiple validation, growth recommendations
+  - Unit Economics: LTV:CAC warnings, payback analysis
+- [x] Alerts AI monitoring tips
+- [x] Cap Table ownership analysis insights
+- [x] Sessions page spacing improvements
+- [x] Mobile sidebar animation fix (framer-motion exclusion)
+
 ### Production Readiness (v1.4.0)
 - [x] Encryption key versioning for rotation
 - [x] API key revocation support

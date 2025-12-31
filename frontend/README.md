@@ -140,7 +140,7 @@ New in v1.3.7:
 - Share target for text
 
 ### Tools
-- **Financial Calculators** - Runway, burn rate, valuation, unit economics
+- **Financial Calculators** - Runway, burn rate, valuation, unit economics with AI insights
 - **Investor Database** - 20+ real investors, filter by stage/sector/region
 - **Competitor Alerts** - Real-time monitoring with email notifications
 - **Customer Outreach** - Lead discovery and campaign management
@@ -149,6 +149,8 @@ New in v1.3.7:
   - Campaign creation (single template or AI personalized)
   - Email tracking (opens, clicks, bounces)
   - Campaign analytics
+- **Pitch Deck Analyzer** - AI-powered analysis with investor-specific recommendations
+- **Cap Table Simulator** - Equity modeling with AI ownership insights
 
 ### Analytics Dashboard
 - Admin analytics with system metrics
