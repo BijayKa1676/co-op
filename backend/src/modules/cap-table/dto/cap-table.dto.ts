@@ -1,10 +1,10 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { 
-  IsString, IsOptional, IsNumber, IsEnum, IsUUID, IsDateString, 
-  IsBoolean, IsArray, ValidateNested, Min, Max, MaxLength 
+  IsString, IsOptional, IsNumber, IsEnum, IsDateString, 
+  ValidateNested, Min, Max, MaxLength 
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { ShareholderType, RoundType, RoundStatus, ScenarioParameters } from '@/database/schema/cap-tables.schema';
+import { ShareholderType, RoundType, RoundStatus } from '@/database/schema/cap-tables.schema';
 
 // ============================================
 // CAP TABLE DTOs
@@ -483,6 +483,33 @@ export class RoundResponseDto {
 // SCENARIO DTOs
 // ============================================
 
+export class NewRoundParametersDto {
+  @ApiProperty({ description: 'Investment amount' })
+  @IsNumber()
+  amount: number;
+
+  @ApiProperty({ description: 'Pre-money valuation' })
+  @IsNumber()
+  valuation: number;
+
+  @ApiProperty({ enum: ['equity', 'safe', 'convertible_note'] })
+  @IsEnum(['equity', 'safe', 'convertible_note'])
+  type: RoundType;
+}
+
+export class ScenarioParametersDto {
+  @ApiPropertyOptional({ description: 'New funding round parameters' })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => NewRoundParametersDto)
+  newRound?: NewRoundParametersDto;
+
+  @ApiPropertyOptional({ description: 'Options pool increase in shares' })
+  @IsOptional()
+  @IsNumber()
+  optionsPoolIncrease?: number;
+}
+
 export class CreateScenarioDto {
   @ApiProperty()
   @IsString()
@@ -495,7 +522,9 @@ export class CreateScenarioDto {
   description?: string;
 
   @ApiProperty({ description: 'Scenario parameters for what-if modeling' })
-  parameters: ScenarioParameters;
+  @ValidateNested()
+  @Type(() => ScenarioParametersDto)
+  parameters: ScenarioParametersDto;
 }
 
 export class ScenarioResponseDto {
@@ -509,7 +538,7 @@ export class ScenarioResponseDto {
   description?: string;
 
   @ApiProperty()
-  parameters: ScenarioParameters;
+  parameters: ScenarioParametersDto;
 
   @ApiProperty({ description: 'Calculated results showing dilution impact' })
   results: {
