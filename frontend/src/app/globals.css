@@ -608,42 +608,35 @@ html.mobile-app .space-y-8 > * + * {
 }
 
 /* ============================================
-   MOBILE TABS FIX - HARD OVERRIDE
-   Forces tabs to be visible on mobile
+   MOBILE TABS FIX - PRODUCTION READY
+   Dynamic tabs that work with any number of tabs
    ============================================ */
-@media (max-width: 640px) {
-  /* Force TabsList to show all tabs with horizontal scroll */
+@media (max-width: 639px) {
+  /* Override grid to flex on mobile for all tablists */
   [role="tablist"] {
-    min-height: 52px !important;
-    height: auto !important;
-    padding: 6px !important;
     display: flex !important;
+    flex-direction: row !important;
     flex-wrap: nowrap !important;
-    align-items: center !important;
     overflow-x: auto !important;
     -webkit-overflow-scrolling: touch !important;
-    scrollbar-width: none !important;
-    gap: 4px !important;
+    scroll-snap-type: x mandatory !important;
   }
   
+  /* Hide scrollbar but keep functionality */
   [role="tablist"]::-webkit-scrollbar {
     display: none !important;
   }
   
-  /* Force TabsTrigger to have proper size and not shrink */
+  /* Each tab takes equal space, snaps on scroll */
   [role="tab"] {
-    min-height: 40px !important;
-    padding: 10px 16px !important;
-    font-size: 13px !important;
-    flex-shrink: 0 !important;
-    flex-grow: 1 !important;
-    min-width: fit-content !important;
+    flex: 1 0 auto !important;
+    scroll-snap-align: start !important;
   }
   
-  /* Override grid layout on tablists - make them flex instead */
-  [role="tablist"].grid {
+  /* Override any grid-cols-* classes on mobile */
+  [role="tablist"].grid,
+  [role="tablist"][class*="grid-cols"] {
     display: flex !important;
-    grid-template-columns: none !important;
   }
 }
 
