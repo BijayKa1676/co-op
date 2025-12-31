@@ -27,6 +27,8 @@ import {
   Calculator,
   Buildings,
   Bell,
+  Presentation,
+  Table,
 } from '@phosphor-icons/react';
 import { useUser, useRequireAuth, useGlobalShortcuts } from '@/lib/hooks';
 import { useUIStore } from '@/lib/store';
@@ -52,6 +54,8 @@ const agents = [
 
 const tools = [
   { name: 'Calculators', href: '/tools/calculators', icon: Calculator },
+  { name: 'Pitch Deck', href: '/tools/pitch-deck', icon: Presentation },
+  { name: 'Cap Table', href: '/tools/cap-table', icon: Table },
   { name: 'Investors', href: '/tools/investors', icon: Buildings },
   { name: 'Alerts', href: '/tools/alerts', icon: Bell },
   { name: 'Outreach', href: '/tools/outreach', icon: UsersThree },

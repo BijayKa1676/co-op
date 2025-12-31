@@ -44,6 +44,8 @@ import { AlertsModule } from './modules/alerts/alerts.module';
 import { InvestorsModule } from './modules/investors/investors.module';
 import { SecureDocumentsModule } from './modules/secure-documents/secure-documents.module';
 import { OutreachModule } from './modules/outreach/outreach.module';
+import { PitchDeckModule } from './modules/pitch-deck/pitch-deck.module';
+import { CapTableModule } from './modules/cap-table/cap-table.module';
 
 @Module({
   imports: [
@@ -96,6 +98,8 @@ import { OutreachModule } from './modules/outreach/outreach.module';
     InvestorsModule,
     SecureDocumentsModule,
     OutreachModule,
+    PitchDeckModule,
+    CapTableModule,
   ],
   providers: [
     {

@@ -5,6 +5,69 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.0] - 2025-12-31
+
+### New Features
+
+#### Pitch Deck Analyzer
+- **AI-Powered Analysis** - Upload pitch deck PDFs for comprehensive analysis
+  - Overall score with investor fit ratings (VC, Angel, Corporate)
+  - Section-by-section analysis (Problem, Solution, Market, Product, Business Model, Traction, Competition, Team, Financials, Ask)
+  - Strengths, weaknesses, and actionable suggestions
+  - LLM Council cross-critique for accurate scoring
+
+- **Investor-Specific Versions** - Generate tailored recommendations
+  - VC version with growth metrics emphasis
+  - Angel version with founder story focus
+  - Corporate version with strategic fit analysis
+  - Fit score with emphasize/de-emphasize suggestions
+
+- **Sector Benchmarking** - Compare against industry standards
+  - SaaS, Fintech, Healthtech, AI/ML sector benchmarks
+  - Percentile ranking against top decks
+  - Above/below average section breakdown
+
+#### Cap Table Simulator
+- **Equity Management** - Full cap table modeling
+  - Add shareholders with equity percentage and share class
+  - Support for Common, Preferred, Options, Warrants, Convertible Notes
+  - Real-time ownership percentage calculations
+  - Pre-fill company name from user's startup (onboarding integration)
+
+- **Funding Round Simulation** - Model dilution scenarios
+  - Pre-money valuation input
+  - Investment amount and new investor shares
+  - Automatic dilution calculation for existing shareholders
+  - Post-round ownership visualization
+
+- **Export & Persistence** - Save and share cap tables
+  - JSON export for external tools
+  - Database persistence per user
+  - Multiple cap table support
+
+### Frontend Improvements
+- **Mobile Responsiveness** - Full mobile optimization for new tools
+  - Responsive grids and layouts
+  - Touch-friendly controls with proper tap targets
+  - ScrollArea for long lists on mobile
+  - Dialog-based forms for mobile screens
+  - Consistent UI/UX with existing dashboard pages
+
+- **Sidebar Navigation** - Updated with new tools
+  - Pitch Deck Analyzer (Presentation icon)
+  - Cap Table Simulator (Table icon)
+
+- **Home Page Updates** - Feature showcase
+  - Added Pitch Deck Analyzer and Cap Table Simulator to features list
+  - Updated pricing plans with new tool access
+
+### Database
+- New `pitch_decks` table for storing uploaded decks and analysis
+- New `cap_tables` table for storing cap table configurations
+- Migration: `0018_pitch_deck_captable.sql`
+
+---
+
 ## [1.5.0] - 2025-12-31
 
 ### Production Quality Improvements
@@ -644,6 +707,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 | Version | Date | Description |
 |---------|------|-------------|
+| 1.6.0 | 2025-12-31 | Pitch Deck Analyzer, Cap Table Simulator, mobile responsiveness |
 | 1.5.0 | 2025-12-31 | Production quality: LLM validation, RAG fallback, DLQ fix, LRU eviction |
 | 1.4.0 | 2025-12-29 | Admin user management, pilot limits, encryption versioning |
 | 1.3.7 | 2025-12-28 | Session integrity, RAG fix, Queue Health card, DLQ metrics |

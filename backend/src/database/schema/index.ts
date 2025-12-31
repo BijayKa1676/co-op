@@ -15,3 +15,5 @@ export * from './alerts.schema';
 export * from './investors.schema';
 export * from './user-documents.schema';
 export * from './outreach.schema';
+export * from './pitch-decks.schema';
+export * from './cap-tables.schema';

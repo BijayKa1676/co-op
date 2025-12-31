@@ -169,6 +169,26 @@
 - [x] Retry service minimum delay floor (100ms)
 - [x] Cache service SWR distributed lock (prevents thundering herd)
 
+### New Tools (v1.6.0)
+- [x] Pitch Deck Analyzer
+  - AI-powered analysis with LLM Council cross-critique
+  - Section-by-section scoring (Problem, Solution, Market, etc.)
+  - Investor fit ratings (VC, Angel, Corporate)
+  - Strengths, weaknesses, and actionable suggestions
+  - Investor-specific version generation
+  - Sector benchmarking (SaaS, Fintech, Healthtech, AI/ML)
+- [x] Cap Table Simulator
+  - Shareholder management with equity percentages
+  - Multiple share classes (Common, Preferred, Options, etc.)
+  - Funding round simulation with dilution calculation
+  - Pre-fill company name from user's startup (onboarding integration)
+  - JSON export for external tools
+- [x] Mobile responsiveness for new tools
+  - Responsive grids and layouts
+  - Touch-friendly controls
+  - Dialog-based forms for mobile
+  - ScrollArea for long lists
+
 ### Production Readiness (v1.4.0)
 - [x] Encryption key versioning for rotation
 - [x] API key revocation support

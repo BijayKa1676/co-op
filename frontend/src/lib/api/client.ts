@@ -1236,6 +1236,158 @@ class ApiClient {
   async bulkDeleteUsers(userIds: string[]): Promise<{ deleted: number }> {
     return this.post<{ deleted: number }>('/admin/users/bulk/delete', { userIds });
   }
+
+  // ============================================
+  // PITCH DECK ANALYZER ENDPOINTS
+  // ============================================
+
+  async uploadPitchDeck(
+    file: File,
+    investorType?: import('./types').InvestorType,
+    targetRaise?: string,
+  ): Promise<{ id: string; status: string }> {
+    const formData = new FormData();
+    formData.append('file', file);
+    if (investorType) formData.append('investorType', investorType);
+    if (targetRaise) formData.append('targetRaise', targetRaise);
+    return this.upload<{ id: string; status: string }>('/pitch-decks/upload', formData);
+  }
+
+  async getPitchDecks(): Promise<import('./types').PitchDeck[]> {
+    return this.get<import('./types').PitchDeck[]>('/pitch-decks');
+  }
+
+  async getPitchDeck(id: string): Promise<import('./types').PitchDeck> {
+    return this.get<import('./types').PitchDeck>(`/pitch-decks/${id}`);
+  }
+
+  async generateInvestorVersion(
+    pitchDeckId: string,
+    investorType: import('./types').InvestorType,
+  ): Promise<import('./types').InvestorVersionResponse> {
+    return this.post<import('./types').InvestorVersionResponse>(
+      `/pitch-decks/${pitchDeckId}/investor-version`,
+      { pitchDeckId, investorType },
+    );
+  }
+
+  async getSectorBenchmark(
+    pitchDeckId: string,
+    sector: string,
+  ): Promise<import('./types').SectorBenchmarkResponse> {
+    return this.post<import('./types').SectorBenchmarkResponse>(
+      `/pitch-decks/${pitchDeckId}/benchmark`,
+      { sector },
+    );
+  }
+
+  async deletePitchDeck(id: string): Promise<void> {
+    await this.delete(`/pitch-decks/${id}`);
+  }
+
+  // ============================================
+  // CAP TABLE SIMULATOR ENDPOINTS
+  // ============================================
+
+  async createCapTable(data: import('./types').CreateCapTableRequest): Promise<import('./types').CapTable> {
+    return this.post<import('./types').CapTable>('/cap-tables', data);
+  }
+
+  async getCapTables(): Promise<import('./types').CapTable[]> {
+    return this.get<import('./types').CapTable[]>('/cap-tables');
+  }
+
+  async getCapTable(id: string): Promise<import('./types').CapTable> {
+    return this.get<import('./types').CapTable>(`/cap-tables/${id}`);
+  }
+
+  async getCapTableSummary(id: string): Promise<import('./types').CapTableSummary> {
+    return this.get<import('./types').CapTableSummary>(`/cap-tables/${id}/summary`);
+  }
+
+  async updateCapTable(id: string, data: import('./types').UpdateCapTableRequest): Promise<import('./types').CapTable> {
+    return this.patch<import('./types').CapTable>(`/cap-tables/${id}`, data);
+  }
+
+  async deleteCapTable(id: string): Promise<void> {
+    await this.delete(`/cap-tables/${id}`);
+  }
+
+  // Shareholders
+  async addShareholder(capTableId: string, data: import('./types').CreateShareholderRequest): Promise<import('./types').Shareholder> {
+    return this.post<import('./types').Shareholder>(`/cap-tables/${capTableId}/shareholders`, data);
+  }
+
+  async getShareholders(capTableId: string): Promise<import('./types').Shareholder[]> {
+    return this.get<import('./types').Shareholder[]>(`/cap-tables/${capTableId}/shareholders`);
+  }
+
+  async updateShareholder(
+    capTableId: string,
+    shareholderId: string,
+    data: import('./types').UpdateShareholderRequest,
+  ): Promise<import('./types').Shareholder> {
+    return this.patch<import('./types').Shareholder>(`/cap-tables/${capTableId}/shareholders/${shareholderId}`, data);
+  }
+
+  async deleteShareholder(capTableId: string, shareholderId: string): Promise<void> {
+    await this.delete(`/cap-tables/${capTableId}/shareholders/${shareholderId}`);
+  }
+
+  // Funding Rounds
+  async addFundingRound(capTableId: string, data: import('./types').CreateRoundRequest): Promise<import('./types').FundingRound> {
+    return this.post<import('./types').FundingRound>(`/cap-tables/${capTableId}/rounds`, data);
+  }
+
+  async getFundingRounds(capTableId: string): Promise<import('./types').FundingRound[]> {
+    return this.get<import('./types').FundingRound[]>(`/cap-tables/${capTableId}/rounds`);
+  }
+
+  async updateFundingRound(
+    capTableId: string,
+    roundId: string,
+    data: import('./types').UpdateRoundRequest,
+  ): Promise<import('./types').FundingRound> {
+    return this.patch<import('./types').FundingRound>(`/cap-tables/${capTableId}/rounds/${roundId}`, data);
+  }
+
+  async deleteFundingRound(capTableId: string, roundId: string): Promise<void> {
+    await this.delete(`/cap-tables/${capTableId}/rounds/${roundId}`);
+  }
+
+  // Scenarios
+  async createScenario(capTableId: string, data: import('./types').CreateScenarioRequest): Promise<import('./types').CapTableScenario> {
+    return this.post<import('./types').CapTableScenario>(`/cap-tables/${capTableId}/scenarios`, data);
+  }
+
+  async getScenarios(capTableId: string): Promise<import('./types').CapTableScenario[]> {
+    return this.get<import('./types').CapTableScenario[]>(`/cap-tables/${capTableId}/scenarios`);
+  }
+
+  async deleteScenario(capTableId: string, scenarioId: string): Promise<void> {
+    await this.delete(`/cap-tables/${capTableId}/scenarios/${scenarioId}`);
+  }
+
+  // Export
+  async exportCapTable(capTableId: string, format: import('./types').CapTableExportFormat): Promise<Blob> {
+    const supabase = createClient();
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    const res = await fetch(`${API_URL}/cap-tables/${capTableId}/export`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(session?.access_token && { Authorization: `Bearer ${session.access_token}` }),
+      },
+      body: JSON.stringify({ format }),
+    });
+    
+    if (!res.ok) {
+      throw new ApiError('Export failed', res.status);
+    }
+    
+    return res.blob();
+  }
 }
 
 export const api = new ApiClient();

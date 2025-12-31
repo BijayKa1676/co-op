@@ -1216,3 +1216,267 @@ export const PILOT_LIMITS = {
   campaigns: { limit: 5, period: 'total' },
   emailsPerDay: { limit: 50, period: 'day' },
 } as const;
+
+// === PITCH DECK ANALYZER ===
+export type PitchDeckStatus = 'pending' | 'analyzing' | 'completed' | 'failed';
+export type InvestorType = 'vc' | 'angel' | 'corporate';
+
+export interface SectionScore {
+  present: boolean;
+  score: number;
+  feedback: string;
+  suggestions: string[];
+}
+
+export interface SlideAnalysis {
+  slideNumber: number;
+  title: string;
+  content: string;
+  type: 'problem' | 'solution' | 'market' | 'product' | 'traction' | 'team' | 'financials' | 'ask' | 'other';
+  score: number;
+  feedback: string;
+}
+
+export interface PitchDeckAnalysis {
+  overallScore: number;
+  sections: {
+    problem: SectionScore;
+    solution: SectionScore;
+    market: SectionScore;
+    product: SectionScore;
+    businessModel: SectionScore;
+    traction: SectionScore;
+    competition: SectionScore;
+    team: SectionScore;
+    financials: SectionScore;
+    ask: SectionScore;
+  };
+  strengths: string[];
+  weaknesses: string[];
+  suggestions: string[];
+  investorFit: {
+    vc: number;
+    angel: number;
+    corporate: number;
+  };
+  sectorBenchmark: {
+    percentile: number;
+    avgScore: number;
+    topDecksScore: number;
+  };
+  slideAnalysis: SlideAnalysis[];
+}
+
+export interface PitchDeck {
+  id: string;
+  filename: string;
+  originalName: string;
+  fileSize: number;
+  pageCount: number;
+  status: PitchDeckStatus;
+  investorType?: InvestorType;
+  targetRaise?: string;
+  analysis?: PitchDeckAnalysis;
+  createdAt: string;
+  analyzedAt?: string;
+}
+
+export interface InvestorVersionResponse {
+  suggestions: string[];
+  emphasize: string[];
+  deemphasize: string[];
+  recommendedOrder: string[];
+  fitScore: number;
+}
+
+export interface SectorBenchmarkResponse {
+  sector: string;
+  yourScore: number;
+  sectorAverage: number;
+  topDecksScore: number;
+  percentile: number;
+  aboveAverage: string[];
+  belowAverage: string[];
+}
+
+// === CAP TABLE SIMULATOR ===
+export type ShareholderType = 'founder' | 'employee' | 'investor' | 'advisor' | 'other';
+export type RoundType = 'equity' | 'safe' | 'convertible_note';
+export type RoundStatus = 'planned' | 'in_progress' | 'closed';
+
+export interface CapTable {
+  id: string;
+  companyName: string;
+  name: string;
+  description?: string;
+  incorporationDate?: string;
+  authorizedShares: number;
+  totalIssuedShares: number;
+  fullyDilutedShares: number;
+  currentValuation?: number;
+  pricePerShare?: number;
+  optionsPoolSize: number;
+  optionsPoolAllocated: number;
+  optionsPoolAvailable: number;
+  currency: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateCapTableRequest {
+  companyName: string;
+  name?: string;
+  description?: string;
+  incorporationDate?: string;
+  authorizedShares?: number;
+  currency?: string;
+}
+
+export interface UpdateCapTableRequest {
+  name?: string;
+  description?: string;
+  currentValuation?: number;
+  optionsPoolSize?: number;
+  authorizedShares?: number;
+}
+
+export interface Shareholder {
+  id: string;
+  name: string;
+  email?: string;
+  shareholderType: ShareholderType;
+  commonShares: number;
+  preferredShares: number;
+  optionsGranted: number;
+  optionsVested: number;
+  optionsExercised: number;
+  totalShares: number;
+  ownershipPercent: number;
+  vestingStartDate?: string;
+  vestingCliffMonths?: number;
+  vestingTotalMonths?: number;
+  vestingProgress?: number;
+  investmentAmount?: number;
+  investmentDate?: string;
+  sharePrice?: number;
+  createdAt: string;
+}
+
+export interface CreateShareholderRequest {
+  name: string;
+  email?: string;
+  shareholderType: ShareholderType;
+  commonShares?: number;
+  preferredShares?: number;
+  optionsGranted?: number;
+  vestingStartDate?: string;
+  vestingCliffMonths?: number;
+  vestingTotalMonths?: number;
+  investmentAmount?: number;
+  investmentDate?: string;
+  sharePrice?: number;
+  notes?: string;
+}
+
+export interface UpdateShareholderRequest {
+  name?: string;
+  email?: string;
+  commonShares?: number;
+  preferredShares?: number;
+  optionsGranted?: number;
+  optionsVested?: number;
+  optionsExercised?: number;
+  notes?: string;
+}
+
+export interface FundingRound {
+  id: string;
+  name: string;
+  roundType: RoundType;
+  status: RoundStatus;
+  targetRaise?: number;
+  amountRaised?: number;
+  preMoneyValuation?: number;
+  postMoneyValuation?: number;
+  pricePerShare?: number;
+  sharesIssued?: number;
+  valuationCap?: number;
+  discountRate?: number;
+  interestRate?: number;
+  roundDate?: string;
+  closeDate?: string;
+  createdAt: string;
+}
+
+export interface CreateRoundRequest {
+  name: string;
+  roundType: RoundType;
+  status?: RoundStatus;
+  targetRaise?: number;
+  preMoneyValuation?: number;
+  valuationCap?: number;
+  discountRate?: number;
+  interestRate?: number;
+  roundDate?: string;
+  notes?: string;
+}
+
+export interface UpdateRoundRequest {
+  name?: string;
+  status?: RoundStatus;
+  amountRaised?: number;
+  preMoneyValuation?: number;
+  postMoneyValuation?: number;
+  pricePerShare?: number;
+  sharesIssued?: number;
+  closeDate?: string;
+  notes?: string;
+}
+
+export interface ScenarioParameters {
+  newRound?: {
+    amount: number;
+    valuation: number;
+    type: RoundType;
+  };
+  optionsPoolIncrease?: number;
+}
+
+export interface ScenarioResults {
+  dilution: Record<string, { before: number; after: number }>;
+  newOwnership: Record<string, number>;
+  founderDilution: number;
+  newInvestorOwnership: number;
+  postMoneyValuation: number;
+}
+
+export interface CapTableScenario {
+  id: string;
+  name: string;
+  description?: string;
+  parameters: ScenarioParameters;
+  results: ScenarioResults;
+  isFavorite: boolean;
+  createdAt: string;
+}
+
+export interface CreateScenarioRequest {
+  name: string;
+  description?: string;
+  parameters: ScenarioParameters;
+}
+
+export interface CapTableSummary {
+  capTable: CapTable;
+  shareholders: Shareholder[];
+  rounds: FundingRound[];
+  ownershipByType: {
+    founders: number;
+    employees: number;
+    investors: number;
+    advisors: number;
+    optionsPool: number;
+  };
+}
+
+export type CapTableExportFormat = 'json' | 'csv' | 'carta';

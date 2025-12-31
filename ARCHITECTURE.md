@@ -221,6 +221,8 @@ Key Features:
 | `notion/` | Notion integration for exports |
 | `outreach/` | Customer outreach (leads, campaigns, email tracking) |
 | `secure-documents/` | Encrypted user documents with RAG |
+| `pitch-deck/` | AI-powered pitch deck analysis |
+| `cap-table/` | Cap table simulation and equity modeling |
 | `investors/` | Investor database CRUD |
 | `alerts/` | Competitor monitoring alerts |
 

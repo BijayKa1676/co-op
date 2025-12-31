@@ -23,7 +23,6 @@ import {
   ShieldCheck,
   Brain,
   Export,
-  BookmarkSimple,
   Bell,
   MagnifyingGlass,
   Calculator,
@@ -31,6 +30,8 @@ import {
   Envelope,
   DeviceMobile,
   NotePencil,
+  Presentation,
+  Table,
 } from '@phosphor-icons/react';
 import { useUIStore } from '@/lib/store';
 import { createClient } from '@/lib/supabase/client';
@@ -49,6 +50,8 @@ const agents = [
 const features = [
   { icon: Brain, title: 'LLM Council', description: 'Multiple AI models cross-validate every response for accuracy' },
   { icon: Lightning, title: 'A2A Protocol', description: 'Agent-to-Agent communication for multi-perspective insights' },
+  { icon: Presentation, title: 'Pitch Deck Analyzer', description: 'AI analysis with investor-specific recommendations and benchmarks' },
+  { icon: Table, title: 'Cap Table Simulator', description: 'Model funding rounds, dilution scenarios, and Carta export' },
   { icon: Bell, title: 'Competitor Alerts', description: 'Real-time monitoring with email notifications for market changes' },
   { icon: MagnifyingGlass, title: 'Investor Database', description: 'Search 20+ VCs by stage, sector, and region' },
   { icon: Envelope, title: 'Customer Outreach', description: 'AI-powered lead discovery and personalized email campaigns' },
@@ -69,12 +72,12 @@ const pricingPlans = [
     features: [
       { text: '3 AI requests/month', included: true },
       { text: 'All 4 AI agents + A2A mode', included: true },
+      { text: 'Pitch deck analyzer', included: true },
+      { text: 'Cap table simulator', included: true },
       { text: 'Competitor alerts (3 max)', included: true },
       { text: 'Investor database access', included: true },
       { text: 'Financial calculators', included: true },
       { text: 'Secure document storage', included: true },
-      { text: 'Session export & bookmarks', included: true },
-      { text: 'API & webhook access', included: true },
       { text: 'Outreach (5 leads/month)', included: true },
       { text: 'Priority support', included: false },
     ],
